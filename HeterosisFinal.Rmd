@@ -2,7 +2,265 @@
 title: "Final version of Leaf Heterosis proteomics for Paper"
 output: github_document
 ---
-
+#Setup
 ```{r setup, include=FALSE}
 knitr::opts_chunk$set(echo = TRUE)
+set.seed(586)
 ```
+#Import data
+```{r}
+df <- read.csv("data/Leaf paper-total proteome final 121319.csv", stringsAsFactors = F)
+```
+```{r}
+colnames(df)
+```
+```{r}
+ttestFun <- function(df, col1, col2){
+  result <- NULL
+  for(i in 1:(nrow(df))){
+  v1 = (as.numeric(df[i, col1]))
+  v2 = (as.numeric(df[i, col2]))
+  t_test <- t.test(v1, v2, var.equal = TRUE)
+  pval <- t_test$p.value
+  result[i] <- pval
+  }
+  result
+}
+```
+##Gamer GO
+```{r}
+# Read in Maize GAMER GO dataset, which lists maize V4 accessions with all associated GO terms (Wimalanathan et al. 2018) downloaded from https://datacommons.cyverse.org/browse/iplant/home/shared/commons_repo/curated/Carolyn_Lawrence-Dill_maize-GAMER_maize.B73_RefGen_v4_Zm00001d.2_Oct_2017.r1/e.agg_data
+GAMER <- read.delim("maize.B73.AGPv4.aggregate.gaf", sep = "\t", header = FALSE)
+colnames(GAMER) <- c("db", "db_object_id", "db_object_symbol", "qualifier", "term_accession", "db_reference", "evidence_code", "with", "aspect", "db_object_name", "db_object_synonym", "db_object_type", "taxon", "date", "assigned_by", "annotation_extension", "gene_product_form_id")
+gamer <- GAMER[-(1:2),]
+gamer$Term <- Term(as.character(gamer$term_accession))
+```
+
+```{r}
+#Trim gamer to only those genes detected in our data, to use as background for enrichment
+gamerCutACS <- gamer[(gamer$db_object_id %in% df.acs$Gene),]
+```
+
+#Define topGO functions
+```{r GOanalysisGOdata_Function}
+library(topGO)
+## Build GOdata object
+# EnrichedDF = AHP/BLP/AMP/BMP output
+# GamerCut = the dataframe created above
+# ont = "BP", "MF", or "CC"
+GOanalysisGodata <- function(EnrichedDF, GamerCut, ont, nodesize = 1){
+  gene2GO_TissueCut <- split((as.character(GamerCut$term_accession)),GamerCut$db_object_id)
+  gene2GOb_TissueCut <- gene2GO_TissueCut[-2]
+  str(head(gene2GOb_TissueCut))
+  geneNames_tissuecut <- names(gene2GOb_TissueCut)
+  myInterestingGenes <- EnrichedDF$Gene
+  geneList <- factor(as.integer(geneNames_tissuecut %in% myInterestingGenes))
+  names(geneList) <- geneNames_tissuecut
+  GOdata <- new("topGOdata", ontology = ont, allGenes = geneList, annot = annFUN.gene2GO, nodeSize=nodesize, gene2GO = gene2GOb_TissueCut)
+  GOdata
+}
+```
+```{r GOanalysisMap_Function}
+## GO analysis function to generate map of GO terms
+# Godata = Godata object (output of GoanalysisGodata function)
+# pdfname = and desired output pdf name in quotes
+GOanalysisMap <- function(GOdata, pdfname, signodes=5){
+  resultFis <- runTest(GOdata, algorithm = "classic", statistic = "fisher")
+  printGraph(GOdata, resultFis, firstSigNodes = signodes, fn.prefix = pdfname, useInfo = "all", pdfSW = TRUE)
+}
+```
+```{r GOanalysisDF_Function}
+## GO analysis function, same as above, except to generate dataframe summary of top 20 of GO terms instead of map
+# Godata = Godata object (output of GoanalysisGodata function)
+# pdfname = and desired output pdf name in quotes
+GOanalysisDF <- function(GOdata){
+resultFis <- runTest(GOdata, algorithm = "classic", statistic = "fisher")
+test.statF <- new("classicCount", testStatistic = GOFisherTest, name = "Fisher test")
+resultFisher <- getSigGroups(GOdata, test.statF)
+test.statKS <- new("classicScore", testStatistic = GOKSTest, name = "KS tests")
+resultKS <- getSigGroups(GOdata, test.statKS)
+test.statRW <- new("weightCount", testStatistic = GOFisherTest, name = "Fisher test", sigRatio = "ratio")
+resultWeight <- getSigGroups(GOdata, test.statRW)
+DF <- GenTable(GOdata, classic = resultFis, KS = resultKS, weight = resultWeight, orderBy = "classic", ranksOf = "classic", topNodes = 20)
+DF
+}
+```
+#acs
+##Format df
+```{r}
+#Subset
+df.acs <- df[,1:18]
+```
+```{r}
+df.acs$Gene <- substr(df.acs$Accession, start = 1, stop = 14)
+```
+```{r}
+df.acs <- df.acs[!(df.acs$B73.acs.B73.r1==0),]
+```
+```{r}
+df.acs$B73avg <- rowMeans(df.acs[,9:13])
+df.acs$ACSavg <- rowMeans(df.acs[,14:18])
+```
+```{r}
+df.acs$ACS.B73 <- df.acs$ACSavg/df.acs$B73avg
+```
+```{r}
+colnames(df.acs)
+```
+```{r}
+ttestFun <- function(df, col1, col2){
+  result <- NULL
+  for(i in 1:(nrow(df))){
+  v1 = (as.numeric(df[i, col1]))
+  v2 = (as.numeric(df[i, col2]))
+  t_test <- t.test(v1, v2, var.equal = TRUE)
+  pval <- t_test$p.value
+  result[i] <- pval
+  }
+  result
+}
+```
+```{r}
+df.acs$Sig <- ttestFun(df.acs, 9:13, 14:18)
+```
+```{r}
+df.acs$l2fc <- log2(df.acs$ACS.B73)
+```
+```{r}
+library(matrixStats)
+```
+```{r}
+df.acs$SD <- rowSds(as.matrix(df.acs[,14:18]))
+```
+
+```{r}
+df.acs.amp <- df.acs[(df.acs$Sig<0.05)&(df.acs$ACS.B73>1.1),]
+df.acs.bmp <- df.acs[(df.acs$Sig<0.05)&(df.acs$ACS.B73<0.9),]
+```
+##GO term enrichment
+```{r}
+df.acs.amp_BP_GOdata <- GOanalysisGodata(df.acs.amp, gamerCutACS, "BP", nodesize = 5)
+df.acs.amp_MF_GOdata <- GOanalysisGodata(df.acs.amp, gamerCutACS, "MF", nodesize = 5)
+df.acs.amp_CC_GOdata <- GOanalysisGodata(df.acs.amp, gamerCutACS, "CC", nodesize = 5)
+
+df.acs.bmp_BP_GOdata <- GOanalysisGodata(df.acs.bmp, gamerCutACS, "BP", nodesize = 5)
+df.acs.bmp_MF_GOdata <- GOanalysisGodata(df.acs.bmp, gamerCutACS, "MF", nodesize = 5)
+df.acs.bmp_CC_GOdata <- GOanalysisGodata(df.acs.bmp, gamerCutACS, "CC", nodesize = 5)
+```
+```{r}
+dir.create("GOmaps")
+GOanalysisMap(df.acs.amp_BP_GOdata, "GOmaps/df.acs.amp_BP_GOdata")
+GOanalysisMap(df.acs.amp_MF_GOdata, "GOmaps/df.acs.amp_MF_GOdata")
+GOanalysisMap(df.acs.amp_CC_GOdata, "GOmaps/df.acs.amp_CC_GOdata")
+
+GOanalysisMap(df.acs.bmp_BP_GOdata, "GOmaps/df.acs.bmp_BP_GOdata")
+GOanalysisMap(df.acs.bmp_MF_GOdata, "GOmaps/df.acs.bmp_MF_GOdata")
+GOanalysisMap(df.acs.bmp_CC_GOdata, "GOmaps/df.acs.bmp_CC_GOdata")
+```
+```{r}
+df.acs.amp_BP_GOdata.DF <- GOanalysisDF(df.acs.amp_BP_GOdata)
+df.acs.amp_MF_GOdata.DF <- GOanalysisDF(df.acs.amp_MF_GOdata)
+df.acs.amp_CC_GOdata.DF <- GOanalysisDF(df.acs.amp_CC_GOdata)
+
+df.acs.bmp_BP_GOdata.DF <- GOanalysisDF(df.acs.bmp_BP_GOdata)
+df.acs.bmp_MF_GOdata.DF <- GOanalysisDF(df.acs.bmp_MF_GOdata)
+df.acs.bmp_CC_GOdata.DF <- GOanalysisDF(df.acs.bmp_CC_GOdata)
+```
+
+
+
+
+
+#Seedling Leaf - B73xMo17
+##Format df
+```{r}
+#Subset
+df.SL <- df[,c(1:8,19:28)]
+```
+```{r}
+df.SL$Gene <- substr(df.SL$Accession, start = 1, stop = 14)
+```
+```{r}
+df.SL <- df.SL[!(df.SL$SeedlingLeaf.B73.r1==0),]
+```
+```{r}
+df.SL$B73avg <- rowMeans(df.SL[,10:12])
+df.SL$Mo17avg <- rowMeans(df.SL[,13:15])
+df.SL$HYBavg <- rowMeans(df.SL[,16:18])
+df.SL$MP1 <- rowMeans(df.SL[,c(10,13)])
+```
+```{r}
+df.SL$HYB.MP <- df.SL$HYBavg/df.SL$MP
+```
+```{r}
+df.SL$l2fc <- log2(df.SL$HYB.MP)
+```
+```{r}
+df.SL$SD <- rowSds(as.matrix(df.SL[,16:18]))
+```
+
+#Combine acs and SL
+```{r}
+df.acs.SL <- merge.data.frame(df.acs[,c(1:8,24:25)], df.SL[,c(6,25:26)], by="Accession", all = F, suffixes = c(".acs", ".BM"))
+```
+```{r}
+df.acs.SL
+```
+```{r}
+df.acs.SL.lims <- df.acs.SL
+
+df.acs.SL.lims$l2fc.acs[df.acs.SL.lims$l2fc.acs > 1.0] = 1.0
+df.acs.SL.lims$l2fc.acs[df.acs.SL.lims$l2fc.acs < -1.0] = -1.0
+
+df.acs.SL.lims$l2fc.BM[df.acs.SL.lims$l2fc.BM > 1.0] = 1.0
+df.acs.SL.lims$l2fc.BM[df.acs.SL.lims$l2fc.BM < -1.0] = -1.0
+```
+
+```{r}
+library(ggplot2)
+```
+```{r}
+ggplot(df.acs.SL.lims, mapping=aes(x=l2fc.acs, y=l2fc.BM))+
+  geom_point(size=.5, alpha=0.2)+
+  theme_bw()+
+  xlab("log2(acs/B73)")+
+  ylab("log2(BxM/MP)")+
+  geom_abline(slope = 1, color="grey50", size=.5)+
+  geom_vline(color="grey50", size=.5, xintercept = 0)+
+  geom_hline(color="grey50", size=.5, yintercept = 0)+
+  coord_fixed(expand = F)+
+  xlim(-1,1)+
+  ylim(-1,1)+
+  theme(legend.position = "bottom")
+```
+```{r}
+ggplot(df.acs.SL.lims, mapping=aes(x=l2fc.acs))+
+  geom_density()+
+  theme_bw()+
+  theme(axis.title=element_blank(), axis.text = element_blank(), axis.ticks = element_blank())+
+  theme(panel.grid = element_blank(),
+        panel.border = element_blank())+
+  xlim(-1,1)+
+  ylim(0,4)+
+  geom_vline(color="grey50", size=.5, xintercept = 0)+
+  coord_cartesian(expand = F)+
+  theme(legend.position = "none")
+```
+```{r}
+ggplot(df.acs.SL.lims, mapping=aes(x=l2fc.BM))+
+  geom_density()+
+  theme_bw()+
+  theme(axis.title=element_blank(), axis.text = element_blank(), axis.ticks = element_blank())+
+  theme(panel.grid = element_blank(),
+        panel.border = element_blank())+
+  xlim(-1,1)+
+  ylim(0,4)+
+  geom_vline(color="grey50", size=.5, xintercept = 0)+
+  coord_cartesian(expand = F)+
+  theme(legend.position = "none")
+```
+
+
+
+
+
