@@ -200,11 +200,98 @@ df.SL$SD <- rowSds(as.matrix(df.SL[,16:18]))
 ```
 
 #Combine acs and SL
+
+```{r func}
+#define some necessary functions for downstream analyses
+#fix gene names from locus level to gene level
+fixNames<-function(inVec){
+  inVec<-gsub(inVec, pattern = "\\_P.*", replacement = "")
+  inVec<-gsub(inVec, pattern = "\\_T.*", replacement = "")
+  retVec<-gsub(inVec, pattern = "\\_FGP", replacement = "_FG")
+  retVec<-gsub(inVec, pattern = "\\_FGT", replacement = "_FG")
+  return(retVec)
+}
+```
+Gene lists and sources:
+1. Pt/Mt genes (proteomics database)
+2. Pt/Mt encoded ribosomal proteins (EnsemblPlants Annotation)
+3. Nuclear encoded plastid ribosomal proteins (GO GAMER)
+4. Nuclear encoded  Mitochondrial ribosome (GO GAMER)
+5. Eukaryotic ribosomal proteins (GO GAMER)
+6. PhANGs  (cornCyc + kegg)
+7. Oxidative Phosphorylation (cornCyc)
+8. Glycolysis (cornCyc)
+9. Calvin Cycle (cornCyc)
+10. Ethylene biosynthesis (cornCyc)
 ```{r}
-df.acs.SL <- merge.data.frame(df.acs[,c(1:8,24:25)], df.SL[,c(6,25:26)], by="Accession", all = F, suffixes = c(".acs", ".BM"))
+df.SL[(grep("chromosome:B73_RefGen_v4:Mt:", df.SL$Protein)),"Gene"]
 ```
 ```{r}
-df.acs.SL
+
+```
+
+```{r getGenesofInterest}
+#generate vector of Pt and Mt encoded genes
+#look through detected proteins for Pt and Mt chromosome
+PtGenes<-df.acs.SL[grep(df.acs.SL[,"Protein"], pattern = "chromosome:B73_RefGen_v4:Pt:"), "Accession"]
+MtGenes<-df.acs.SL[grep(df.acs.SL[,"Protein"], pattern = "chromosome:B73_RefGen_v4:Mt:"), "Accession"]
+#fix names to get gene level
+PtGenes<-unique(fixNames(PtGenes))
+MtGenes<-unique(fixNames(MtGenes))
+#get subset of Pt and Mt encoded genes annotated as ribosomal proteins
+#Genes with annotation as "rps" or "rpl"
+tmp<-df.acs.SL[grep(df.acs.SL[,"Protein"], 
+                       pattern = "description:rps|description:rpl|description:ribosom",
+                       ignore.case=TRUE
+                       ), "Accession"]
+#fix names
+tmp<-fixNames(tmp)
+#intersect w/ Pt encoded and Mt encoded
+PtEncodeRibo<-unique(intersect(tmp, PtGenes))
+#get nuclear encoded plastid ribosomal proteins GO:0009547/GO:0043253
+PtRibo<-unique(gamer[grep(gamer[,"term_accession"], pattern = "GO:0009547|GO:0043253"),"db_object_id"])
+#get eukaryotic/cytosolic ribosomal proteins GO:0022626, GO:0005830, GO:0009281, GO:0030871
+eukRibo<-unique(gamer[grep(gamer[,"term_accession"],
+                           pattern = "GO:0022626|GO:0005830|GO:0009281|GO:0030871"),"db_object_id"])
+#Photosynthesis associated nuclear encoded proteins (PhANGs) GO:0015979
+PHANG<-unique(gamer[grep(gamer[,"term_accession"], pattern = "GO:0015979"),"db_object_id"])
+
+```
+```{r}
+#define list of plastid-encoded photosynthesis-associated genes
+##Just from this df, not complete for use with other datasets!!
+PtPS <- c("ZemaCp008.1", "ZemaCp022.1", "ZemaCp023.1", "ZemaCp032.1", "ZemaCp008.1", "ZemaCp039.1", "ZemaCp040.1", "ZemaCp048.1", "ZemaCp051.1", "ZemaCp087.1")
+```
+
+```{r}
+ribosom <- df.acs.SL[(grep("ribosom", df.acs.SL$Protein)),]
+```
+```{r}
+ribosom.pt <- ribosom$Gene[(grep("plastid|Plastid|Chloropl|chloropl", ribosom$Protein))]
+```
+```{r}
+PtRibo <- unique(c(as.vector(PtRibo),ribosom.pt))
+```
+
+```{r}
+df.acs.SL <- merge.data.frame(df.acs[,c(1:8,19,24:25)], df.SL[,c(6,25:26)], by="Accession", all = F, suffixes = c(".acs", ".BM"))
+```
+```{r}
+df.acs.SL$Category <- "Other"
+df.acs.SL$Order <- 1
+df.acs.SL[(df.acs.SL$Gene %in% PtPS),"Category"] <- "PlastidEncodedPS"
+df.acs.SL[(df.acs.SL$Gene %in% PtPS),"Order"] <- 2
+df.acs.SL[(df.acs.SL$Gene %in% PHANG),"Category"] <- "PHANGs"
+df.acs.SL[(df.acs.SL$Gene %in% PHANG),"Order"] <- 3
+df.acs.SL[(df.acs.SL$Gene %in% PtEncodeRibo),"Category"] <- "PlastidEncodedRibo"
+df.acs.SL[(df.acs.SL$Gene %in% PtEncodeRibo),"Order"] <- 4
+df.acs.SL[(df.acs.SL$Gene %in% PtRibo),"Category"] <- "NuclearEncodedPlastidRibo"
+df.acs.SL[(df.acs.SL$Gene %in% PtRibo),"Order"] <- 5
+df.acs.SL[(df.acs.SL$Gene %in% eukRibo),"Category"] <- "CytosolicRibo"
+df.acs.SL[(df.acs.SL$Gene %in% eukRibo),"Order"] <- 6
+```
+```{r}
+df.acs.SL <- df.acs.SL[(order(df.acs.SL$Order)),]
 ```
 ```{r}
 df.acs.SL.lims <- df.acs.SL
@@ -216,12 +303,14 @@ df.acs.SL.lims$l2fc.BM[df.acs.SL.lims$l2fc.BM > 1.0] = 1.0
 df.acs.SL.lims$l2fc.BM[df.acs.SL.lims$l2fc.BM < -1.0] = -1.0
 ```
 
+
 ```{r}
 library(ggplot2)
 ```
 ```{r}
-ggplot(df.acs.SL.lims, mapping=aes(x=l2fc.acs, y=l2fc.BM))+
-  geom_point(size=.5, alpha=0.2)+
+fig4 <- ggplot(df.acs.SL.lims, mapping=aes(x=l2fc.acs, y=l2fc.BM, color=Category))+
+  geom_point(size=.7)+
+  scale_color_manual(values=c("Other"="grey80", "PlastidEncodedPS"="red4", "PHANGs"="lightcoral", "PlastidEncodedRibo"="blue4", "NuclearEncodedPlastidRibo"="dodgerblue1", "CytosolicRibo"="green4"))+
   theme_bw()+
   xlab("log2(acs/B73)")+
   ylab("log2(BxM/MP)")+
@@ -234,32 +323,36 @@ ggplot(df.acs.SL.lims, mapping=aes(x=l2fc.acs, y=l2fc.BM))+
   theme(legend.position = "bottom")
 ```
 ```{r}
-ggplot(df.acs.SL.lims, mapping=aes(x=l2fc.acs))+
-  geom_density()+
-  theme_bw()+
-  theme(axis.title=element_blank(), axis.text = element_blank(), axis.ticks = element_blank())+
-  theme(panel.grid = element_blank(),
-        panel.border = element_blank())+
-  xlim(-1,1)+
-  ylim(0,4)+
-  geom_vline(color="grey50", size=.5, xintercept = 0)+
-  coord_cartesian(expand = F)+
-  theme(legend.position = "none")
-```
-```{r}
-ggplot(df.acs.SL.lims, mapping=aes(x=l2fc.BM))+
-  geom_density()+
-  theme_bw()+
-  theme(axis.title=element_blank(), axis.text = element_blank(), axis.ticks = element_blank())+
-  theme(panel.grid = element_blank(),
-        panel.border = element_blank())+
-  xlim(-1,1)+
-  ylim(0,4)+
-  geom_vline(color="grey50", size=.5, xintercept = 0)+
-  coord_cartesian(expand = F)+
-  theme(legend.position = "none")
+fig4
 ```
 
+```{r}
+library(cowplot)
+```
+```{r}
+#add density curves
+#add marginal density plots and resave
+    densityplotX<-axis_canvas(fig4, axis="x")+
+      geom_density(aes(df.acs.SL.lims[,"l2fc.acs"], color=df.acs.SL.lims[,"Category"]), df.acs.SL.lims, size=0.9)+
+      scale_color_manual(values=c("Other"="grey80", "PlastidEncodedPS"="red4", "PHANGs"="lightcoral", "PlastidEncodedRibo"="blue4", "NuclearEncodedPlastidRibo"="dodgerblue1", "CytosolicRibo"="green4"))+
+      geom_vline(xintercept=0, linetype="dashed", color = "gray50")+
+      theme_void()+
+      theme(legend.title = element_blank())
+    #set up marginal density plot Y axis
+    densityplotY<-axis_canvas(fig4, axis="y", coord_flip = TRUE)+
+      geom_density(aes(df.acs.SL.lims[,"l2fc.BM"], color=df.acs.SL.lims[,"Category"]), df.acs.SL.lims, size=0.9)+
+      scale_color_manual(values=c("Other"="grey80", "PlastidEncodedPS"="red4", "PHANGs"="lightcoral", "PlastidEncodedRibo"="blue4", "NuclearEncodedPlastidRibo"="dodgerblue1", "CytosolicRibo"="green4"))+
+      geom_vline(xintercept=0, linetype="dashed", color = "gray50")+
+      theme_void()+
+      theme(legend.title = element_blank())+
+      coord_flip()
+    #put two plots together
+    q <- insert_xaxis_grob(fig4, densityplotX, position = "top")
+    q <- insert_yaxis_grob(q, densityplotY, position = "right")
+    #save
+    ggsave(plot=q, filename = "Fig4.tiff",
+           device="tiff", dpi=600, width=9, height=8, compression = "lzw")
+```
 
 
 
