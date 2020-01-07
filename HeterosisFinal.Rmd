@@ -199,68 +199,69 @@ df.SL$l2fc <- log2(df.SL$HYB.MP)
 df.SL$SD <- rowSds(as.matrix(df.SL[,16:18]))
 ```
 
-#Define GOIs
-```{r func}
-#define some necessary functions for downstream analyses
-#fix gene names from locus level to gene level
-fixNames<-function(inVec){
-  inVec<-gsub(inVec, pattern = "\\_P.*", replacement = "")
-  inVec<-gsub(inVec, pattern = "\\_T.*", replacement = "")
-  retVec<-gsub(inVec, pattern = "\\_FGP", replacement = "_FG")
-  retVec<-gsub(inVec, pattern = "\\_FGT", replacement = "_FG")
-  return(retVec)
-}
-```
-Gene lists and sources:
-1. Plastid encoded photosynthesis associated proteins  (EnsemblPlants Annotation)
-2. PhANGs  (GO GAMER)
-3. Plastid encoded ribosomal proteins (EnsemblPlants Annotation)
-4. Nuclear encoded plastid ribosomal proteins (GO GAMER)
-5. Eukaryotic ribosomal proteins (GO GAMER)
-
-```{r getGenesofInterest}
-#generate vector of Pt and Mt encoded genes
-#look through detected proteins for Pt and Mt chromosome
-PtGenes<-df.acs.SL[grep(df.acs.SL[,"Protein"], pattern = "chromosome:B73_RefGen_v4:Pt:"), "Accession"]
-MtGenes<-df.acs.SL[grep(df.acs.SL[,"Protein"], pattern = "chromosome:B73_RefGen_v4:Mt:"), "Accession"]
-#fix names to get gene level
-PtGenes<-unique(fixNames(PtGenes))
-MtGenes<-unique(fixNames(MtGenes))
-#get subset of Pt and Mt encoded genes annotated as ribosomal proteins
-#Genes with annotation as "rps" or "rpl"
-tmp<-df.acs.SL[grep(df.acs.SL[,"Protein"], 
-                       pattern = "description:rps|description:rpl|description:ribosom",
-                       ignore.case=TRUE
-                       ), "Accession"]
-#fix names
-tmp<-fixNames(tmp)
-#intersect w/ Pt encoded and Mt encoded
-PtEncodeRibo<-unique(intersect(tmp, PtGenes))
-#get nuclear encoded plastid ribosomal proteins GO:0009547/GO:0043253
-PtRibo<-unique(gamer[grep(gamer[,"term_accession"], pattern = "GO:0009547|GO:0043253"),"db_object_id"])
-#get eukaryotic/cytosolic ribosomal proteins GO:0022626, GO:0005830, GO:0009281, GO:0030871
-eukRibo<-unique(gamer[grep(gamer[,"term_accession"],
-                           pattern = "GO:0022626|GO:0005830|GO:0009281|GO:0030871"),"db_object_id"])
-#Photosynthesis associated nuclear encoded proteins (PhANGs) GO:0015979
-PHANG<-unique(gamer[grep(gamer[,"term_accession"], pattern = "GO:0015979"),"db_object_id"])
-
-```
-```{r}
-#define list of plastid-encoded photosynthesis-associated genes
-##Just from this df, not complete for use with other datasets!!
-PtPS <- c("ZemaCp008.1", "ZemaCp022.1", "ZemaCp023.1", "ZemaCp032.1", "ZemaCp008.1", "ZemaCp039.1", "ZemaCp040.1", "ZemaCp048.1", "ZemaCp051.1", "ZemaCp087.1")
-```
-
-```{r}
-#Add proteins annotated as "ribosom" and "plastid/chloroplast" to the nuclear-encoded plastid-localized list
-ribosom <- df.acs.SL[(grep("ribosom", df.acs.SL$Protein)),]
-ribosom.pt <- ribosom$Gene[(grep("plastid|Plastid|Chloropl|chloropl", ribosom$Protein))]
-PtRibo <- unique(c(as.vector(PtRibo),ribosom.pt))
-```
-
+#Merge acs and Seedling Leaf BxM data
 ```{r}
 df.acs.SL <- merge.data.frame(df.acs[,c(1:8,19,24:25)], df.SL[,c(6,25:26)], by="Accession", all = F, suffixes = c(".acs", ".BM"))
 ```
+#Define GOIs
+Gene lists and sources:
+1. Plastid encoded photosynthesis associated proteins  (EnsemblPlants Annotation)
+2. Photosynthesis associated nuclear encoded proteins (PhANGs)  (GO GAMER+CornCyc)
+3. Plastid encoded ribosomal proteins (EnsemblPlants Annotation)
+4. Nuclear encoded plastid ribosomal proteins (GO GAMER and EnsemblPlants Annotation)
+5. Eukaryotic ribosomal proteins (EnsemblPlants Annotation)
+```{r}
+#Plastid encoded photosynthesis associated proteins  (EnsemblPlants Annotation)
+#generate vector of Pt encoded genes
+PtGenes<-df.acs.SL[grep("chromosome:B73_RefGen_v4:Pt:", df.acs.SL$Protein),]
+
+#define list of plastid-encoded photosynthesis-associated genes
+PtPS <- c("ZemaCp008.1", "ZemaCp022.1", "ZemaCp023.1", "ZemaCp032.1", "ZemaCp008.1", "ZemaCp039.1", "ZemaCp040.1", "ZemaCp048.1", "ZemaCp051.1", "ZemaCp087.1", "ZemaCp017.1", "ZemaCp018.1", "ZemaCp019.1", "ZemaCp024.1", "ZemaCp027.1", "ZemaCp028.1", "ZemaCp029.1", "ZemaCp030.1", "ZemaCp035.1", "ZemaCp036.1", "ZemaCp052.1", "ZemaCp053.1", "ZemaCp075.1", "ZemaCp083.1", "ZemaCp085.1", "ZemaCp086.1", "ZemaCp090.1", "ZemaCp091.1", "ZemaCp092.1")
+
+#Check that no plastid-encoded photosynthesis/ribosomal proteins were missed
+Pt <- df.acs.SL[(grep("B73_RefGen_v4:Pt", df.acs.SL$Protein)),]
+Pt[!(Pt$Accession%in%c(PtEncodeRibo, PtPS)),]
+```
+
+```{r}
+#Photosynthesis associated nuclear encoded proteins (PhANGs)  (GO GAMER+CornCyc)
+PHANG<-as.vector(unique(gamer$db_object_id[grep("GO:0015979", gamer$term_accession)]))
+#Add CornCyc annotated PhANGs
+cornCyc.PHANG <- unique(c(cornCyc$Gene.Accession[(cornCyc$Pathway=="Oxygenic_Photosynthesis_SuperPath")], cornCyc$Gene.Accession[(cornCyc$Pathway=="Light_Rxn")]))
+PHANG <- unique(c(PHANG, cornCyc.PHANG))
+```
+
+```{r}
+#Plastid encoded ribosomal proteins (EnsemblPlants Annotation)
+#get subset of Pt encoded genes annotated as ribosomal proteins
+PtEncodeRibo<- PtGenes$Gene[(grep("description:rps|description:rpl|description:ribosom", PtGenes$Protein))]
+```
+
+```{r}
+#Nuclear encoded plastid ribosomal proteins (GO GAMER and EnsemblPlants Annotation)
+PtRibo<-as.vector(unique(gamer$db_object_id[grep("GO:0009547|GO:0043253", gamer$term_accession)]))
+
+#Add proteins annotated as "ribosom" and "plastid/chloroplast" to the nuclear-encoded plastid-localized list
+ribosom <- df.acs.SL[(grep("ribosom", df.acs.SL$Protein)),]
+ribosom.pt <- ribosom$Gene[(grep("plastid|Plastid|Chloropl|chloropl", ribosom$Protein))]
+PtRibo <- unique(c(PtRibo,ribosom.pt))
+
+#Check that there are no missing prokaryotic ribosomal proteins with plastid localization
+ProkRibo <- df.acs.SL[(grep("30S|60S", df.acs.SL$Protein)),]
+ProkRiboNotPt <- ProkRibo[!(ProkRibo$Gene%in%PtRibo),]
+GOplastid<-as.vector(unique(gamer$db_object_id[grep("GO:0009536", gamer$term_accession)]))
+ProkRiboNotPt[(ProkRiboNotPt$Gene%in%GOplastid),]
+```
+
+```{r}
+#Eukaryotic ribosomal proteins (EnsemblPlants Annotation)
+eukRibo<-df.acs.SL$Gene[(grep("40S|60S", df.acs.SL$Protein))]
+```
+
+
+#Scatterplot
+##Make GOI description column
+
 ```{r}
 df.acs.SL$Category <- "Other"
 df.acs.SL$Order <- 1
@@ -274,10 +275,11 @@ df.acs.SL[(df.acs.SL$Gene %in% PtRibo),"Category"] <- "NuclearEncodedPlastidRibo
 df.acs.SL[(df.acs.SL$Gene %in% PtRibo),"Order"] <- 5
 df.acs.SL[(df.acs.SL$Gene %in% eukRibo),"Category"] <- "CytosolicRibo"
 df.acs.SL[(df.acs.SL$Gene %in% eukRibo),"Order"] <- 6
-```
-```{r}
+
+#Re-order
 df.acs.SL <- df.acs.SL[(order(df.acs.SL$Order)),]
 ```
+##Set limits for plot
 ```{r}
 df.acs.SL.lims <- df.acs.SL
 
@@ -287,15 +289,14 @@ df.acs.SL.lims$l2fc.acs[df.acs.SL.lims$l2fc.acs < -1.0] = -1.0
 df.acs.SL.lims$l2fc.BM[df.acs.SL.lims$l2fc.BM > 1.0] = 1.0
 df.acs.SL.lims$l2fc.BM[df.acs.SL.lims$l2fc.BM < -1.0] = -1.0
 ```
-
-
+##Make scatterplot
 ```{r}
 library(ggplot2)
 ```
 ```{r}
 fig4 <- ggplot(df.acs.SL.lims, mapping=aes(x=l2fc.acs, y=l2fc.BM, color=Category))+
-  geom_point(size=.7)+
-  scale_color_manual(values=c("Other"="grey80", "PlastidEncodedPS"="red4", "PHANGs"="lightcoral", "PlastidEncodedRibo"="blue4", "NuclearEncodedPlastidRibo"="dodgerblue1", "CytosolicRibo"="green4"))+
+  geom_point(size=.8)+
+  scale_color_manual(values=c("Other"="grey80", "PlastidEncodedPS"="red4", "PHANGs"="lightcoral", "PlastidEncodedRibo"="blue4", "NuclearEncodedPlastidRibo"="dodgerblue1", "CytosolicRibo"="green4"), labels=c("Other"="Other", "PlastidEncodedPS"="Plastid-encoded photosynthesis-associated", "PHANGs"="Nuclear-encoded photosynthesis-associated", "PlastidEncodedRibo"="Plastid-encoded ribosome", "NuclearEncodedPlastidRibo"="Nuclear-encoded plastid ribosome", "CytosolicRibo"="Cytosolic ribosome"), name="Protein Category")+
   theme_bw()+
   xlab("log2(acs/B73)")+
   ylab("log2(BxM/MP)")+
@@ -305,12 +306,12 @@ fig4 <- ggplot(df.acs.SL.lims, mapping=aes(x=l2fc.acs, y=l2fc.BM, color=Category
   coord_fixed(expand = F)+
   xlim(-1,1)+
   ylim(-1,1)+
-  theme(legend.position = "bottom")
+  theme(legend.position = "bottom", legend.text=element_text(size=7), legend.title = element_text(size=9))
 ```
 ```{r}
 fig4
 ```
-
+##Add density curves
 ```{r}
 library(cowplot)
 ```
