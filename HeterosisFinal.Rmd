@@ -29,16 +29,15 @@ ttestFun <- function(df, col1, col2){
 ```
 ##Gamer GO
 ```{r}
+library(AnnotationDbi)
+```
+
+```{r}
 # Read in Maize GAMER GO dataset, which lists maize V4 accessions with all associated GO terms (Wimalanathan et al. 2018) downloaded from https://datacommons.cyverse.org/browse/iplant/home/shared/commons_repo/curated/Carolyn_Lawrence-Dill_maize-GAMER_maize.B73_RefGen_v4_Zm00001d.2_Oct_2017.r1/e.agg_data
 GAMER <- read.delim("maize.B73.AGPv4.aggregate.gaf", sep = "\t", header = FALSE)
 colnames(GAMER) <- c("db", "db_object_id", "db_object_symbol", "qualifier", "term_accession", "db_reference", "evidence_code", "with", "aspect", "db_object_name", "db_object_synonym", "db_object_type", "taxon", "date", "assigned_by", "annotation_extension", "gene_product_form_id")
 gamer <- GAMER[-(1:2),]
 gamer$Term <- Term(as.character(gamer$term_accession))
-```
-
-```{r}
-#Trim gamer to only those genes detected in our data, to use as background for enrichment
-gamerCutACS <- gamer[(gamer$db_object_id %in% df.acs$Gene),]
 ```
 
 #Define topGO functions
@@ -139,6 +138,10 @@ df.acs.bmp <- df.acs[(df.acs$Sig<0.05)&(df.acs$ACS.B73<0.9),]
 ```
 ##GO term enrichment
 ```{r}
+#Trim gamer to only those genes detected in our data, to use as background for enrichment
+gamerCutACS <- gamer[(gamer$db_object_id %in% df.acs$Gene),]
+```
+```{r}
 df.acs.amp_BP_GOdata <- GOanalysisGodata(df.acs.amp, gamerCutACS, "BP", nodesize = 5)
 df.acs.amp_MF_GOdata <- GOanalysisGodata(df.acs.amp, gamerCutACS, "MF", nodesize = 5)
 df.acs.amp_CC_GOdata <- GOanalysisGodata(df.acs.amp, gamerCutACS, "CC", nodesize = 5)
@@ -217,16 +220,16 @@ PtGenes<-df.acs.SL[grep("chromosome:B73_RefGen_v4:Pt:", df.acs.SL$Protein),]
 
 #define list of plastid-encoded photosynthesis-associated genes
 PtPS <- c("ZemaCp008.1", "ZemaCp022.1", "ZemaCp023.1", "ZemaCp032.1", "ZemaCp008.1", "ZemaCp039.1", "ZemaCp040.1", "ZemaCp048.1", "ZemaCp051.1", "ZemaCp087.1", "ZemaCp017.1", "ZemaCp018.1", "ZemaCp019.1", "ZemaCp024.1", "ZemaCp027.1", "ZemaCp028.1", "ZemaCp029.1", "ZemaCp030.1", "ZemaCp035.1", "ZemaCp036.1", "ZemaCp052.1", "ZemaCp053.1", "ZemaCp075.1", "ZemaCp083.1", "ZemaCp085.1", "ZemaCp086.1", "ZemaCp090.1", "ZemaCp091.1", "ZemaCp092.1")
-
-#Check that no plastid-encoded photosynthesis/ribosomal proteins were missed
-Pt <- df.acs.SL[(grep("B73_RefGen_v4:Pt", df.acs.SL$Protein)),]
-Pt[!(Pt$Accession%in%c(PtEncodeRibo, PtPS)),]
 ```
 
 ```{r}
 #Photosynthesis associated nuclear encoded proteins (PhANGs)  (GO GAMER+CornCyc)
 PHANG<-as.vector(unique(gamer$db_object_id[grep("GO:0015979", gamer$term_accession)]))
 #Add CornCyc annotated PhANGs
+#accessed from https://corncyc-b73-v4.maizegdb.org/ on 1/4/2020
+cornCyc<-as.data.frame(readr::read_csv(file = "cornCycGeneLists01042020.csv",
+                         col_names = TRUE
+                         ))
 cornCyc.PHANG <- unique(c(cornCyc$Gene.Accession[(cornCyc$Pathway=="Oxygenic_Photosynthesis_SuperPath")], cornCyc$Gene.Accession[(cornCyc$Pathway=="Light_Rxn")]))
 PHANG <- unique(c(PHANG, cornCyc.PHANG))
 ```
@@ -235,6 +238,11 @@ PHANG <- unique(c(PHANG, cornCyc.PHANG))
 #Plastid encoded ribosomal proteins (EnsemblPlants Annotation)
 #get subset of Pt encoded genes annotated as ribosomal proteins
 PtEncodeRibo<- PtGenes$Gene[(grep("description:rps|description:rpl|description:ribosom", PtGenes$Protein))]
+```
+```{r}
+#Check that no plastid-encoded photosynthesis/ribosomal proteins were missed
+Pt <- df.acs.SL[(grep("B73_RefGen_v4:Pt", df.acs.SL$Protein)),]
+Pt[!(Pt$Accession%in%c(PtEncodeRibo, PtPS)),]
 ```
 
 ```{r}
@@ -261,7 +269,6 @@ eukRibo<-df.acs.SL$Gene[(grep("40S|60S", df.acs.SL$Protein))]
 
 #Scatterplot
 ##Make GOI description column
-
 ```{r}
 df.acs.SL$Category <- "Other"
 df.acs.SL$Order <- 1
@@ -307,8 +314,7 @@ fig4 <- ggplot(df.acs.SL.lims, mapping=aes(x=l2fc.acs, y=l2fc.BM, color=Category
   xlim(-1,1)+
   ylim(-1,1)+
   theme(legend.position = "bottom", legend.text=element_text(size=7), legend.title = element_text(size=9))
-```
-```{r}
+
 fig4
 ```
 ##Add density curves
