@@ -199,8 +199,7 @@ df.SL$l2fc <- log2(df.SL$HYB.MP)
 df.SL$SD <- rowSds(as.matrix(df.SL[,16:18]))
 ```
 
-#Combine acs and SL
-
+#Define GOIs
 ```{r func}
 #define some necessary functions for downstream analyses
 #fix gene names from locus level to gene level
@@ -213,22 +212,11 @@ fixNames<-function(inVec){
 }
 ```
 Gene lists and sources:
-1. Pt/Mt genes (proteomics database)
-2. Pt/Mt encoded ribosomal proteins (EnsemblPlants Annotation)
-3. Nuclear encoded plastid ribosomal proteins (GO GAMER)
-4. Nuclear encoded  Mitochondrial ribosome (GO GAMER)
+1. Plastid encoded photosynthesis associated proteins  (EnsemblPlants Annotation)
+2. PhANGs  (GO GAMER)
+3. Plastid encoded ribosomal proteins (EnsemblPlants Annotation)
+4. Nuclear encoded plastid ribosomal proteins (GO GAMER)
 5. Eukaryotic ribosomal proteins (GO GAMER)
-6. PhANGs  (cornCyc + kegg)
-7. Oxidative Phosphorylation (cornCyc)
-8. Glycolysis (cornCyc)
-9. Calvin Cycle (cornCyc)
-10. Ethylene biosynthesis (cornCyc)
-```{r}
-df.SL[(grep("chromosome:B73_RefGen_v4:Mt:", df.SL$Protein)),"Gene"]
-```
-```{r}
-
-```
 
 ```{r getGenesofInterest}
 #generate vector of Pt and Mt encoded genes
@@ -264,12 +252,9 @@ PtPS <- c("ZemaCp008.1", "ZemaCp022.1", "ZemaCp023.1", "ZemaCp032.1", "ZemaCp008
 ```
 
 ```{r}
+#Add proteins annotated as "ribosom" and "plastid/chloroplast" to the nuclear-encoded plastid-localized list
 ribosom <- df.acs.SL[(grep("ribosom", df.acs.SL$Protein)),]
-```
-```{r}
 ribosom.pt <- ribosom$Gene[(grep("plastid|Plastid|Chloropl|chloropl", ribosom$Protein))]
-```
-```{r}
 PtRibo <- unique(c(as.vector(PtRibo),ribosom.pt))
 ```
 
