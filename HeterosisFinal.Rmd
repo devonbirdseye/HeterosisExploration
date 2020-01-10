@@ -20,6 +20,7 @@ library(cowplot)
 df <- read.csv("data/Leaf paper-total proteome final 121319.csv", stringsAsFactors = F)
 #make new column for gene accession without transcript id
 df$Gene <- substr(df$Accession, start = 1, stop = 14)
+df.withPolymorphic <- df
 #Remove polymorphic proteins
 df <- df[-(grep("only", df$Accession)),]
 ```
@@ -273,7 +274,7 @@ Gene lists and sources:
 ```{r 1}
 #Plastid encoded photosynthesis associated proteins  (EnsemblPlants Annotation)
 #generate vector of Pt encoded genes
-PtGenes<-df[grep("chromosome:B73_RefGen_v4:Pt:", df$Protein),]
+PtGenes<-df.withPolymorphic[grep("chromosome:B73_RefGen_v4:Pt:", df.withPolymorphic$Protein),]
 
 #define list of plastid-encoded photosynthesis-associated genes
 PtPS <- c("ZemaCp008.1", "ZemaCp022.1", "ZemaCp023.1", "ZemaCp032.1", "ZemaCp008.1", "ZemaCp039.1", "ZemaCp040.1", "ZemaCp048.1", "ZemaCp051.1", "ZemaCp087.1", "ZemaCp017.1", "ZemaCp018.1", "ZemaCp019.1", "ZemaCp024.1", "ZemaCp027.1", "ZemaCp028.1", "ZemaCp029.1", "ZemaCp030.1", "ZemaCp035.1", "ZemaCp036.1", "ZemaCp052.1", "ZemaCp053.1", "ZemaCp075.1", "ZemaCp083.1", "ZemaCp085.1", "ZemaCp086.1", "ZemaCp090.1", "ZemaCp091.1", "ZemaCp092.1", "ZemaCp050.1", "ZemaCp043.1", "ZemaCp088.1")
@@ -299,21 +300,21 @@ PtEncodeRibo<- c(PtGenes$Gene[(grep("description:rps", PtGenes$Protein))], PtGen
 
 ```{r 4}
 #Check that no plastid-encoded photosynthesis/ribosomal proteins were missed
-Pt <- df[(grep("B73_RefGen_v4:Pt", df$Protein)),]
+Pt <- df.withPolymorphic[(grep("B73_RefGen_v4:Pt", df.withPolymorphic$Protein)),]
 Pt.rpo <- Pt$Gene[(grep("rpo", Pt$Protein))]
 Pt.other <- Pt$Gene[!(Pt$Accession%in%c(PtEncodeRibo, PtPS, Pt.rpo))]
 ```
 
 ```{r 5}
 #Nuclear encoded plastid ribosomal proteins (GO GAMER and EnsemblPlants Annotation)
-PtRibo<-as.vector(unique(gamer$db_object_id[grep("GO:0009547|GO:0043253", gamer$term_accession)]))
+PtRibo<-as.vector(unique(gamer$db_object_id[grep("GO:0009547", gamer$term_accession)]))
 #Add proteins annotated as "ribosom" and "plastid/chloroplast" to the nuclear-encoded plastid-localized list
-ribosom <- df[(grep("ribosom", df$Protein)),]
+ribosom <- df.withPolymorphic[(grep("ribosom", df.withPolymorphic$Protein)),]
 ribosom.pt <- ribosom$Gene[(grep("plastid|Plastid|Chloropl|chloropl", ribosom$Protein))]
 PtRibo <- unique(c(PtRibo,ribosom.pt))
 
 #Check that there are no missing prokaryotic ribosomal proteins with plastid localization
-ProkRibo <- df[(grep("30S|60S", df$Protein)),]
+ProkRibo <- df.withPolymorphic[(grep("30S|60S", df.withPolymorphic$Protein)),]
 ProkRiboNotPt <- ProkRibo[!(ProkRibo$Gene%in%PtRibo),]
 GOplastid<-as.vector(unique(gamer$db_object_id[grep("GO:0009536", gamer$term_accession)]))
 ProkRiboNotPt.plastid <- ProkRiboNotPt[(ProkRiboNotPt$Gene%in%GOplastid),]
@@ -322,7 +323,9 @@ PtRibo <- c(PtRibo, ProkRiboNotPt.plastid$Gene)
 
 ```{r 6}
 #Eukaryotic ribosomal proteins (EnsemblPlants Annotation)
-eukRibo<-df$Gene[(grep("40S|60S", df$Protein))]
+eukRibo<-df.withPolymorphic[(grep("40S|60S", df.withPolymorphic$Protein)),]
+#remove the mitochondrial ones
+eukRibo<- eukRibo$Gene[-(grep("mito|Mito", eukRibo$Protein))]
 ```
 
 ```{r 7}
@@ -338,6 +341,33 @@ ResponseToEt <- as.vector(unique(gamer$db_object_id[grep("GO:0009723", gamer$ter
 
 ```{r 9}
 PPS <- as.vector(unique(gamer$db_object_id[grep("GO:0006098", gamer$term_accession)]))
+```
+##Make csv with GOIs
+```{r}
+df2 <- df.withPolymorphic
+df2$Category <- "Other"
+df2$Order <- 9
+df2[(df2$Gene %in% PPS),"Category"] <- "Pentose Phosphate Shunt"
+df2[(df2$Gene %in% PPS),"Order"] <- 8
+df2[(df2$Gene %in% PtPS),"Category"] <- "Plastid-encoded photosynthesis-associated"
+df2[(df2$Gene %in% PtPS),"Order"] <- 3
+df2[(df2$Gene %in% PHANG),"Category"] <- "Nuclear-encoded photosynthesis-associated"
+df2[(df2$Gene %in% PHANG),"Order"] <- 4
+df2[(df2$Gene %in% PtEncodeRibo),"Category"] <- "Plastid-encoded ribosome"
+df2[(df2$Gene %in% PtEncodeRibo),"Order"] <- 1
+df2[(df2$Gene %in% PtRibo),"Category"] <- "Nuclear-encoded plastid ribosome"
+df2[(df2$Gene %in% PtRibo),"Order"] <- 2
+df2[(df2$Gene %in% eukRibo),"Category"] <- "Eukaryotic ribosome"
+df2[(df2$Gene %in% eukRibo),"Order"] <- 7
+df2[(df2$Gene %in% Pt.rpo),"Category"] <- "Plastid-encoded RNA polymerase"
+df2[(df2$Gene %in% Pt.rpo),"Order"] <- 5
+df2[(df2$Gene %in% Pt.other),"Category"] <- "Plastid-encoded other"
+df2[(df2$Gene %in% Pt.other),"Order"] <- 6
+#Re-order
+df2 <- df2[(order(df2$Order)),]
+```
+```{r}
+write.csv(df2, "HeterosisGOIs_DSB.csv")
 ```
 
 
@@ -379,18 +409,18 @@ df.acs.SL.scat1.lims$l2fc.BM[df.acs.SL.scat1.lims$l2fc.BM < -1.0] = -1.0
 fig4 <- ggplot(df.acs.SL.scat1.lims, mapping=aes(x=l2fc.BM, y=l2fc.acs, color=Category))+
   geom_point(size=.8)+
   scale_color_manual(values=c("Other"="grey70","PPS"="#efb806", "PlastidEncodedPS"="red3", "PHANGs"="#ef06db", "PlastidEncodedRibo+Other"="blue4", "NuclearEncodedPlastidRibo"="dodgerblue1", "CytosolicRibo"="#019d01", "Pt.rpo"="#653f01"), labels=c("Other"="Other", "PPS"="Pentose Phosphate Shunt", "PlastidEncodedPS"="Plastid-encoded photosynthesis-associated", "PHANGs"="Nuclear-encoded photosynthesis-associated", "PlastidEncodedRibo+Other"="Plastid-encoded ribosome +other", "NuclearEncodedPlastidRibo"="Nuclear-encoded plastid ribosome", "CytosolicRibo"="Cytosolic ribosome","Pt.rpo"="Plastid-encoded RNA polymerase"), name="Protein Category")+
-  theme_bw()+
-  xlab("log2(BxM/midparent)")+
-  ylab("log2(acs/B73)")+
-  geom_abline(slope = 1, color="grey50", size=.5)+
-  geom_vline(color="grey50", size=.5, xintercept = 0)+
-  geom_hline(color="grey50", size=.5, yintercept = 0)+
-  coord_fixed(expand = F)+
-  xlim(-1,1)+
-  ylim(-1,1)+
-  theme(legend.position = "bottom", legend.text=element_text(size=7), legend.title = element_text(size=9))+
-  theme(legend.position = "none")+
-  theme(axis.title = element_text(size=20))
+    theme_classic()+
+    xlim(c(-1,1))+
+    ylim(c(-1,1))+
+    geom_vline(xintercept=0, linetype="dashed", color = "gray50")+
+    geom_hline(yintercept=0, linetype="dashed", color = "gray50")+
+    #geom_abline(intercept =0 , slope = 1, linetype="dashed", color="gray50")+
+    theme(axis.text=element_text(size=10),
+              legend.position="none")+
+    guides(fill=guide_legend(nrow=2,byrow=TRUE))+
+    xlab("log2 hyb/MP protein abundance")+
+    ylab("log2 acs/B73 protein abundance")+
+    coord_fixed(expand = F)
 
 fig4
 ```
@@ -399,519 +429,23 @@ fig4
 #add density curves
 #add marginal density plots and resave
     densityplotX<-axis_canvas(fig4, axis="x")+
-      geom_density(aes(df.acs.SL.scat1.lims[,"l2fc.acs"], color=df.acs.SL.scat1.lims[,"Category"]), df.acs.SL.scat1.lims, size=0.9)+
+      geom_density(aes(df.acs.SL.scat1.lims[,"l2fc.BM"], color=df.acs.SL.scat1.lims[,"Category"]), df.acs.SL.scat1.lims, size=0.7)+
+      scale_color_manual(values=c("Other"="grey70","PPS"="#efb806", "PlastidEncodedPS"="red3", "PHANGs"="#ef06db", "PlastidEncodedRibo+Other"="blue4", "NuclearEncodedPlastidRibo"="dodgerblue1", "CytosolicRibo"="#019d01", "Pt.rpo"="#653f01"))+
+      geom_vline(xintercept=0, linetype="dashed", color = "gray50")+
+      theme_void()
+    #set up marginal density plot Y axis
+    densityplotY<-axis_canvas(fig4, axis="y", coord_flip = T)+
+      geom_density(aes(df.acs.SL.scat1.lims[,"l2fc.acs"], color=df.acs.SL.scat1.lims[,"Category"]), df.acs.SL.scat1.lims, size=0.7)+
       scale_color_manual(values=c("Other"="grey70","PPS"="#efb806", "PlastidEncodedPS"="red3", "PHANGs"="#ef06db", "PlastidEncodedRibo+Other"="blue4", "NuclearEncodedPlastidRibo"="dodgerblue1", "CytosolicRibo"="#019d01", "Pt.rpo"="#653f01"))+
       geom_vline(xintercept=0, linetype="dashed", color = "gray50")+
       theme_void()+
-      theme(legend.title = element_blank())+
-      ylim(0,15)
-    #set up marginal density plot Y axis
-    densityplotY<-axis_canvas(fig4, axis="y", coord_flip = TRUE)+
-      geom_density(aes(df.acs.SL.scat1.lims[,"l2fc.BM"], color=df.acs.SL.scat1.lims[,"Category"]), df.acs.SL.scat1.lims, size=0.9)+
-      scale_color_manual(values=c("Other"="grey70","PPS"="#efb806", "PlastidEncodedPS"="red3", "PHANGs"="#ef06db", "PlastidEncodedRibo+Other"="blue4", "NuclearEncodedPlastidRibo"="dodgerblue1", "CytosolicRibo"="#019d01", "Pt.rpo"="#653f01"))+
-      geom_vline(xintercept=0, linetype="dashed", color = "gray50")+
-      theme_void()+
-      theme(legend.title = element_blank())+
-      coord_flip()+
-      ylim(0,15)
+      coord_flip()
     #put two plots together
-    q <- insert_xaxis_grob(fig4, densityplotX, position = "top")
-    q <- insert_yaxis_grob(q, densityplotY, position = "right")
+    q <- insert_xaxis_grob(fig4, densityplotX, grid::unit(0.275, "null"), position = "top")
+    q <- insert_yaxis_grob(q, densityplotY, grid::unit(0.275, "null"), position = "right")
     #save
-    ggsave(plot=q, filename = "Fig4.tiff",
-           device="tiff", dpi=600, width=9, height=8, compression = "lzw")
-```
-
-#Scatterplot1b
-##Make GOI description column
-```{r}
-df.acs.SL.scat1b <- df.acs.SL
-df.acs.SL.scat1b$Category <- "Other"
-df.acs.SL.scat1b$Order <- 1
-#df.acs.SL.scat1b[(df.acs.SL.scat1b$Gene %in% PPS),"Category"] <- "PPS"
-#df.acs.SL.scat1b[(df.acs.SL.scat1b$Gene %in% PPS),"Order"] <- 2
-df.acs.SL.scat1b[(df.acs.SL.scat1b$Gene %in% PtPS),"Category"] <- "PlastidEncodedPS"
-df.acs.SL.scat1b[(df.acs.SL.scat1b$Gene %in% PtPS),"Order"] <- 3
-#df.acs.SL.scat1b[(df.acs.SL.scat1b$Gene %in% PHANG),"Category"] <- "PHANGs"
-#df.acs.SL.scat1b[(df.acs.SL.scat1b$Gene %in% PHANG),"Order"] <- 4
-#df.acs.SL.scat1b[(df.acs.SL.scat1b$Gene %in% c(PtEncodeRibo,Pt.other)),"Category"] <- "PlastidEncodedRibo+Other"
-#df.acs.SL.scat1b[(df.acs.SL.scat1b$Gene %in% c(PtEncodeRibo,Pt.other)),"Order"] <- 5
-#df.acs.SL.scat1b[(df.acs.SL.scat1b$Gene %in% PtRibo),"Category"] <- "NuclearEncodedPlastidRibo"
-#df.acs.SL.scat1b[(df.acs.SL.scat1b$Gene %in% PtRibo),"Order"] <- 6
-#df.acs.SL.scat1b[(df.acs.SL.scat1b$Gene %in% eukRibo),"Category"] <- "CytosolicRibo"
-#df.acs.SL.scat1b[(df.acs.SL.scat1b$Gene %in% eukRibo),"Order"] <- 7
-#df.acs.SL.scat1b[(df.acs.SL.scat1b$Gene %in% Pt.rpo),"Category"] <- "Pt.rpo"
-#df.acs.SL.scat1b[(df.acs.SL.scat1b$Gene %in% Pt.rpo),"Order"] <- 8
-
-#Re-order
-df.acs.SL.scat1b <- df.acs.SL.scat1b[(order(df.acs.SL.scat1b$Order)),]
-```
-##Set limits for plot
-```{r}
-df.acs.SL.scat1b.lims <- df.acs.SL.scat1b
-
-df.acs.SL.scat1b.lims$l2fc.acs[df.acs.SL.scat1b.lims$l2fc.acs > 1.0] = 1.0
-df.acs.SL.scat1b.lims$l2fc.acs[df.acs.SL.scat1b.lims$l2fc.acs < -1.0] = -1.0
-
-df.acs.SL.scat1b.lims$l2fc.BM[df.acs.SL.scat1b.lims$l2fc.BM > 1.0] = 1.0
-df.acs.SL.scat1b.lims$l2fc.BM[df.acs.SL.scat1b.lims$l2fc.BM < -1.0] = -1.0
-```
-##Make scatterplot
-```{r}
-fig4b <- ggplot(df.acs.SL.scat1b.lims, mapping=aes(x=l2fc.acs, y=l2fc.BM, color=Category))+
-  geom_point(size=.8)+
-  scale_color_manual(values=c("Other"="grey70","PlastidEncodedPS"="red3"), labels=c("Other"="Other","PlastidEncodedPS"="Plastid-encoded photosynthesis-associated"), name="Protein Category")+
-  theme_bw()+
-  xlab("log2(acs/B73)")+
-  ylab("log2(BxM/MP)")+
-  geom_abline(slope = 1, color="grey50", size=.5)+
-  geom_vline(color="grey50", size=.5, xintercept = 0)+
-  geom_hline(color="grey50", size=.5, yintercept = 0)+
-  coord_fixed(expand = F)+
-  xlim(-1,1)+
-  ylim(-1,1)+
-  theme(legend.position = "bottom", legend.text=element_text(size=7), legend.title = element_text(size=9))+
-  theme(legend.position = "none")+
-  theme(axis.title = element_text(size=20))
-
-fig4b
-```
-##Add density curves
-```{r}
-#add density curves
-#add marginal density plots and resave
-    densityplotX<-axis_canvas(fig4b, axis="x")+
-      geom_density(aes(df.acs.SL.scat1b.lims[,"l2fc.acs"], color=df.acs.SL.scat1b.lims[,"Category"]), df.acs.SL.scat1b.lims, size=0.9)+
-      scale_color_manual(values=c("Other"="grey70", "PlastidEncodedPS"="red3"))+
-      geom_vline(xintercept=0, linetype="dashed", color = "gray50")+
-      theme_void()+
-      theme(legend.title = element_blank())+
-      ylim(0,15)
-    #set up marginal density plot Y axis
-    densityplotY<-axis_canvas(fig4b, axis="y", coord_flip = TRUE)+
-      geom_density(aes(df.acs.SL.scat1b.lims[,"l2fc.BM"], color=df.acs.SL.scat1b.lims[,"Category"]), df.acs.SL.scat1b.lims, size=0.9)+
-      scale_color_manual(values=c("Other"="grey70", "PlastidEncodedPS"="red3"))+
-      geom_vline(xintercept=0, linetype="dashed", color = "gray50")+
-      theme_void()+
-      theme(legend.title = element_blank())+
-      coord_flip()+
-      ylim(0,15)
-    #put two plots together
-    q <- insert_xaxis_grob(fig4b, densityplotX, position = "top")
-    q <- insert_yaxis_grob(q, densityplotY, position = "right")
-    #save
-    ggsave(plot=q, filename = "Fig4b.tiff",
-           device="tiff", dpi=600, width=9, height=8, compression = "lzw")
-```
-
-#Scatterplot1c
-##Make GOI description column
-```{r}
-df.acs.SL.scat1c <- df.acs.SL
-df.acs.SL.scat1c$Category <- "Other"
-df.acs.SL.scat1c$Order <- 1
-#df.acs.SL.scat1c[(df.acs.SL.scat1c$Gene %in% PPS),"Category"] <- "PPS"
-#df.acs.SL.scat1c[(df.acs.SL.scat1c$Gene %in% PPS),"Order"] <- 2
-df.acs.SL.scat1c[(df.acs.SL.scat1c$Gene %in% PtPS),"Category"] <- "PlastidEncodedPS"
-df.acs.SL.scat1c[(df.acs.SL.scat1c$Gene %in% PtPS),"Order"] <- 3
-df.acs.SL.scat1c[(df.acs.SL.scat1c$Gene %in% PHANG),"Category"] <- "PHANGs"
-df.acs.SL.scat1c[(df.acs.SL.scat1c$Gene %in% PHANG),"Order"] <- 4
-#df.acs.SL.scat1c[(df.acs.SL.scat1c$Gene %in% c(PtEncodeRibo,Pt.other)),"Category"] <- "PlastidEncodedRibo+Other"
-#df.acs.SL.scat1c[(df.acs.SL.scat1c$Gene %in% c(PtEncodeRibo,Pt.other)),"Order"] <- 5
-#df.acs.SL.scat1c[(df.acs.SL.scat1c$Gene %in% PtRibo),"Category"] <- "NuclearEncodedPlastidRibo"
-#df.acs.SL.scat1c[(df.acs.SL.scat1c$Gene %in% PtRibo),"Order"] <- 6
-#df.acs.SL.scat1c[(df.acs.SL.scat1c$Gene %in% eukRibo),"Category"] <- "CytosolicRibo"
-#df.acs.SL.scat1c[(df.acs.SL.scat1c$Gene %in% eukRibo),"Order"] <- 7
-#df.acs.SL.scat1c[(df.acs.SL.scat1c$Gene %in% Pt.rpo),"Category"] <- "Pt.rpo"
-#df.acs.SL.scat1c[(df.acs.SL.scat1c$Gene %in% Pt.rpo),"Order"] <- 8
-
-#Re-order
-df.acs.SL.scat1c <- df.acs.SL.scat1c[(order(df.acs.SL.scat1c$Order)),]
-```
-##Set limits for plot
-```{r}
-df.acs.SL.scat1c.lims <- df.acs.SL.scat1c
-
-df.acs.SL.scat1c.lims$l2fc.acs[df.acs.SL.scat1c.lims$l2fc.acs > 1.0] = 1.0
-df.acs.SL.scat1c.lims$l2fc.acs[df.acs.SL.scat1c.lims$l2fc.acs < -1.0] = -1.0
-
-df.acs.SL.scat1c.lims$l2fc.BM[df.acs.SL.scat1c.lims$l2fc.BM > 1.0] = 1.0
-df.acs.SL.scat1c.lims$l2fc.BM[df.acs.SL.scat1c.lims$l2fc.BM < -1.0] = -1.0
-```
-##Make scatterplot
-```{r}
-fig4c <- ggplot(df.acs.SL.scat1c.lims, mapping=aes(x=l2fc.acs, y=l2fc.BM, color=Category))+
-  geom_point(size=.8)+
-  scale_color_manual(values=c("Other"="grey70", "PlastidEncodedPS"="red3", "PHANGs"="#ef06db"), labels=c("Other"="Other", "PlastidEncodedPS"="Plastid-encoded photosynthesis-associated", "PHANGs"="Nuclear-encoded photosynthesis-associated"), name="Protein Category")+
-  theme_bw()+
-  xlab("log2(acs/B73)")+
-  ylab("log2(BxM/MP)")+
-  geom_abline(slope = 1, color="grey50", size=.5)+
-  geom_vline(color="grey50", size=.5, xintercept = 0)+
-  geom_hline(color="grey50", size=.5, yintercept = 0)+
-  coord_fixed(expand = F)+
-  xlim(-1,1)+
-  ylim(-1,1)+
-  theme(legend.position = "bottom", legend.text=element_text(size=7), legend.title = element_text(size=9))+
-  theme(legend.position = "none")+
-  theme(axis.title = element_text(size=20))
-
-fig4c
-```
-##Add density curves
-```{r}
-#add density curves
-#add marginal density plots and resave
-    densityplotX<-axis_canvas(fig4c, axis="x")+
-      geom_density(aes(df.acs.SL.scat1c.lims[,"l2fc.acs"], color=df.acs.SL.scat1c.lims[,"Category"]), df.acs.SL.scat1c.lims, size=0.9)+
-      scale_color_manual(values=c("Other"="grey70", "PlastidEncodedPS"="red3", "PHANGs"="#ef06db"))+
-      geom_vline(xintercept=0, linetype="dashed", color = "gray50")+
-      theme_void()+
-      theme(legend.title = element_blank())+
-      ylim(0,15)
-    #set up marginal density plot Y axis
-    densityplotY<-axis_canvas(fig4c, axis="y", coord_flip = TRUE)+
-      geom_density(aes(df.acs.SL.scat1c.lims[,"l2fc.BM"], color=df.acs.SL.scat1c.lims[,"Category"]), df.acs.SL.scat1c.lims, size=0.9)+
-      scale_color_manual(values=c("Other"="grey70", "PlastidEncodedPS"="red3", "PHANGs"="#ef06db"))+
-      geom_vline(xintercept=0, linetype="dashed", color = "gray50")+
-      theme_void()+
-      theme(legend.title = element_blank())+
-      coord_flip()+
-      ylim(0,15)
-    #put two plots together
-    q <- insert_xaxis_grob(fig4c, densityplotX, position = "top")
-    q <- insert_yaxis_grob(q, densityplotY, position = "right")
-    #save
-    ggsave(plot=q, filename = "Fig4c.tiff",
-           device="tiff", dpi=600, width=9, height=8, compression = "lzw")
-```
-
-#Scatterplot1d
-##Make GOI description column
-```{r}
-df.acs.SL.scat1d <- df.acs.SL
-df.acs.SL.scat1d$Category <- "Other"
-df.acs.SL.scat1d$Order <- 1
-#df.acs.SL.scat1d[(df.acs.SL.scat1d$Gene %in% PPS),"Category"] <- "PPS"
-#df.acs.SL.scat1d[(df.acs.SL.scat1d$Gene %in% PPS),"Order"] <- 2
-df.acs.SL.scat1d[(df.acs.SL.scat1d$Gene %in% PtPS),"Category"] <- "PlastidEncodedPS"
-df.acs.SL.scat1d[(df.acs.SL.scat1d$Gene %in% PtPS),"Order"] <- 3
-df.acs.SL.scat1d[(df.acs.SL.scat1d$Gene %in% PHANG),"Category"] <- "PHANGs"
-df.acs.SL.scat1d[(df.acs.SL.scat1d$Gene %in% PHANG),"Order"] <- 4
-df.acs.SL.scat1d[(df.acs.SL.scat1d$Gene %in% c(PtEncodeRibo,Pt.other)),"Category"] <- "PlastidEncodedRibo+Other"
-df.acs.SL.scat1d[(df.acs.SL.scat1d$Gene %in% c(PtEncodeRibo,Pt.other)),"Order"] <- 5
-#df.acs.SL.scat1d[(df.acs.SL.scat1d$Gene %in% PtRibo),"Category"] <- "NuclearEncodedPlastidRibo"
-#df.acs.SL.scat1d[(df.acs.SL.scat1d$Gene %in% PtRibo),"Order"] <- 6
-#df.acs.SL.scat1d[(df.acs.SL.scat1d$Gene %in% eukRibo),"Category"] <- "CytosolicRibo"
-#df.acs.SL.scat1d[(df.acs.SL.scat1d$Gene %in% eukRibo),"Order"] <- 7
-#df.acs.SL.scat1d[(df.acs.SL.scat1d$Gene %in% Pt.rpo),"Category"] <- "Pt.rpo"
-#df.acs.SL.scat1d[(df.acs.SL.scat1d$Gene %in% Pt.rpo),"Order"] <- 8
-
-#Re-order
-df.acs.SL.scat1d <- df.acs.SL.scat1d[(order(df.acs.SL.scat1d$Order)),]
-```
-##Set limits for plot
-```{r}
-df.acs.SL.scat1d.lims <- df.acs.SL.scat1d
-
-df.acs.SL.scat1d.lims$l2fc.acs[df.acs.SL.scat1d.lims$l2fc.acs > 1.0] = 1.0
-df.acs.SL.scat1d.lims$l2fc.acs[df.acs.SL.scat1d.lims$l2fc.acs < -1.0] = -1.0
-
-df.acs.SL.scat1d.lims$l2fc.BM[df.acs.SL.scat1d.lims$l2fc.BM > 1.0] = 1.0
-df.acs.SL.scat1d.lims$l2fc.BM[df.acs.SL.scat1d.lims$l2fc.BM < -1.0] = -1.0
-```
-##Make scatterplot
-```{r}
-fig4d <- ggplot(df.acs.SL.scat1d.lims, mapping=aes(x=l2fc.acs, y=l2fc.BM, color=Category))+
-  geom_point(size=.8)+
-  scale_color_manual(values=c("Other"="grey70", "PlastidEncodedPS"="red3", "PHANGs"="#ef06db", "PlastidEncodedRibo+Other"="blue4"), labels=c("Other"="Other",  "PlastidEncodedPS"="Plastid-encoded photosynthesis-associated", "PHANGs"="Nuclear-encoded photosynthesis-associated", "PlastidEncodedRibo+Other"="Plastid-encoded ribosome +other"), name="Protein Category")+
-  theme_bw()+
-  xlab("log2(acs/B73)")+
-  ylab("log2(BxM/MP)")+
-  geom_abline(slope = 1, color="grey50", size=.5)+
-  geom_vline(color="grey50", size=.5, xintercept = 0)+
-  geom_hline(color="grey50", size=.5, yintercept = 0)+
-  coord_fixed(expand = F)+
-  xlim(-1,1)+
-  ylim(-1,1)+
-  theme(legend.position = "bottom", legend.text=element_text(size=7), legend.title = element_text(size=9))+
-  theme(legend.position = "none")+
-  theme(axis.title = element_text(size=20))
-
-fig4d
-```
-##Add density curves
-```{r}
-#add density curves
-#add marginal density plots and resave
-    densityplotX<-axis_canvas(fig4d, axis="x")+
-      geom_density(aes(df.acs.SL.scat1d.lims[,"l2fc.acs"], color=df.acs.SL.scat1d.lims[,"Category"]), df.acs.SL.scat1d.lims, size=0.9)+
-      scale_color_manual(values=c("Other"="grey70", "PlastidEncodedPS"="red3", "PHANGs"="#ef06db", "PlastidEncodedRibo+Other"="blue4"))+
-      geom_vline(xintercept=0, linetype="dashed", color = "gray50")+
-      theme_void()+
-      theme(legend.title = element_blank())+
-      ylim(0,15)
-    #set up marginal density plot Y axis
-    densityplotY<-axis_canvas(fig4d, axis="y", coord_flip = TRUE)+
-      geom_density(aes(df.acs.SL.scat1d.lims[,"l2fc.BM"], color=df.acs.SL.scat1d.lims[,"Category"]), df.acs.SL.scat1d.lims, size=0.9)+
-      scale_color_manual(values=c("Other"="grey70", "PlastidEncodedPS"="red3", "PHANGs"="#ef06db", "PlastidEncodedRibo+Other"="blue4"))+
-      geom_vline(xintercept=0, linetype="dashed", color = "gray50")+
-      theme_void()+
-      theme(legend.title = element_blank())+
-      coord_flip()+
-      ylim(0,15)
-    #put two plots together
-    q <- insert_xaxis_grob(fig4d, densityplotX, position = "top")
-    q <- insert_yaxis_grob(q, densityplotY, position = "right")
-    #save
-    ggsave(plot=q, filename = "Fig4d.tiff",
-           device="tiff", dpi=600, width=9, height=8, compression = "lzw")
-```
-
-#Scatterplot1e
-##Make GOI description column
-```{r}
-df.acs.SL.scat1e <- df.acs.SL
-df.acs.SL.scat1e$Category <- "Other"
-df.acs.SL.scat1e$Order <- 1
-#df.acs.SL.scat1e[(df.acs.SL.scat1e$Gene %in% PPS),"Category"] <- "PPS"
-#df.acs.SL.scat1e[(df.acs.SL.scat1e$Gene %in% PPS),"Order"] <- 2
-df.acs.SL.scat1e[(df.acs.SL.scat1e$Gene %in% PtPS),"Category"] <- "PlastidEncodedPS"
-df.acs.SL.scat1e[(df.acs.SL.scat1e$Gene %in% PtPS),"Order"] <- 3
-df.acs.SL.scat1e[(df.acs.SL.scat1e$Gene %in% PHANG),"Category"] <- "PHANGs"
-df.acs.SL.scat1e[(df.acs.SL.scat1e$Gene %in% PHANG),"Order"] <- 4
-df.acs.SL.scat1e[(df.acs.SL.scat1e$Gene %in% c(PtEncodeRibo,Pt.other)),"Category"] <- "PlastidEncodedRibo+Other"
-df.acs.SL.scat1e[(df.acs.SL.scat1e$Gene %in% c(PtEncodeRibo,Pt.other)),"Order"] <- 5
-df.acs.SL.scat1e[(df.acs.SL.scat1e$Gene %in% PtRibo),"Category"] <- "NuclearEncodedPlastidRibo"
-df.acs.SL.scat1e[(df.acs.SL.scat1e$Gene %in% PtRibo),"Order"] <- 6
-#df.acs.SL.scat1e[(df.acs.SL.scat1e$Gene %in% eukRibo),"Category"] <- "CytosolicRibo"
-#df.acs.SL.scat1e[(df.acs.SL.scat1e$Gene %in% eukRibo),"Order"] <- 7
-#df.acs.SL.scat1e[(df.acs.SL.scat1e$Gene %in% Pt.rpo),"Category"] <- "Pt.rpo"
-#df.acs.SL.scat1e[(df.acs.SL.scat1e$Gene %in% Pt.rpo),"Order"] <- 8
-
-#Re-order
-df.acs.SL.scat1e <- df.acs.SL.scat1e[(order(df.acs.SL.scat1e$Order)),]
-```
-##Set limits for plot
-```{r}
-df.acs.SL.scat1e.lims <- df.acs.SL.scat1e
-
-df.acs.SL.scat1e.lims$l2fc.acs[df.acs.SL.scat1e.lims$l2fc.acs > 1.0] = 1.0
-df.acs.SL.scat1e.lims$l2fc.acs[df.acs.SL.scat1e.lims$l2fc.acs < -1.0] = -1.0
-
-df.acs.SL.scat1e.lims$l2fc.BM[df.acs.SL.scat1e.lims$l2fc.BM > 1.0] = 1.0
-df.acs.SL.scat1e.lims$l2fc.BM[df.acs.SL.scat1e.lims$l2fc.BM < -1.0] = -1.0
-```
-##Make scatterplot
-```{r}
-fig4e <- ggplot(df.acs.SL.scat1e.lims, mapping=aes(x=l2fc.acs, y=l2fc.BM, color=Category))+
-  geom_point(size=.8)+
-  scale_color_manual(values=c("Other"="grey70", "PlastidEncodedPS"="red3", "PHANGs"="#ef06db", "PlastidEncodedRibo+Other"="blue4", "NuclearEncodedPlastidRibo"="dodgerblue1"), labels=c("Other"="Other", "PlastidEncodedPS"="Plastid-encoded photosynthesis-associated", "PHANGs"="Nuclear-encoded photosynthesis-associated", "PlastidEncodedRibo+Other"="Plastid-encoded ribosome +other", "NuclearEncodedPlastidRibo"="Nuclear-encoded plastid ribosome"), name="Protein Category")+
-  theme_bw()+
-  xlab("log2(acs/B73)")+
-  ylab("log2(BxM/MP)")+
-  geom_abline(slope = 1, color="grey50", size=.5)+
-  geom_vline(color="grey50", size=.5, xintercept = 0)+
-  geom_hline(color="grey50", size=.5, yintercept = 0)+
-  coord_fixed(expand = F)+
-  xlim(-1,1)+
-  ylim(-1,1)+
-  theme(legend.position = "bottom", legend.text=element_text(size=7), legend.title = element_text(size=9))+
-  theme(legend.position = "none")+
-  theme(axis.title = element_text(size=20))
-
-fig4e
-```
-##Add density curves
-```{r}
-#add density curves
-#add marginal density plots and resave
-    densityplotX<-axis_canvas(fig4e, axis="x")+
-      geom_density(aes(df.acs.SL.scat1e.lims[,"l2fc.acs"], color=df.acs.SL.scat1e.lims[,"Category"]), df.acs.SL.scat1e.lims, size=0.9)+
-      scale_color_manual(values=c("Other"="grey70", "PlastidEncodedPS"="red3", "PHANGs"="#ef06db", "PlastidEncodedRibo+Other"="blue4", "NuclearEncodedPlastidRibo"="dodgerblue1"))+
-      geom_vline(xintercept=0, linetype="dashed", color = "gray50")+
-      theme_void()+
-      theme(legend.title = element_blank())+
-      ylim(0,15)
-    #set up marginal density plot Y axis
-    densityplotY<-axis_canvas(fig4e, axis="y", coord_flip = TRUE)+
-      geom_density(aes(df.acs.SL.scat1e.lims[,"l2fc.BM"], color=df.acs.SL.scat1e.lims[,"Category"]), df.acs.SL.scat1e.lims, size=0.9)+
-      scale_color_manual(values=c("Other"="grey70", "PlastidEncodedPS"="red3", "PHANGs"="#ef06db", "PlastidEncodedRibo+Other"="blue4", "NuclearEncodedPlastidRibo"="dodgerblue1"))+
-      geom_vline(xintercept=0, linetype="dashed", color = "gray50")+
-      theme_void()+
-      theme(legend.title = element_blank())+
-      coord_flip()+
-      ylim(0,15)
-    #put two plots together
-    q <- insert_xaxis_grob(fig4e, densityplotX, position = "top")
-    q <- insert_yaxis_grob(q, densityplotY, position = "right")
-    #save
-    ggsave(plot=q, filename = "Fig4e.tiff",
-           device="tiff", dpi=600, width=9, height=8, compression = "lzw")
-```
-
-#Scatterplot1f
-##Make GOI description column
-```{r}
-df.acs.SL.scat1f <- df.acs.SL
-df.acs.SL.scat1f$Category <- "Other"
-df.acs.SL.scat1f$Order <- 1
-#df.acs.SL.scat1f[(df.acs.SL.scat1f$Gene %in% PPS),"Category"] <- "PPS"
-#df.acs.SL.scat1f[(df.acs.SL.scat1f$Gene %in% PPS),"Order"] <- 2
-df.acs.SL.scat1f[(df.acs.SL.scat1f$Gene %in% PtPS),"Category"] <- "PlastidEncodedPS"
-df.acs.SL.scat1f[(df.acs.SL.scat1f$Gene %in% PtPS),"Order"] <- 3
-df.acs.SL.scat1f[(df.acs.SL.scat1f$Gene %in% PHANG),"Category"] <- "PHANGs"
-df.acs.SL.scat1f[(df.acs.SL.scat1f$Gene %in% PHANG),"Order"] <- 4
-df.acs.SL.scat1f[(df.acs.SL.scat1f$Gene %in% c(PtEncodeRibo,Pt.other)),"Category"] <- "PlastidEncodedRibo+Other"
-df.acs.SL.scat1f[(df.acs.SL.scat1f$Gene %in% c(PtEncodeRibo,Pt.other)),"Order"] <- 5
-df.acs.SL.scat1f[(df.acs.SL.scat1f$Gene %in% PtRibo),"Category"] <- "NuclearEncodedPlastidRibo"
-df.acs.SL.scat1f[(df.acs.SL.scat1f$Gene %in% PtRibo),"Order"] <- 6
-#df.acs.SL.scat1f[(df.acs.SL.scat1f$Gene %in% eukRibo),"Category"] <- "CytosolicRibo"
-#df.acs.SL.scat1f[(df.acs.SL.scat1f$Gene %in% eukRibo),"Order"] <- 7
-df.acs.SL.scat1f[(df.acs.SL.scat1f$Gene %in% Pt.rpo),"Category"] <- "Pt.rpo"
-df.acs.SL.scat1f[(df.acs.SL.scat1f$Gene %in% Pt.rpo),"Order"] <- 8
-
-#Re-order
-df.acs.SL.scat1f <- df.acs.SL.scat1f[(order(df.acs.SL.scat1f$Order)),]
-```
-##Set limits for plot
-```{r}
-df.acs.SL.scat1f.lims <- df.acs.SL.scat1f
-
-df.acs.SL.scat1f.lims$l2fc.acs[df.acs.SL.scat1f.lims$l2fc.acs > 1.0] = 1.0
-df.acs.SL.scat1f.lims$l2fc.acs[df.acs.SL.scat1f.lims$l2fc.acs < -1.0] = -1.0
-
-df.acs.SL.scat1f.lims$l2fc.BM[df.acs.SL.scat1f.lims$l2fc.BM > 1.0] = 1.0
-df.acs.SL.scat1f.lims$l2fc.BM[df.acs.SL.scat1f.lims$l2fc.BM < -1.0] = -1.0
-```
-##Make scatterplot
-```{r}
-fig4f <- ggplot(df.acs.SL.scat1f.lims, mapping=aes(x=l2fc.acs, y=l2fc.BM, color=Category))+
-  geom_point(size=.8)+
-  scale_color_manual(values=c("Other"="grey70", "PlastidEncodedPS"="red3", "PHANGs"="#ef06db", "PlastidEncodedRibo+Other"="blue4", "NuclearEncodedPlastidRibo"="dodgerblue1", "Pt.rpo"="#653f01"), labels=c("Other"="Other", "PlastidEncodedPS"="Plastid-encoded photosynthesis-associated", "PHANGs"="Nuclear-encoded photosynthesis-associated", "PlastidEncodedRibo+Other"="Plastid-encoded ribosome +other", "NuclearEncodedPlastidRibo"="Nuclear-encoded plastid ribosome","Pt.rpo"="Plastid-encoded RNA polymerase"), name="Protein Category")+
-  theme_bw()+
-  xlab("log2(acs/B73)")+
-  ylab("log2(BxM/MP)")+
-  geom_abline(slope = 1, color="grey50", size=.5)+
-  geom_vline(color="grey50", size=.5, xintercept = 0)+
-  geom_hline(color="grey50", size=.5, yintercept = 0)+
-  coord_fixed(expand = F)+
-  xlim(-1,1)+
-  ylim(-1,1)+
-  theme(legend.position = "bottom", legend.text=element_text(size=7), legend.title = element_text(size=9))+
-  theme(legend.position = "none")+
-  theme(axis.title = element_text(size=20))
-
-fig4f
-```
-##Add density curves
-```{r}
-#add density curves
-#add marginal density plots and resave
-    densityplotX<-axis_canvas(fig4f, axis="x")+
-      geom_density(aes(df.acs.SL.scat1f.lims[,"l2fc.acs"], color=df.acs.SL.scat1f.lims[,"Category"]), df.acs.SL.scat1f.lims, size=0.9)+
-      scale_color_manual(values=c("Other"="grey70", "PlastidEncodedPS"="red3", "PHANGs"="#ef06db", "PlastidEncodedRibo+Other"="blue4", "NuclearEncodedPlastidRibo"="dodgerblue1", "Pt.rpo"="#653f01"))+
-      geom_vline(xintercept=0, linetype="dashed", color = "gray50")+
-      theme_void()+
-      theme(legend.title = element_blank())+
-      ylim(0,15)
-    #set up marginal density plot Y axis
-    densityplotY<-axis_canvas(fig4f, axis="y", coord_flip = TRUE)+
-      geom_density(aes(df.acs.SL.scat1f.lims[,"l2fc.BM"], color=df.acs.SL.scat1f.lims[,"Category"]), df.acs.SL.scat1f.lims, size=0.9)+
-      scale_color_manual(values=c("Other"="grey70", "PlastidEncodedPS"="red3", "PHANGs"="#ef06db", "PlastidEncodedRibo+Other"="blue4", "NuclearEncodedPlastidRibo"="dodgerblue1", "Pt.rpo"="#653f01"))+
-      geom_vline(xintercept=0, linetype="dashed", color = "gray50")+
-      theme_void()+
-      theme(legend.title = element_blank())+
-      coord_flip()+
-      ylim(0,15)
-    #put two plots together
-    q <- insert_xaxis_grob(fig4f, densityplotX, position = "top")
-    q <- insert_yaxis_grob(q, densityplotY, position = "right")
-    #save
-    ggsave(plot=q, filename = "Fig4f.tiff",
-           device="tiff", dpi=600, width=9, height=8, compression = "lzw")
-```
-
-#Scatterplot1g
-##Make GOI description column
-```{r}
-df.acs.SL.scat1g <- df.acs.SL
-df.acs.SL.scat1g$Category <- "Other"
-df.acs.SL.scat1g$Order <- 1
-df.acs.SL.scat1g[(df.acs.SL.scat1g$Gene %in% PPS),"Category"] <- "PPS"
-df.acs.SL.scat1g[(df.acs.SL.scat1g$Gene %in% PPS),"Order"] <- 2
-df.acs.SL.scat1g[(df.acs.SL.scat1g$Gene %in% PtPS),"Category"] <- "PlastidEncodedPS"
-df.acs.SL.scat1g[(df.acs.SL.scat1g$Gene %in% PtPS),"Order"] <- 3
-df.acs.SL.scat1g[(df.acs.SL.scat1g$Gene %in% PHANG),"Category"] <- "PHANGs"
-df.acs.SL.scat1g[(df.acs.SL.scat1g$Gene %in% PHANG),"Order"] <- 4
-df.acs.SL.scat1g[(df.acs.SL.scat1g$Gene %in% c(PtEncodeRibo,Pt.other)),"Category"] <- "PlastidEncodedRibo+Other"
-df.acs.SL.scat1g[(df.acs.SL.scat1g$Gene %in% c(PtEncodeRibo,Pt.other)),"Order"] <- 5
-df.acs.SL.scat1g[(df.acs.SL.scat1g$Gene %in% PtRibo),"Category"] <- "NuclearEncodedPlastidRibo"
-df.acs.SL.scat1g[(df.acs.SL.scat1g$Gene %in% PtRibo),"Order"] <- 6
-#df.acs.SL.scat1g[(df.acs.SL.scat1g$Gene %in% eukRibo),"Category"] <- "CytosolicRibo"
-#df.acs.SL.scat1g[(df.acs.SL.scat1g$Gene %in% eukRibo),"Order"] <- 7
-df.acs.SL.scat1g[(df.acs.SL.scat1g$Gene %in% Pt.rpo),"Category"] <- "Pt.rpo"
-df.acs.SL.scat1g[(df.acs.SL.scat1g$Gene %in% Pt.rpo),"Order"] <- 8
-
-#Re-order
-df.acs.SL.scat1g <- df.acs.SL.scat1g[(order(df.acs.SL.scat1g$Order)),]
-```
-##Set limits for plot
-```{r}
-df.acs.SL.scat1g.lims <- df.acs.SL.scat1g
-
-df.acs.SL.scat1g.lims$l2fc.acs[df.acs.SL.scat1g.lims$l2fc.acs > 1.0] = 1.0
-df.acs.SL.scat1g.lims$l2fc.acs[df.acs.SL.scat1g.lims$l2fc.acs < -1.0] = -1.0
-
-df.acs.SL.scat1g.lims$l2fc.BM[df.acs.SL.scat1g.lims$l2fc.BM > 1.0] = 1.0
-df.acs.SL.scat1g.lims$l2fc.BM[df.acs.SL.scat1g.lims$l2fc.BM < -1.0] = -1.0
-```
-##Make scatterplot
-```{r}
-fig4g <- ggplot(df.acs.SL.scat1g.lims, mapping=aes(x=l2fc.acs, y=l2fc.BM, color=Category))+
-  geom_point(size=.8)+
-  scale_color_manual(values=c("Other"="grey70","PPS"="#efb806", "PlastidEncodedPS"="red3", "PHANGs"="#ef06db", "PlastidEncodedRibo+Other"="blue4", "NuclearEncodedPlastidRibo"="dodgerblue1", "Pt.rpo"="#653f01"), labels=c("Other"="Other", "PPS"="Pentose Phosphate Shunt", "PlastidEncodedPS"="Plastid-encoded photosynthesis-associated", "PHANGs"="Nuclear-encoded photosynthesis-associated", "PlastidEncodedRibo+Other"="Plastid-encoded ribosome +other", "NuclearEncodedPlastidRibo"="Nuclear-encoded plastid ribosome", "Pt.rpo"="Plastid-encoded RNA polymerase"), name="Protein Category")+
-  theme_bw()+
-  xlab("log2(acs/B73)")+
-  ylab("log2(BxM/MP)")+
-  geom_abline(slope = 1, color="grey50", size=.5)+
-  geom_vline(color="grey50", size=.5, xintercept = 0)+
-  geom_hline(color="grey50", size=.5, yintercept = 0)+
-  coord_fixed(expand = F)+
-  xlim(-1,1)+
-  ylim(-1,1)+
-  theme(legend.position = "bottom", legend.text=element_text(size=7), legend.title = element_text(size=9))+
-  theme(legend.position = "none")+
-  theme(axis.title = element_text(size=20))
-
-fig4g
-```
-##Add density curves
-```{r}
-#add density curves
-#add marginal density plots and resave
-    densityplotX<-axis_canvas(fig4g, axis="x")+
-      geom_density(aes(df.acs.SL.scat1g.lims[,"l2fc.acs"], color=df.acs.SL.scat1g.lims[,"Category"]), df.acs.SL.scat1g.lims, size=0.9)+
-      scale_color_manual(values=c("Other"="grey70","PPS"="#efb806", "PlastidEncodedPS"="red3", "PHANGs"="#ef06db", "PlastidEncodedRibo+Other"="blue4", "NuclearEncodedPlastidRibo"="dodgerblue1", "Pt.rpo"="#653f01"))+
-      geom_vline(xintercept=0, linetype="dashed", color = "gray50")+
-      theme_void()+
-      theme(legend.title = element_blank())+
-      ylim(0,15)
-    #set up marginal density plot Y axis
-    densityplotY<-axis_canvas(fig4g, axis="y", coord_flip = TRUE)+
-      geom_density(aes(df.acs.SL.scat1g.lims[,"l2fc.BM"], color=df.acs.SL.scat1g.lims[,"Category"]), df.acs.SL.scat1g.lims, size=0.9)+
-      scale_color_manual(values=c("Other"="grey70","PPS"="#efb806", "PlastidEncodedPS"="red3", "PHANGs"="#ef06db", "PlastidEncodedRibo+Other"="blue4", "NuclearEncodedPlastidRibo"="dodgerblue1", "Pt.rpo"="#653f01"))+
-      geom_vline(xintercept=0, linetype="dashed", color = "gray50")+
-      theme_void()+
-      theme(legend.title = element_blank())+
-      coord_flip()+
-      ylim(0,15)
-    #put two plots together
-    q <- insert_xaxis_grob(fig4g, densityplotX, position = "top")
-    q <- insert_yaxis_grob(q, densityplotY, position = "right")
-    #save
-    ggsave(plot=q, filename = "Fig4g.tiff",
-           device="tiff", dpi=600, width=9, height=8, compression = "lzw")
+    ggsave(plot=q, filename = "Fig4new.tiff",
+           device="tiff", dpi=300, width=4.5, height=4.5, compression = "lzw")
 ```
 
 #Scatterplot2
@@ -943,18 +477,18 @@ df.acs.SL.scat2.lims$l2fc.BM[df.acs.SL.scat2.lims$l2fc.BM < -1.0] = -1.0
 fig4.2 <- ggplot(df.acs.SL.scat2.lims, mapping=aes(x=l2fc.acs, y=l2fc.BM, color=Category))+
   geom_point(size=.8)+
   scale_color_manual(values=c("Other"="grey80", "EtBio"="blue", "ResponseToEt"="red"), name="Protein Category")+
-  theme_bw()+
-  xlab("log2(acs/B73)")+
-  ylab("log2(BxM/MP)")+
-  geom_abline(slope = 1, color="grey50", size=.5)+
-  geom_vline(color="grey50", size=.5, xintercept = 0)+
-  geom_hline(color="grey50", size=.5, yintercept = 0)+
-  coord_fixed(expand = F)+
-  xlim(-1,1)+
-  ylim(-1,1)+
-  theme(legend.position = "bottom", legend.text=element_text(size=7), legend.title = element_text(size=9))+
-  theme(legend.position = "none")+
-  theme(axis.title = element_text(size=20))
+  theme_classic()+
+  xlim(c(-1,1))+
+  ylim(c(-1,1))+
+  geom_vline(xintercept=0, linetype="dashed", color = "gray50")+
+  geom_hline(yintercept=0, linetype="dashed", color = "gray50")+
+  #geom_abline(intercept =0 , slope = 1, linetype="dashed", color="gray50")+
+  theme(axis.text=element_text(size=10),
+          legend.position="none")+
+  guides(fill=guide_legend(nrow=2,byrow=TRUE))+
+  xlab("log2 hyb/MP protein abundance")+
+  ylab("log2 acs/B73 protein abundance")+
+  coord_fixed(expand = F)
 
 fig4.2
 ```
@@ -963,29 +497,23 @@ fig4.2
 #add density curves
 #add marginal density plots and resave
     densityplotX<-axis_canvas(fig4.2, axis="x")+
-      geom_density(aes(df.acs.SL.scat2.lims[,"l2fc.acs"], color=df.acs.SL.scat2.lims[,"Category"]), df.acs.SL.scat2.lims, size=0.9)+
+      geom_density(aes(df.acs.SL.scat2.lims[,"l2fc.BM"], color=df.acs.SL.scat2.lims[,"Category"]), df.acs.SL.scat2.lims, size=0.7)+
       scale_color_manual(values=c("Other"="grey80", "EtBio"="blue", "ResponseToEt"="red"), name="Protein Category")+
       geom_vline(xintercept=0, linetype="dashed", color = "gray50")+
-      theme_void()+
-      theme(legend.title = element_blank())+
-  ylim(0,15)
+      theme_void()
     #set up marginal density plot Y axis
-    densityplotY<-axis_canvas(fig4.2, axis="y", coord_flip = TRUE)+
-      geom_density(aes(df.acs.SL.scat2.lims[,"l2fc.BM"], color=df.acs.SL.scat2.lims[,"Category"]), df.acs.SL.scat2.lims, size=0.9)+
+    densityplotY<-axis_canvas(fig4.2, axis="y", coord_flip = T)+
+      geom_density(aes(df.acs.SL.scat2.lims[,"l2fc.acs"], color=df.acs.SL.scat2.lims[,"Category"]), df.acs.SL.scat2.lims, size=0.7)+
       scale_color_manual(values=c("Other"="grey80", "EtBio"="blue", "ResponseToEt"="red"), name="Protein Category")+
       geom_vline(xintercept=0, linetype="dashed", color = "gray50")+
       theme_void()+
-      theme(legend.title = element_blank())+
-      coord_flip()+
-      ylim(0,15)
+      coord_flip()
     #put two plots together
-    q <- insert_xaxis_grob(fig4.2, densityplotX, position = "top")
-    q <- insert_yaxis_grob(q, densityplotY, position = "right")
+    q <- insert_xaxis_grob(fig4.2, densityplotX, grid::unit(0.275, "null"), position = "top")
+    q <- insert_yaxis_grob(q, densityplotY, grid::unit(0.275, "null"), position = "right")
     #save
-    ggsave(plot=q, filename = "Fig4_2.tiff",
-           device="tiff", dpi=600, width=9, height=8, compression = "lzw")
+    ggsave(plot=q, filename = "Fig4_2new.tiff",
+           device="tiff", dpi=300, width=4.5, height=4.5, compression = "lzw")
 ```
-
-
 
 
