@@ -262,12 +262,12 @@ df.acs.SL <- merge.data.frame(df.acs[,c(1:8,19,24:25)], df.SL[,c(6,c(27,29))], b
 
 #Define GOIs
 Gene lists and sources:
-1. Plastid encoded photosynthesis associated proteins  (EnsemblPlants Annotation)
-2. Photosynthesis associated nuclear encoded proteins (PhANGs)  (GO GAMER+CornCyc)
-3. Plastid encoded ribosomal proteins + 3"other"(= matK, infA, and clpP, added based on expression grouping) (EnsemblPlants Annotation)
-4. Plastid encoded RNA polymerases (EnsemblPlants Annotation)
-5. Nuclear encoded plastid ribosomal proteins (GO GAMER and EnsemblPlants Annotation)
-6. Eukaryotic ribosomal proteins (EnsemblPlants Annotation)
+1. Plastid encoded photosynthesis associated proteins (Annotation)
+2. Photosynthesis associated nuclear encoded proteins (GO GAMER+CornCyc)
+3. Plastid encoded ribosomal proteins + 3"other"(= matK, infA, and clpP, added based on expression grouping) (Annotation)
+4. Plastid encoded RNA polymerases (Annotation)
+5. Nuclear encoded plastid ribosomal proteins (GO GAMER and Annotation)
+6. Eukaryotic ribosomal proteins (Annotation)
 7. Ethylene biosynthesis (CornCyc)
 8. Response to ethylene (GAMER GO)
 9. Pentose-phosphate shunt (GAMER GO)
@@ -388,7 +388,7 @@ df.acs.SL.scat1[(df.acs.SL.scat1$Gene %in% c(PtEncodeRibo,Pt.other)),"Order"] <-
 df.acs.SL.scat1[(df.acs.SL.scat1$Gene %in% PtRibo),"Category"] <- "NuclearEncodedPlastidRibo"
 df.acs.SL.scat1[(df.acs.SL.scat1$Gene %in% PtRibo),"Order"] <- 6
 df.acs.SL.scat1[(df.acs.SL.scat1$Gene %in% eukRibo),"Category"] <- "CytosolicRibo"
-df.acs.SL.scat1[(df.acs.SL.scat1$Gene %in% eukRibo),"Order"] <- 7
+df.acs.SL.scat1[(df.acs.SL.scat1$Gene %in% eukRibo),"Order"] <- 2
 df.acs.SL.scat1[(df.acs.SL.scat1$Gene %in% Pt.rpo),"Category"] <- "Pt.rpo"
 df.acs.SL.scat1[(df.acs.SL.scat1$Gene %in% Pt.rpo),"Order"] <- 8
 #Re-order
@@ -408,7 +408,7 @@ df.acs.SL.scat1.lims$l2fc.BM[df.acs.SL.scat1.lims$l2fc.BM < -1.0] = -1.0
 ```{r}
 fig4 <- ggplot(df.acs.SL.scat1.lims, mapping=aes(x=l2fc.BM, y=l2fc.acs, color=Category))+
   geom_point(size=.8)+
-  scale_color_manual(values=c("Other"="grey70","PPS"="#efb806", "PlastidEncodedPS"="red3", "PHANGs"="#ef06db", "PlastidEncodedRibo+Other"="blue4", "NuclearEncodedPlastidRibo"="dodgerblue1", "CytosolicRibo"="#019d01", "Pt.rpo"="#653f01"), labels=c("Other"="Other", "PPS"="Pentose Phosphate Shunt", "PlastidEncodedPS"="Plastid-encoded photosynthesis-associated", "PHANGs"="Nuclear-encoded photosynthesis-associated", "PlastidEncodedRibo+Other"="Plastid-encoded ribosome +other", "NuclearEncodedPlastidRibo"="Nuclear-encoded plastid ribosome", "CytosolicRibo"="Cytosolic ribosome","Pt.rpo"="Plastid-encoded RNA polymerase"), name="Protein Category")+
+  scale_color_manual(values=c("Other"="grey70","PPS"="#efb806", "PlastidEncodedPS"="red3", "PHANGs"="#ef06db", "PlastidEncodedRibo+Other"="blue4", "NuclearEncodedPlastidRibo"="dodgerblue1", "CytosolicRibo"="#019d01", "Pt.rpo"="#653f01"), name="Protein Category")+
     theme_classic()+
     xlim(c(-1,1))+
     ylim(c(-1,1))+
