@@ -53,7 +53,7 @@ gamer$Term <- Term(as.character(gamer$term_accession))
 #Define topGO functions
 ```{r GOanalysisGOdata_Function}
 ## Build GOdata object
-# EnrichedDF = AHP/BLP/AMP/BMP output
+# EnrichedDF = AMP/BMP output or other subset dataframe of proteins of interest
 # GamerCut = the dataframe created above
 # ont = "BP", "MF", or "CC"
 GOanalysisGodata <- function(EnrichedDF, GamerCut, ont, nodesize = 1){
@@ -155,6 +155,7 @@ df.acs.bmp_CC_GOdata.DF <- GOanalysisDF(df.acs.bmp_CC_GOdata)
 
 #Seedling Leaf - B73xMo17
 ##Format df
+###AMP/BMP
 ```{r format df}
 #Subset
 df.SL <- df[,c(1:8,19:28,89)]
@@ -178,13 +179,34 @@ df.SL$l2fc <- log2(df.SL$HYB.MP)
 df.SL.amp <- df.SL[(df.SL$Sig<0.05)&(df.SL$HYB.MP>1.1),]
 df.SL.bmp <- df.SL[(df.SL$Sig<0.05)&(df.SL$HYB.MP<0.9),]
 ```
+###MP+HP
+```{r Subset to mid-parent proteins where parents are different}
+df.SL.2 <- df.SL
+
+df.SL.2.b73hp <- df.SL.2[(df.SL.2$B73avg>1.1*(df.SL.2$Mo17avg)),]
+df.SL.2.mo17hp <- df.SL.2[(df.SL.2$Mo17avg>1.1*(df.SL.2$B73avg)),]
+
+df.SL.2.b73hp.mp <- df.SL.2.b73hp[!(df.SL.2.b73hp$Accession%in%c(df.SL.amp$Accession, df.SL.bmp$Accession)),]
+
+df.SL.2.mo17hp.mp <- df.SL.2.mo17hp[!(df.SL.2.mo17hp$Accession%in%c(df.SL.amp$Accession, df.SL.bmp$Accession)),]
+
+df.SL.2.b73hp.mp.translation <- df.SL.2.b73hp.mp[(grep("translation", df.SL.2.b73hp.mp$Protein)),]
+df.SL.2.mo17hp.mp.translation <- df.SL.2.mo17hp.mp[(grep("translation", df.SL.2.mo17hp.mp$Protein)),]
+
+df.SL.2.b73hp.mp.translation$b73_mo17 <- df.SL.2.b73hp.mp.translation$B73avg/df.SL.2.b73hp.mp.translation$Mo17avg
+df.SL.2.mo17hp.mp.translation$mo17_b73 <- df.SL.2.mo17hp.mp.translation$Mo17avg/df.SL.2.mo17hp.mp.translation$B73avg
+
+write.csv(df.SL.2.b73hp.mp.translation, "df.SL.2.b73hp.mp.translation.csv")
+write.csv(df.SL.2.mo17hp.mp.translation, "df.SL.2.mo17hp.mp.translation.csv")
+```
 
 ##GO term enrichment
+###AMP/BMP
 ```{r trim gamer}
 #Trim gamer to only those genes detected in our data, to use as background for enrichment
 gamerCutSL <- gamer[(gamer$db_object_id %in% df.SL$Gene),]
 ```
-```{r run GoanalysisGodata}
+```{r run GoanalysisGodata for amp/bmp}
 df.SL.amp_BP_GOdata <- GOanalysisGodata(df.SL.amp, gamerCutSL, "BP", nodesize = 5)
 df.SL.amp_MF_GOdata <- GOanalysisGodata(df.SL.amp, gamerCutSL, "MF", nodesize = 5)
 df.SL.amp_CC_GOdata <- GOanalysisGodata(df.SL.amp, gamerCutSL, "CC", nodesize = 5)
@@ -193,7 +215,7 @@ df.SL.bmp_BP_GOdata <- GOanalysisGodata(df.SL.bmp, gamerCutSL, "BP", nodesize = 
 df.SL.bmp_MF_GOdata <- GOanalysisGodata(df.SL.bmp, gamerCutSL, "MF", nodesize = 5)
 df.SL.bmp_CC_GOdata <- GOanalysisGodata(df.SL.bmp, gamerCutSL, "CC", nodesize = 5)
 ```
-```{r run GoanalysisMap}
+```{r run GoanalysisMap for amp/bmp}
 dir.create("GOmaps")
 GOanalysisMap(df.SL.amp_BP_GOdata, "GOmaps/df.SL.amp_BP_GOdata")
 GOanalysisMap(df.SL.amp_MF_GOdata, "GOmaps/df.SL.amp_MF_GOdata")
@@ -203,7 +225,7 @@ GOanalysisMap(df.SL.bmp_BP_GOdata, "GOmaps/df.SL.bmp_BP_GOdata")
 GOanalysisMap(df.SL.bmp_MF_GOdata, "GOmaps/df.SL.bmp_MF_GOdata")
 GOanalysisMap(df.SL.bmp_CC_GOdata, "GOmaps/df.SL.bmp_CC_GOdata")
 ```
-```{r run GoanalysisDF}
+```{r run GoanalysisDF for amp/bmp}
 df.SL.amp_BP_GOdata.DF <- GOanalysisDF(df.SL.amp_BP_GOdata)
 df.SL.amp_MF_GOdata.DF <- GOanalysisDF(df.SL.amp_MF_GOdata)
 df.SL.amp_CC_GOdata.DF <- GOanalysisDF(df.SL.amp_CC_GOdata)
@@ -212,18 +234,43 @@ df.SL.bmp_BP_GOdata.DF <- GOanalysisDF(df.SL.bmp_BP_GOdata)
 df.SL.bmp_MF_GOdata.DF <- GOanalysisDF(df.SL.bmp_MF_GOdata)
 df.SL.bmp_CC_GOdata.DF <- GOanalysisDF(df.SL.bmp_CC_GOdata)
 ```
+```{r view enrichment}
+df.SL.bmp_CC_GOdata.DF
+```
 
+###MP+HP
+```{r run GoanalysisGodata for hp+mp}
+df.SL.2.b73hp.mp_BP_GOdata <- GOanalysisGodata(df.SL.2.b73hp.mp, gamerCutSL, "BP")
+df.SL.2.b73hp.mp_CC_GOdata <- GOanalysisGodata(df.SL.2.b73hp.mp, gamerCutSL, "CC")
+df.SL.2.b73hp.mp_MF_GOdata <- GOanalysisGodata(df.SL.2.b73hp.mp, gamerCutSL, "MF")
+
+df.SL.2.mo17hp.mp_BP_GOdata <- GOanalysisGodata(df.SL.2.mo17hp.mp, gamerCutSL, "BP")
+df.SL.2.mo17hp.mp_CC_GOdata <- GOanalysisGodata(df.SL.2.mo17hp.mp, gamerCutSL, "CC")
+df.SL.2.mo17hp.mp_MF_GOdata <- GOanalysisGodata(df.SL.2.mo17hp.mp, gamerCutSL, "MF")
+```
+```{r run GoanalysisDF for hp+mp}
+df.SL.2.b73hp.mp_BP_GOdata.DF <- GOanalysisDF(df.SL.2.b73hp.mp_BP_GOdata)
+df.SL.2.b73hp.mp_CC_GOdata.DF <- GOanalysisDF(df.SL.2.b73hp.mp_CC_GOdata)
+df.SL.2.b73hp.mp_MF_GOdata.DF <- GOanalysisDF(df.SL.2.b73hp.mp_MF_GOdata)
+
+df.SL.2.mo17hp.mp_BP_GOdata.DF <- GOanalysisDF(df.SL.2.mo17hp.mp_BP_GOdata)
+df.SL.2.mo17hp.mp_CC_GOdata.DF <- GOanalysisDF(df.SL.2.mo17hp.mp_CC_GOdata)
+df.SL.2.mo17hp.mp_MF_GOdata.DF <- GOanalysisDF(df.SL.2.mo17hp.mp_MF_GOdata)
+```
+```{r view enrichment}
+df.SL.2.b73hp.mp_BP_GOdata.DF
+```
 #ACS and BxM enrichment overlap
-```{r}
+```{r subset to proteins amp/bmp in both the mutant and hybrid}
 df.SL.acs.amp <- df.SL.amp[(df.SL.amp$Accession%in%df.acs.amp$Accession),]
 df.SL.acs.bmp <- df.SL.bmp[(df.SL.bmp$Accession%in%df.acs.bmp$Accession),]
 df.SL.acs <- df.SL[(df.SL$Gene%in%df.acs$Gene),]
 ```
-```{r}
+```{r trim gamer}
 #Trim gamer to only those genes detected in our data, to use as background for enrichment
 gamerCutSLacs <- gamer[(gamer$db_object_id %in% df.SL.acs$Gene),]
 ```
-```{r}
+```{r run GOanalysisGodata on hyb+acs overlapping enrichment}
 df.SL.acs.amp_BP_GOdata <- GOanalysisGodata(df.SL.acs.amp, gamerCutSLacs, "BP", nodesize = 5)
 df.SL.acs.amp_MF_GOdata <- GOanalysisGodata(df.SL.acs.amp, gamerCutSLacs, "MF", nodesize = 5)
 df.SL.acs.amp_CC_GOdata <- GOanalysisGodata(df.SL.acs.amp, gamerCutSLacs, "CC", nodesize = 5)
@@ -232,7 +279,7 @@ df.SL.acs.bmp_BP_GOdata <- GOanalysisGodata(df.SL.acs.bmp, gamerCutSLacs, "BP", 
 df.SL.acs.bmp_MF_GOdata <- GOanalysisGodata(df.SL.acs.bmp, gamerCutSLacs, "MF", nodesize = 5)
 df.SL.acs.bmp_CC_GOdata <- GOanalysisGodata(df.SL.acs.bmp, gamerCutSLacs, "CC", nodesize = 5)
 ```
-```{r}
+```{r run GOanalysisMap on hyb+acs overlapping enrichment}
 dir.create("GOmaps")
 GOanalysisMap(df.SL.acs.amp_BP_GOdata, "GOmaps/df.SL.acs.amp_BP_GOdata")
 GOanalysisMap(df.SL.acs.amp_MF_GOdata, "GOmaps/df.SL.acs.amp_MF_GOdata")
@@ -242,7 +289,7 @@ GOanalysisMap(df.SL.acs.bmp_BP_GOdata, "GOmaps/df.SL.acs.bmp_BP_GOdata")
 GOanalysisMap(df.SL.acs.bmp_MF_GOdata, "GOmaps/df.SL.acs.bmp_MF_GOdata")
 GOanalysisMap(df.SL.acs.bmp_CC_GOdata, "GOmaps/df.SL.acs.bmp_CC_GOdata")
 ```
-```{r}
+```{r run GOanalysisDF on hyb+acs overlapping enrichment}
 df.SL.acs.amp_BP_GOdata.DF <- GOanalysisDF(df.SL.acs.amp_BP_GOdata)
 df.SL.acs.amp_MF_GOdata.DF <- GOanalysisDF(df.SL.acs.amp_MF_GOdata)
 df.SL.acs.amp_CC_GOdata.DF <- GOanalysisDF(df.SL.acs.amp_CC_GOdata)
@@ -251,10 +298,9 @@ df.SL.acs.bmp_BP_GOdata.DF <- GOanalysisDF(df.SL.acs.bmp_BP_GOdata)
 df.SL.acs.bmp_MF_GOdata.DF <- GOanalysisDF(df.SL.acs.bmp_MF_GOdata)
 df.SL.acs.bmp_CC_GOdata.DF <- GOanalysisDF(df.SL.acs.bmp_CC_GOdata)
 ```
-```{r}
+```{r view enrichment}
 df.SL.acs.bmp_BP_GOdata.DF
 ```
-
 #Merge acs and Seedling Leaf BxM data
 ```{r merge data for scatterplots}
 df.acs.SL <- merge.data.frame(df.acs[,c(1:8,19,24:25)], df.SL[,c(6,c(27,29))], by="Accession", all = F, suffixes = c(".acs", ".BM"))
@@ -444,8 +490,35 @@ fig4
     q <- insert_xaxis_grob(fig4, densityplotX, grid::unit(0.275, "null"), position = "top")
     q <- insert_yaxis_grob(q, densityplotY, grid::unit(0.275, "null"), position = "right")
     #save
-    ggsave(plot=q, filename = "Fig4new.tiff",
-           device="tiff", dpi=300, width=4.5, height=4.5, compression = "lzw")
+  ggsave(plot=q, filename = "Fig4new.tiff",
+        device="tiff", dpi=300, width=4.5, height=4.5, compression = "lzw")
+```
+```{r}
+ggplot(df.acs.SL.scat1.lims)+
+  geom_density(aes(df.acs.SL.scat1.lims[,"l2fc.BM"], color=df.acs.SL.scat1.lims[,"Category"]), df.acs.SL.scat1.lims, size=1.2)+
+      scale_color_manual(values=c("Other"="black","PPS"="#efb806", "PlastidEncodedPS"="red3", "PHANGs"="#ef06db", "PlastidEncodedRibo+Other"="blue4", "NuclearEncodedPlastidRibo"="dodgerblue1", "CytosolicRibo"="#019d01", "Pt.rpo"="#855b05"))+
+      geom_vline(xintercept=0, linetype="dashed", color = "gray70")+
+      theme_void()+
+  theme(legend.position = "none")+
+  xlim(-1,1)
+ggsave("l2BM_density.tiff", dpi = 300, width = 8, height = 2)
+```
+```{r}
+df.acs.SL.scat1.lims.noOther <- df.acs.SL.scat1.lims[!(df.acs.SL.scat1.lims$Category=="Other"),]
+```
+```{r}
+coln
+```
+
+```{r}
+ggplot(df.acs.SL.scat1.lims.noOther)+
+  geom_density(aes(df.acs.SL.scat1.lims.noOther[,"l2fc.acs"], color=df.acs.SL.scat1.lims.noOther[,"Category"]), df.acs.SL.scat1.lims.noOther, size=1.2)+
+      scale_color_manual(values=c("PPS"="#efb806", "PlastidEncodedPS"="red3", "PHANGs"="#ef06db", "PlastidEncodedRibo+Other"="blue4", "NuclearEncodedPlastidRibo"="dodgerblue1", "CytosolicRibo"="#019d01", "Pt.rpo"="#855b05"))+
+      geom_vline(xintercept=0, linetype="dashed", color = "gray70")+
+      theme_void()+
+  theme(legend.position = "none")+
+  xlim(-1,1)
+#ggsave("l2acs_density.tiff", dpi = 300, width = 8, height = 2)
 ```
 
 #Scatterplot2
