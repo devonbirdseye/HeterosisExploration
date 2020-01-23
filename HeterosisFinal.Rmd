@@ -13,6 +13,7 @@ library(topGO)
 library(ggplot2)
 library(AnnotationDbi)
 library(cowplot)
+library(dplyr)
 ```
 
 #Import data
@@ -96,7 +97,6 @@ DF
 }
 ```
 
-
 #acs
 ##Format df
 ```{r format df}
@@ -179,7 +179,7 @@ df.SL$l2fc <- log2(df.SL$HYB.MP)
 df.SL.amp <- df.SL[(df.SL$Sig<0.05)&(df.SL$HYB.MP>1.1),]
 df.SL.bmp <- df.SL[(df.SL$Sig<0.05)&(df.SL$HYB.MP<0.9),]
 ```
-###MP+HP
+###MP + HP
 ```{r Subset to mid-parent proteins where parents are different}
 df.SL.2 <- df.SL
 
@@ -187,7 +187,6 @@ df.SL.2.b73hp <- df.SL.2[(df.SL.2$B73avg>1.1*(df.SL.2$Mo17avg)),]
 df.SL.2.mo17hp <- df.SL.2[(df.SL.2$Mo17avg>1.1*(df.SL.2$B73avg)),]
 
 df.SL.2.b73hp.mp <- df.SL.2.b73hp[!(df.SL.2.b73hp$Accession%in%c(df.SL.amp$Accession, df.SL.bmp$Accession)),]
-
 df.SL.2.mo17hp.mp <- df.SL.2.mo17hp[!(df.SL.2.mo17hp$Accession%in%c(df.SL.amp$Accession, df.SL.bmp$Accession)),]
 
 df.SL.2.b73hp.mp.translation <- df.SL.2.b73hp.mp[(grep("translation", df.SL.2.b73hp.mp$Protein)),]
@@ -198,6 +197,55 @@ df.SL.2.mo17hp.mp.translation$mo17_b73 <- df.SL.2.mo17hp.mp.translation$Mo17avg/
 
 write.csv(df.SL.2.b73hp.mp.translation, "df.SL.2.b73hp.mp.translation.csv")
 write.csv(df.SL.2.mo17hp.mp.translation, "df.SL.2.mo17hp.mp.translation.csv")
+```
+###AMP/BMP + HP
+```{r Subset to mid-parent proteins where parents are different}
+df.SL.3 <- df.SL
+
+df.SL.3.b73hp <- df.SL.3[(df.SL.3$B73avg>1.1*(df.SL.3$Mo17avg)),]
+df.SL.3.mo17hp <- df.SL.3[(df.SL.3$Mo17avg>1.1*(df.SL.3$B73avg)),]
+
+df.SL.3.b73hp.amp <- df.SL.3.b73hp[(df.SL.3.b73hp$Accession%in%df.SL.amp$Accession),]
+df.SL.3.b73hp.bmp <- df.SL.3.b73hp[(df.SL.3.b73hp$Accession%in%df.SL.bmp$Accession),]
+df.SL.3.mo17hp.amp <- df.SL.3.mo17hp[(df.SL.3.mo17hp$Accession%in%df.SL.amp$Accession),]
+df.SL.3.mo17hp.bmp <- df.SL.3.mo17hp[(df.SL.3.mo17hp$Accession%in%df.SL.bmp$Accession),]
+```
+
+```{r}
+df.SL.3.amp<-data.frame("HP"=c("B73", "Mo17"), "AMP"=c(nrow(df.SL.3.b73hp.amp), nrow(df.SL.3.mo17hp.amp)))
+
+df.SL.3.amp$HP<- c((paste0(df.SL.3.amp[1,1], " - ", as.character(df.SL.3.amp[1,2]))), (paste0(df.SL.3.amp[2,1], " - ", as.character(df.SL.3.amp[2,2]))))
+
+df.SL.3.amp <- df.SL.3.amp %>%
+  arrange(desc(HP)) %>%
+  mutate(lab.ypos = cumsum(AMP) - 0.5*AMP)
+
+df.SL.3.amp.bar<- ggplot(df.SL.3.amp, aes(x="", y=AMP, fill=HP))+
+geom_bar(width = 1, stat = "identity")
+df.SL.3.amp.pie <- df.SL.3.amp.bar + coord_polar("y", start=0)+
+  theme_void()+
+  theme(axis.text=element_blank(), legend.position = "none")+
+  geom_text(aes(y = lab.ypos, label = HP), color = "white", size=5)+
+  ggtitle("High-parent for 10% AMP proteins")+
+  theme(plot.title = element_text(hjust = .5))
+ggsave("df.SL.3.amp.pie.png", width = 4, height = 4)
+```
+```{r}
+df.SL.3.bmp<-data.frame("LP"=c("Mo17", "B73"), "bmp"=c(nrow(df.SL.3.b73hp.bmp), nrow(df.SL.3.mo17hp.bmp)))
+
+df.SL.3.bmp$HP<- c((paste0(df.SL.3.bmp[1,1], " - ", as.character(df.SL.3.bmp[1,2]))), (paste0(df.SL.3.bmp[2,1], " - ", as.character(df.SL.3.bmp[2,2]))))
+
+df.SL.3.bmp <- df.SL.3.bmp %>%
+  arrange(desc(HP)) %>%
+  mutate(lab.ypos = cumsum(bmp) - 0.5*bmp)
+
+df.SL.3.bmp.bar<- ggplot(df.SL.3.bmp, aes(x="", y=bmp, fill=HP))+
+geom_bar(width = 1, stat = "identity")
+df.SL.3.bmp.pie <- df.SL.3.bmp.bar + coord_polar("y", start=0)+
+  theme_void()+
+  theme(axis.text=element_blank(), legend.position = "none")+
+  geom_text(aes(y = lab.ypos, label = HP), color = "white", size=5)
+df.SL.3.bmp.pie
 ```
 
 ##GO term enrichment
@@ -238,7 +286,7 @@ df.SL.bmp_CC_GOdata.DF <- GOanalysisDF(df.SL.bmp_CC_GOdata)
 df.SL.bmp_CC_GOdata.DF
 ```
 
-###MP+HP
+###MP + HP
 ```{r run GoanalysisGodata for hp+mp}
 df.SL.2.b73hp.mp_BP_GOdata <- GOanalysisGodata(df.SL.2.b73hp.mp, gamerCutSL, "BP")
 df.SL.2.b73hp.mp_CC_GOdata <- GOanalysisGodata(df.SL.2.b73hp.mp, gamerCutSL, "CC")
@@ -259,6 +307,44 @@ df.SL.2.mo17hp.mp_MF_GOdata.DF <- GOanalysisDF(df.SL.2.mo17hp.mp_MF_GOdata)
 ```
 ```{r view enrichment}
 df.SL.2.b73hp.mp_BP_GOdata.DF
+```
+###AMP/BMP + HP
+```{r run GoanalysisGodata for amp/bmp+mp}
+df.SL.3.b73hp.amp_BP_GOdata <- GOanalysisGodata(df.SL.3.b73hp.amp, gamerCutSL, "BP")
+df.SL.3.b73hp.amp_CC_GOdata <- GOanalysisGodata(df.SL.3.b73hp.amp, gamerCutSL, "CC")
+df.SL.3.b73hp.amp_MF_GOdata <- GOanalysisGodata(df.SL.3.b73hp.amp, gamerCutSL, "MF")
+
+df.SL.3.mo17hp.amp_BP_GOdata <- GOanalysisGodata(df.SL.3.mo17hp.amp, gamerCutSL, "BP")
+df.SL.3.mo17hp.amp_CC_GOdata <- GOanalysisGodata(df.SL.3.mo17hp.amp, gamerCutSL, "CC")
+df.SL.3.mo17hp.amp_MF_GOdata <- GOanalysisGodata(df.SL.3.mo17hp.amp, gamerCutSL, "MF")
+
+df.SL.3.b73hp.bmp_BP_GOdata <- GOanalysisGodata(df.SL.3.b73hp.bmp, gamerCutSL, "BP")
+df.SL.3.b73hp.bmp_CC_GOdata <- GOanalysisGodata(df.SL.3.b73hp.bmp, gamerCutSL, "CC")
+df.SL.3.b73hp.bmp_MF_GOdata <- GOanalysisGodata(df.SL.3.b73hp.bmp, gamerCutSL, "MF")
+
+df.SL.3.mo17hp.bmp_BP_GOdata <- GOanalysisGodata(df.SL.3.mo17hp.bmp, gamerCutSL, "BP")
+df.SL.3.mo17hp.bmp_CC_GOdata <- GOanalysisGodata(df.SL.3.mo17hp.bmp, gamerCutSL, "CC")
+df.SL.3.mo17hp.bmp_MF_GOdata <- GOanalysisGodata(df.SL.3.mo17hp.bmp, gamerCutSL, "MF")
+```
+```{r run GoanalysisDF for amp/bmp+mp}
+df.SL.3.b73hp.amp_BP_GOdata.DF <- GOanalysisDF(df.SL.3.b73hp.amp_BP_GOdata)
+df.SL.3.b73hp.amp_CC_GOdata.DF <- GOanalysisDF(df.SL.3.b73hp.amp_CC_GOdata)
+df.SL.3.b73hp.amp_MF_GOdata.DF <- GOanalysisDF(df.SL.3.b73hp.amp_MF_GOdata)
+
+df.SL.3.mo17hp.amp_BP_GOdata.DF <- GOanalysisDF(df.SL.3.mo17hp.amp_BP_GOdata)
+df.SL.3.mo17hp.amp_CC_GOdata.DF <- GOanalysisDF(df.SL.3.mo17hp.amp_CC_GOdata)
+df.SL.3.mo17hp.amp_MF_GOdata.DF <- GOanalysisDF(df.SL.3.mo17hp.amp_MF_GOdata)
+
+df.SL.3.b73hp.bmp_BP_GOdata.DF <- GOanalysisDF(df.SL.3.b73hp.bmp_BP_GOdata)
+df.SL.3.b73hp.bmp_CC_GOdata.DF <- GOanalysisDF(df.SL.3.b73hp.bmp_CC_GOdata)
+df.SL.3.b73hp.bmp_MF_GOdata.DF <- GOanalysisDF(df.SL.3.b73hp.bmp_MF_GOdata)
+
+df.SL.3.mo17hp.bmp_BP_GOdata.DF <- GOanalysisDF(df.SL.3.mo17hp.bmp_BP_GOdata)
+df.SL.3.mo17hp.bmp_CC_GOdata.DF <- GOanalysisDF(df.SL.3.mo17hp.bmp_CC_GOdata)
+df.SL.3.mo17hp.bmp_MF_GOdata.DF <- GOanalysisDF(df.SL.3.mo17hp.bmp_MF_GOdata)
+```
+```{r view enrichment}
+df.SL.3.mo17hp.amp_BP_GOdata.DF
 ```
 #ACS and BxM enrichment overlap
 ```{r subset to proteins amp/bmp in both the mutant and hybrid}
