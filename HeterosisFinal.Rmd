@@ -181,37 +181,60 @@ df.SL.bmp <- df.SL[(df.SL$Sig<0.05)&(df.SL$HYB.MP<0.9),]
 ```
 ###MP + HP
 ```{r Subset to mid-parent proteins where parents are different}
+#Copy data
 df.SL.2 <- df.SL
-
+#subset to proteins where parents are 10% different from each other
 df.SL.2.b73hp <- df.SL.2[(df.SL.2$B73avg>1.1*(df.SL.2$Mo17avg)),]
 df.SL.2.mo17hp <- df.SL.2[(df.SL.2$Mo17avg>1.1*(df.SL.2$B73avg)),]
-
+#subset to proteins where hybrid is mid-parent
 df.SL.2.b73hp.mp <- df.SL.2.b73hp[!(df.SL.2.b73hp$Accession%in%c(df.SL.amp$Accession, df.SL.bmp$Accession)),]
 df.SL.2.mo17hp.mp <- df.SL.2.mo17hp[!(df.SL.2.mo17hp$Accession%in%c(df.SL.amp$Accession, df.SL.bmp$Accession)),]
-
+#add column taking the ratio of the parents
+df.SL.2.b73hp.mp$b73_mo17 <- df.SL.2.b73hp.mp$B73avg/df.SL.2.b73hp.mp$Mo17avg
+df.SL.2.mo17hp.mp$mo17_b73 <- df.SL.2.mo17hp.mp$Mo17avg/df.SL.2.mo17hp.mp$B73avg
+#subset to proteins with "translation" in the annotation
 df.SL.2.b73hp.mp.translation <- df.SL.2.b73hp.mp[(grep("translation", df.SL.2.b73hp.mp$Protein)),]
 df.SL.2.mo17hp.mp.translation <- df.SL.2.mo17hp.mp[(grep("translation", df.SL.2.mo17hp.mp$Protein)),]
-
-df.SL.2.b73hp.mp.translation$b73_mo17 <- df.SL.2.b73hp.mp.translation$B73avg/df.SL.2.b73hp.mp.translation$Mo17avg
-df.SL.2.mo17hp.mp.translation$mo17_b73 <- df.SL.2.mo17hp.mp.translation$Mo17avg/df.SL.2.mo17hp.mp.translation$B73avg
-
+#write csv
+write.csv(df.SL.2.b73hp.mp, "df.SL.2.b73hp.mp.csv")
+write.csv(df.SL.2.mo17hp.mp, "df.SL.2.mo17hp.mp.csv")
 write.csv(df.SL.2.b73hp.mp.translation, "df.SL.2.b73hp.mp.translation.csv")
 write.csv(df.SL.2.mo17hp.mp.translation, "df.SL.2.mo17hp.mp.translation.csv")
 ```
+```{r Pie Chart}
+df.SL.2<-data.frame("HP"=c("B73", "Mo17"), "MP"=c(nrow(df.SL.2.b73hp), nrow(df.SL.2.mo17hp)))
+
+df.SL.2$HP<- c((paste0(df.SL.2[1,1], " - ", as.character(df.SL.2[1,2]))), (paste0(df.SL.2[2,1], " - ", as.character(df.SL.2[2,2]))))
+
+df.SL.2 <- df.SL.2 %>%
+  arrange(desc(HP)) %>%
+  mutate(lab.ypos = cumsum(MP) - 0.5*MP)
+
+df.SL.2.bar<- ggplot(df.SL.2, aes(x="", y=MP, fill=HP))+
+geom_bar(width = 1, stat = "identity")
+df.SL.2.pie <- df.SL.2.bar + coord_polar("y", start=0)+
+  theme_void()+
+  theme(axis.text=element_blank(), legend.position = "none")+
+  geom_text(aes(y = lab.ypos, label = HP), color = "white", size=5)+
+  ggtitle("High-parent for MP proteins")+
+  theme(plot.title = element_text(hjust = .5))
+df.SL.2.pie
+ggsave("df.SL.2.pie.png", width = 4, height = 4)
+```
 ###AMP/BMP + HP
 ```{r Subset to mid-parent proteins where parents are different}
+#Copy data
 df.SL.3 <- df.SL
-
+#subset to proteins where parents are 10% different from each other
 df.SL.3.b73hp <- df.SL.3[(df.SL.3$B73avg>1.1*(df.SL.3$Mo17avg)),]
 df.SL.3.mo17hp <- df.SL.3[(df.SL.3$Mo17avg>1.1*(df.SL.3$B73avg)),]
-
+#subset to proteins where hybrid is amp or bmp
 df.SL.3.b73hp.amp <- df.SL.3.b73hp[(df.SL.3.b73hp$Accession%in%df.SL.amp$Accession),]
 df.SL.3.b73hp.bmp <- df.SL.3.b73hp[(df.SL.3.b73hp$Accession%in%df.SL.bmp$Accession),]
 df.SL.3.mo17hp.amp <- df.SL.3.mo17hp[(df.SL.3.mo17hp$Accession%in%df.SL.amp$Accession),]
 df.SL.3.mo17hp.bmp <- df.SL.3.mo17hp[(df.SL.3.mo17hp$Accession%in%df.SL.bmp$Accession),]
 ```
-
-```{r}
+```{r pie chart - amp}
 df.SL.3.amp<-data.frame("HP"=c("B73", "Mo17"), "AMP"=c(nrow(df.SL.3.b73hp.amp), nrow(df.SL.3.mo17hp.amp)))
 
 df.SL.3.amp$HP<- c((paste0(df.SL.3.amp[1,1], " - ", as.character(df.SL.3.amp[1,2]))), (paste0(df.SL.3.amp[2,1], " - ", as.character(df.SL.3.amp[2,2]))))
@@ -230,7 +253,7 @@ df.SL.3.amp.pie <- df.SL.3.amp.bar + coord_polar("y", start=0)+
   theme(plot.title = element_text(hjust = .5))
 ggsave("df.SL.3.amp.pie.png", width = 4, height = 4)
 ```
-```{r}
+```{r pie chart - bmp}
 df.SL.3.bmp<-data.frame("LP"=c("Mo17", "B73"), "bmp"=c(nrow(df.SL.3.b73hp.bmp), nrow(df.SL.3.mo17hp.bmp)))
 
 df.SL.3.bmp$HP<- c((paste0(df.SL.3.bmp[1,1], " - ", as.character(df.SL.3.bmp[1,2]))), (paste0(df.SL.3.bmp[2,1], " - ", as.character(df.SL.3.bmp[2,2]))))
@@ -244,8 +267,10 @@ geom_bar(width = 1, stat = "identity")
 df.SL.3.bmp.pie <- df.SL.3.bmp.bar + coord_polar("y", start=0)+
   theme_void()+
   theme(axis.text=element_blank(), legend.position = "none")+
-  geom_text(aes(y = lab.ypos, label = HP), color = "white", size=5)
-df.SL.3.bmp.pie
+  geom_text(aes(y = lab.ypos, label = HP), color = "white", size=5)+
+  ggtitle("Low-parent for 10% BMP proteins")+
+  theme(plot.title = element_text(hjust = .5))
+ggsave("df.SL.3.bmp.pie.png", width = 4, height = 4)
 ```
 
 ##GO term enrichment
@@ -306,7 +331,7 @@ df.SL.2.mo17hp.mp_CC_GOdata.DF <- GOanalysisDF(df.SL.2.mo17hp.mp_CC_GOdata)
 df.SL.2.mo17hp.mp_MF_GOdata.DF <- GOanalysisDF(df.SL.2.mo17hp.mp_MF_GOdata)
 ```
 ```{r view enrichment}
-df.SL.2.b73hp.mp_BP_GOdata.DF
+df.SL.2.mo17hp.mp_MF_GOdata.DF
 ```
 ###AMP/BMP + HP
 ```{r run GoanalysisGodata for amp/bmp+mp}
@@ -344,7 +369,7 @@ df.SL.3.mo17hp.bmp_CC_GOdata.DF <- GOanalysisDF(df.SL.3.mo17hp.bmp_CC_GOdata)
 df.SL.3.mo17hp.bmp_MF_GOdata.DF <- GOanalysisDF(df.SL.3.mo17hp.bmp_MF_GOdata)
 ```
 ```{r view enrichment}
-df.SL.3.mo17hp.amp_BP_GOdata.DF
+df.SL.3.b73hp.bmp_MF_GOdata.DF
 ```
 #ACS and BxM enrichment overlap
 ```{r subset to proteins amp/bmp in both the mutant and hybrid}
