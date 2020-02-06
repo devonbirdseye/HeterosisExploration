@@ -155,6 +155,8 @@ lightrxn.NADPreduction<- unique(c(lightrxn.NADPreduction, cornCyc$`Gene Accessio
 lightrxn.lightharvesting<- unique(c(lightrxn.lightharvesting, cornCyc$`Gene Accession`[(cornCyc$`Enzymatic activity`=="photosystem I")]))
 lightrxn.lightharvesting<- unique(c(lightrxn.lightharvesting, cornCyc$`Gene Accession`[(cornCyc$`Enzymatic activity`=="photosystem II")]))
 
+lightrxn <- unique(c(lightrxn, cornCyc$`Gene Accession`[cornCyc$Pathway=="Light_Rxn"]))
+
 darkrxn.rPP <- unique(c(darkrxn.rPP, cornCyc$`Gene Accession`[cornCyc$Pathway=="Calvin_Cycle"]))
 
 #define thylakoid proteins as everything in that cellular compartment, minus our proteins of interest
@@ -164,6 +166,7 @@ thylakoid <- thylakoid[!thylakoid%in%cornCyc$`Gene Accession`]
 
 OxEvolComp <- SelectGOgenes(godataCC, "GO:0009654")
 ```
+
 
 
 ##Plastid-encoded
