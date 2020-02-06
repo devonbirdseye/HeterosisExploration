@@ -97,6 +97,137 @@ DF
 }
 ```
 
+#Define GOIs
+##godata
+```{r}
+godataBP <- GOanalysisGodata(df.SL, gamer, "BP")
+godataCC <- GOanalysisGodata(df.SL, gamer, "CC")
+```
+```{r}
+SelectGOgenes <- function(GOdata, GOterm){
+ df <- data.frame("Gene"=(topGO::genesInTerm(GOdata, GOterm)))
+colnames(df)="Gene"
+as.character(df$Gene)
+}
+```
+
+##Photosynthesis
+
+```{r}
+GOphoto<-read.csv("PhotosynthesisGOterms.csv", stringsAsFactors = F)
+```
+```{r}
+GOphoto.all <- GOphoto$go
+GOphoto.lightrxn <- GOphoto$go[GOphoto$subpath=="photosynthesis, light reaction"]
+GOphoto.lightrxn.lightharvesting <- GOphoto$go[grep("harvesting",GOphoto$term)]
+GOphoto.lightrxn.electrontransport <- GOphoto$go[grep("transport",GOphoto$term)]
+GOphoto.lightrxn.NADPreduction <- GOphoto$go[grep("NADP",GOphoto$term)]
+GOphoto.lightrxn.phosphorylation <- GOphoto$go[grep("phosphorylation",GOphoto$term)]
+GOphoto.lightrxn.PSIassembly <- GOphoto$go[grep("photosystem I assembly",GOphoto$term)]
+GOphoto.lightrxn.PSIIassembly <- GOphoto$go[grep("photosystem II assembly",GOphoto$term)]
+GOphoto.lightrxn.OxEvolassembly <- GOphoto$go[grep("oxygen evolving",GOphoto$term)]
+
+GOphoto.darkrxn <- GOphoto$go[GOphoto$subpath=="photosynthesis, dark reaction"]
+GOphoto.darkrxn.rPP <- GOphoto$go[grep("pentose",GOphoto$term)]
+```
+```{r}
+photosynthesis <- as.vector(gamer$db_object_id[gamer$term_accession%in%GOphoto.all])
+lightrxn <- as.vector(gamer$db_object_id[gamer$term_accession%in%GOphoto.lightrxn])
+lightrxn.lightharvesting <- as.vector(gamer$db_object_id[gamer$term_accession%in%GOphoto.lightrxn.lightharvesting])
+lightrxn.electrontransport <- as.vector(gamer$db_object_id[gamer$term_accession%in%GOphoto.lightrxn.electrontransport])
+lightrxn.NADPreduction <- as.vector(gamer$db_object_id[gamer$term_accession%in%GOphoto.lightrxn.NADPreduction])
+lightrxn.phosphorylation <- as.vector(gamer$db_object_id[gamer$term_accession%in%GOphoto.lightrxn.phosphorylation])
+lightrxn.PSIassembly <- as.vector(gamer$db_object_id[gamer$term_accession%in%GOphoto.lightrxn.PSIassembly])
+lightrxn.PSIIassembly <- as.vector(gamer$db_object_id[gamer$term_accession%in%GOphoto.lightrxn.PSIIassembly])
+lightrxn.OxEvolassembly <- as.vector(gamer$db_object_id[gamer$term_accession%in%GOphoto.lightrxn.OxEvolassembly])
+darkrxn.rPP <- as.vector(gamer$db_object_id[gamer$term_accession%in%GOphoto.darkrxn.rPP])
+
+
+#Add CornCyc annotated PhANGs
+#accessed from https://corncyc-b73-v4.maizegdb.org/ on 1/4/2020
+cornCyc<-as.data.frame(readr::read_csv(file = "cornCycGeneLists01042020.csv",
+                         col_names = TRUE
+                         ))
+lightrxn.electrontransport<- unique(c(lightrxn.electrontransport, (cornCyc$`Gene Accession`[(cornCyc$`Enzymatic activity`=="plastoquinol-plastocyanin reductase")])))
+
+lightrxn.NADPreduction<- unique(c(lightrxn.NADPreduction, cornCyc$`Gene Accession`[(cornCyc$`Enzymatic activity`=="ferredoxin NADP reductase")]))
+
+lightrxn.lightharvesting<- unique(c(lightrxn.lightharvesting, cornCyc$`Gene Accession`[(cornCyc$`Enzymatic activity`=="photosystem I")]))
+lightrxn.lightharvesting<- unique(c(lightrxn.lightharvesting, cornCyc$`Gene Accession`[(cornCyc$`Enzymatic activity`=="photosystem II")]))
+
+darkrxn.rPP <- unique(c(darkrxn.rPP, cornCyc$`Gene Accession`[cornCyc$Pathway=="Calvin_Cycle"]))
+
+#define thylakoid proteins as everything in that cellular compartment, minus our proteins of interest
+thylakoid <- SelectGOgenes(godataCC, "GO:0009579")
+thylakoid <- thylakoid[!thylakoid%in%photosynthesis]
+thylakoid <- thylakoid[!thylakoid%in%cornCyc$`Gene Accession`]
+
+OxEvolComp <- SelectGOgenes(godataCC, "GO:0009654")
+```
+
+
+##Plastid-encoded
+```{r}
+#Plastid-encoded proteins
+Pt<-df.SL[grep("v4:Pt", df.SL$Protein),]
+#define list of plastid-encoded photosynthesis-associated genes
+PtPS <- Pt[-grep("rps|rpo|rpl|orf", Pt$Protein),]
+#Plastid encoded ribosomal proteins (EnsemblPlants Annotation)
+#get subset of Pt encoded genes annotated as ribosomal proteins
+Pt.ribo <- Pt[grep("rps|rpl", Pt$Protein),]
+#Plastid encoded RNA polymerases (EnsemblPlants Annotation)
+Pt.rpo <- Pt[grep("rpo", Pt$Protein),]
+#re-define to gene vector
+Pt <- Pt$Gene
+PtPS <- PtPS$Gene
+Pt.ribo <- Pt.ribo$Gene
+Pt.rpo <- Pt.rpo$Gene
+#Define "other" as everything left
+Pt.other <- Pt[!(Pt%in%c(Pt.ribo, PtPS, Pt.rpo))]
+```
+
+##Nuclear-encoded plastid ribosome
+```{r}
+#Nuclear encoded plastid ribosomal proteins (GO GAMER and EnsemblPlants Annotation)
+Nuc.PtRibo <- SelectGOgenes(godataCC, "GO:0009547")
+#Add proteins annotated as "ribosom" and "plastid/chloroplast" to the nuclear-encoded plastid-localized list
+ribosom <- df.SL[(grep("ribosom", df.SL$Protein)),]
+ribosom.pt <- ribosom[(grep("plastid|Plastid|Chloropl|chloropl", ribosom$Protein)),]
+#remove plastid-encoded 
+ribosom.pt <- ribosom.pt[-grep("NP_04",ribosom.pt$Protein),]
+Nuc.PtRibo <- unique(c(Nuc.PtRibo,ribosom.pt$Gene))
+#Check that there are no missing prokaryotic ribosomal proteins with plastid localization
+ProkRibo <- df.SL[(grep("30S|60S", df.SL$Protein)),]
+ProkRiboNotPt <- ProkRibo[!(ProkRibo$Gene%in%Nuc.PtRibo),]
+GOplastid <- SelectGOgenes(godataCC, "GO:0009536")
+ProkRiboNotPt.plastid <- ProkRiboNotPt[(ProkRiboNotPt$Gene%in%GOplastid),]
+Nuc.PtRibo <- unique(c(Nuc.PtRibo, ProkRiboNotPt.plastid$Gene))
+```
+
+##Eukaryotic ribosome
+```{r}
+#Eukaryotic ribosomal proteins (EnsemblPlants Annotation)
+eukRibo<-df.SL[(grep("40S|60S", df.SL$Protein)),]
+#remove the mitochondrial ones
+eukRibo<- eukRibo$Gene[-(grep("mito|Mito", eukRibo$Protein))]
+```
+
+##Etyhlene
+```{r}
+MAT <- cornCyc$`Gene Accession`[(cornCyc$`Enzymatic activity`=="methionine adenosyltransferase")]
+ACS <- cornCyc$`Gene Accession`[(cornCyc$`Enzymatic activity`=="1-aminocyclopropane-1-carboxylate synthase")]
+ACO <- cornCyc$`Gene Accession`[(cornCyc$`Enzymatic activity`=="1-aminocyclopropane-1-carboxylate oxidase")]
+EtBio <- c(MAT,ACS,ACO)
+```
+```{r}
+ResponseToEt <- SelectGOgenes(godataBP, "GO:0009723")
+```
+```{r}
+gamer.responseToEt <- gamer$db_object_id[gamer$term_accession=="GO:0009723"]
+gamer.DetectionOfEt <- gamer$db_object_id[gamer$term_accession=="GO:0009727"]
+gamer.CellResponseToEt <- gamer$db_object_id[gamer$term_accession=="GO:0071369"]
+gamer.EtSignaling <- gamer$db_object_id[gamer$term_accession=="GO:0009873"]
+```
 #acs
 ##Format df
 ```{r format df}
@@ -155,6 +286,7 @@ df.acs.bmp_CC_GOdata.DF <- GOanalysisDF(df.acs.bmp_CC_GOdata)
 
 #Seedling Leaf - B73xMo17
 ##Format df
+
 ###AMP/BMP
 ```{r format df}
 #Subset
@@ -178,6 +310,9 @@ df.SL$l2fc <- log2(df.SL$HYB.MP)
 #subset to 10% significantly above or below mid-parent
 df.SL.amp <- df.SL[(df.SL$Sig<0.05)&(df.SL$HYB.MP>1.1),]
 df.SL.bmp <- df.SL[(df.SL$Sig<0.05)&(df.SL$HYB.MP<0.9),]
+#Calculate log2(B73/Mo17)
+df.SL$B73.Mo17 <- df.SL$B73avg/df.SL$Mo17avg
+df.SL$l2fc.B73.Mo17 <-log2(df.SL$B73.Mo17)
 ```
 ###MP + HP
 ```{r Subset to mid-parent proteins where parents are different}
@@ -279,11 +414,11 @@ ggsave("df.SL.3.bmp.pie.png", width = 4, height = 4)
 ```
 
 ##GO term enrichment
-###AMP/BMP
 ```{r trim gamer}
 #Trim gamer to only those genes detected in our data, to use as background for enrichment
 gamerCutSL <- gamer[(gamer$db_object_id %in% df.SL$Gene),]
 ```
+###AMP/BMP
 ```{r run GoanalysisGodata for amp/bmp}
 df.SL.amp_BP_GOdata <- GOanalysisGodata(df.SL.amp, gamerCutSL, "BP", nodesize = 5)
 df.SL.amp_MF_GOdata <- GOanalysisGodata(df.SL.amp, gamerCutSL, "MF", nodesize = 5)
@@ -356,6 +491,7 @@ df.SL.3.mo17hp.bmp_BP_GOdata <- GOanalysisGodata(df.SL.3.mo17hp.bmp, gamerCutSL,
 df.SL.3.mo17hp.bmp_CC_GOdata <- GOanalysisGodata(df.SL.3.mo17hp.bmp, gamerCutSL, "CC")
 df.SL.3.mo17hp.bmp_MF_GOdata <- GOanalysisGodata(df.SL.3.mo17hp.bmp, gamerCutSL, "MF")
 ```
+
 ```{r run GoanalysisDF for amp/bmp+mp}
 df.SL.3.b73hp.amp_BP_GOdata.DF <- GOanalysisDF(df.SL.3.b73hp.amp_BP_GOdata)
 df.SL.3.b73hp.amp_CC_GOdata.DF <- GOanalysisDF(df.SL.3.b73hp.amp_CC_GOdata)
@@ -373,8 +509,235 @@ df.SL.3.mo17hp.bmp_BP_GOdata.DF <- GOanalysisDF(df.SL.3.mo17hp.bmp_BP_GOdata)
 df.SL.3.mo17hp.bmp_CC_GOdata.DF <- GOanalysisDF(df.SL.3.mo17hp.bmp_CC_GOdata)
 df.SL.3.mo17hp.bmp_MF_GOdata.DF <- GOanalysisDF(df.SL.3.mo17hp.bmp_MF_GOdata)
 ```
-```{r view enrichment}
-df.SL.3.b73hp.bmp_MF_GOdata.DF
+
+
+##Scatterplot - Photosynthesis subterms
+###Make GOI description column
+```{r define categories}
+df.SL.scat1 <- df.SL
+df.SL.scat1$Category <- "Other"
+df.SL.scat1$Order <- 1
+df.SL.scat1[(df.SL.scat1$Gene %in% thylakoid),"Category"] <- "Thylakoid"
+df.SL.scat1[(df.SL.scat1$Gene %in% thylakoid),"Order"] <- 2
+df.SL.scat1[(df.SL.scat1$Gene %in% lightrxn.PSIIassembly),"Category"] <- "Photosystem II assembly"
+df.SL.scat1[(df.SL.scat1$Gene %in% lightrxn.PSIIassembly),"Order"] <- 3
+df.SL.scat1[(df.SL.scat1$Gene %in% darkrxn.rPP),"Category"] <- "Calvin Cycle"
+df.SL.scat1[(df.SL.scat1$Gene %in% darkrxn.rPP),"Order"] <- 4
+df.SL.scat1[(df.SL.scat1$Gene %in% lightrxn.lightharvesting),"Category"] <- "Light harvesting"
+df.SL.scat1[(df.SL.scat1$Gene %in% lightrxn.lightharvesting),"Order"] <- 5
+df.SL.scat1[(df.SL.scat1$Gene %in% lightrxn.electrontransport),"Category"] <- "Electron transport"
+df.SL.scat1[(df.SL.scat1$Gene %in% lightrxn.electrontransport),"Order"] <- 6
+df.SL.scat1[(df.SL.scat1$Gene %in% lightrxn.NADPreduction),"Category"] <- "NADP reduction"
+df.SL.scat1[(df.SL.scat1$Gene %in% lightrxn.NADPreduction),"Order"] <- 7
+df.SL.scat1[(df.SL.scat1$Gene %in% lightrxn.phosphorylation),"Category"] <- "Phosphorylation"
+df.SL.scat1[(df.SL.scat1$Gene %in% lightrxn.phosphorylation),"Order"] <- 8
+df.SL.scat1[(df.SL.scat1$Gene %in% lightrxn.PSIassembly),"Category"] <- "Photosystem I assembly"
+df.SL.scat1[(df.SL.scat1$Gene %in% lightrxn.PSIassembly),"Order"] <- 9
+df.SL.scat1[(df.SL.scat1$Gene %in% lightrxn.OxEvolassembly),"Category"] <- "Oxygen Evolving Complex assembly"
+df.SL.scat1[(df.SL.scat1$Gene %in% lightrxn.OxEvolassembly),"Order"] <- 10
+df.SL.scat1[(df.SL.scat1$Gene %in% OxEvolComp),"Category"] <- "Oxygen Evolving Complex"
+df.SL.scat1[(df.SL.scat1$Gene %in% OxEvolComp),"Order"] <- 11
+df.SL.scat1[(df.SL.scat1$Gene %in% PtPS),"Category"] <- "Plastid-encoded photosynthesis"
+df.SL.scat1[(df.SL.scat1$Gene %in% PtPS),"Order"] <- 12
+
+#Re-order
+df.SL.scat1 <- df.SL.scat1[(order(df.SL.scat1$Order)),]
+```
+
+###Set limits for plot
+```{r}
+df.SL.scat1.lims <- df.SL.scat1
+
+df.SL.scat1.lims$l2fc[df.SL.scat1.lims$l2fc > 1.0] = 1.0
+df.SL.scat1.lims$l2fc[df.SL.scat1.lims$l2fc < -1.0] = -1.0
+
+df.SL.scat1.lims$l2fc.B73.Mo17[df.SL.scat1.lims$l2fc.B73.Mo17 > 1.0] = 1.0
+df.SL.scat1.lims$l2fc.B73.Mo17[df.SL.scat1.lims$l2fc.B73.Mo17 < -1.0] = -1.0
+```
+###Make scatterplot
+```{r}
+fig.photosynthesis.bm <- ggplot(df.SL.scat1.lims, mapping=aes(x=l2fc, y=l2fc.B73.Mo17, color=Category))+
+  geom_point(size=.8)+
+  scale_color_manual(values=c("Other"="grey85","Thylakoid"="grey50", "Light harvesting"="#0bb003", "Electron transport"="#0235de", "NADP reduction"="#f5a800", "Phosphorylation"="#eb0003", "Photosystem I assembly"="#e600f5", "Photosystem II assembly"="brown", "Oxygen Evolving Complex assembly"="black", "Calvin Cycle"="purple", "Oxygen Evolving Complex"="red", "Plastid-encoded photosynthesis"="#1af97c"), name="Protein Category")+
+    theme_classic()+
+    xlim(c(-1,1))+
+    ylim(c(-1,1))+
+    geom_vline(xintercept=0, linetype="dashed", color = "gray50")+
+    geom_hline(yintercept=0, linetype="dashed", color = "gray50")+
+    #geom_abline(intercept =0 , slope = 1, linetype="dashed", color="gray50")+
+    theme(axis.text=element_text(size=10),
+              legend.position="bottom", legend.title = element_text(size=5), legend.text = element_text(size=5))+
+    guides(color=guide_legend(nrow=5,byrow=TRUE))+
+    xlab("log2 hyb/MP protein abundance")+
+    ylab("log2 B73/Mo17 protein abundance")+
+    coord_fixed(expand = F)
+
+fig.photosynthesis.bm
+```
+###Add density curves
+```{r}
+#add density curves
+#add marginal density plots and resave
+    densityplotX<-axis_canvas(fig.photosynthesis.bm, axis="x")+
+      geom_density(aes(df.SL.scat1.lims[,"l2fc"], color=df.SL.scat1.lims[,"Category"]), df.SL.scat1.lims, size=0.7)+
+      scale_color_manual(values=c("Other"="grey85","Thylakoid"="grey50", "Light harvesting"="#0bb003", "Electron transport"="#0235de", "NADP reduction"="#f5a800", "Phosphorylation"="#eb0003", "Photosystem I assembly"="#e600f5", "Photosystem II assembly"="brown", "Oxygen Evolving Complex assembly"="black", "Calvin Cycle"="purple", "Oxygen Evolving Complex"="red", "Plastid-encoded photosynthesis"="#1af97c"))+
+      geom_vline(xintercept=0, linetype="dashed", color = "gray50")+
+      theme_void()
+    #set up marginal density plot Y axis
+    densityplotY<-axis_canvas(fig.photosynthesis.bm, axis="y", coord_flip = T)+
+      geom_density(aes(df.SL.scat1.lims[,"l2fc.B73.Mo17"], color=df.SL.scat1.lims[,"Category"]), df.SL.scat1.lims, size=0.7)+
+      scale_color_manual(values=c("Other"="grey85","Thylakoid"="grey50", "Light harvesting"="#0bb003", "Electron transport"="#0235de", "NADP reduction"="#f5a800", "Phosphorylation"="#eb0003", "Photosystem I assembly"="#e600f5", "Photosystem II assembly"="brown", "Oxygen Evolving Complex assembly"="black", "Calvin Cycle"="purple", "Oxygen Evolving Complex"="red", "Plastid-encoded photosynthesis"="#1af97c"))+
+      geom_vline(xintercept=0, linetype="dashed", color = "gray50")+
+      theme_void()+
+      coord_flip()
+    #put two plots together
+    q <- insert_xaxis_grob(fig.photosynthesis.bm, densityplotX, grid::unit(0.275, "null"), position = "top")
+    q <- insert_yaxis_grob(q, densityplotY, grid::unit(0.275, "null"), position = "right")
+    #save
+  ggsave(plot=q, filename = "FigPhotosynthesisBM.tiff",
+        device="tiff", dpi=300, width=4.5, height=4.5, compression = "lzw")
+```
+
+##Scatterplot - Photosynthesis
+###Make GOI description column
+```{r define categories}
+df.SL.scat1b <- df.SL
+df.SL.scat1b$Category <- "Other"
+df.SL.scat1b$Order <- 1
+df.SL.scat1b[(df.SL.scat1b$Gene %in% thylakoid),"Category"] <- "Thylakoid"
+df.SL.scat1b[(df.SL.scat1b$Gene %in% thylakoid),"Order"] <- 2
+df.SL.scat1b[(df.SL.scat1b$Gene %in% lightrxn),"Category"] <- "Light Reaction"
+df.SL.scat1b[(df.SL.scat1b$Gene %in% lightrxn),"Order"] <- 3
+df.SL.scat1b[(df.SL.scat1b$Gene %in% darkrxn),"Category"] <- "Calvin Cycle"
+df.SL.scat1b[(df.SL.scat1b$Gene %in% darkrxn),"Order"] <- 4
+df.SL.scat1b[(df.SL.scat1b$Gene %in% PtPS),"Category"] <- "Plastid-encoded photosynthesis"
+df.SL.scat1b[(df.SL.scat1b$Gene %in% PtPS),"Order"] <- 5
+
+#Re-order
+df.SL.scat1b <- df.SL.scat1b[(order(df.SL.scat1b$Order)),]
+```
+
+###Set limits for plot
+```{r}
+df.SL.scat1b.lims <- df.SL.scat1b
+
+df.SL.scat1b.lims$l2fc[df.SL.scat1b.lims$l2fc > 1.0] = 1.0
+df.SL.scat1b.lims$l2fc[df.SL.scat1b.lims$l2fc < -1.0] = -1.0
+
+df.SL.scat1b.lims$l2fc.B73.Mo17[df.SL.scat1b.lims$l2fc.B73.Mo17 > 1.0] = 1.0
+df.SL.scat1b.lims$l2fc.B73.Mo17[df.SL.scat1b.lims$l2fc.B73.Mo17 < -1.0] = -1.0
+```
+###Make scatterplot
+```{r}
+fig.photosynthesis.bm.2 <- ggplot(df.SL.scat1b.lims, mapping=aes(x=l2fc, y=l2fc.B73.Mo17, color=Category))+
+  geom_point(size=.8)+
+  scale_color_manual(values=c("Other"="grey85","Thylakoid"="grey30", "Light Reaction"="#0bb003", "Calvin Cycle"="#0235de", "Plastid-encoded photosynthesis"="#eb0003"), name="Protein Category")+
+    theme_classic()+
+    xlim(c(-1,1))+
+    ylim(c(-1,1))+
+    geom_vline(xintercept=0, linetype="dashed", color = "gray50")+
+    geom_hline(yintercept=0, linetype="dashed", color = "gray50")+
+    #geom_abline(intercept =0 , slope = 1, linetype="dashed", color="gray50")+
+    theme(axis.text=element_text(size=10),
+              legend.position="bottom", legend.title = element_text(size=5), legend.text = element_text(size=5))+
+    guides(color=guide_legend(nrow=2,byrow=TRUE))+
+    xlab("log2 hyb/MP protein abundance")+
+    ylab("log2 B73/Mo17 protein abundance")+
+    coord_fixed(expand = F)
+
+fig.photosynthesis.bm.2
+```
+###Add density curves
+```{r}
+#add density curves
+#add marginal density plots and resave
+    densityplotX<-axis_canvas(fig.photosynthesis.bm.2, axis="x")+
+      geom_density(aes(df.SL.scat1b.lims[,"l2fc"], color=df.SL.scat1b.lims[,"Category"]), df.SL.scat1b.lims, size=0.7)+
+      scale_color_manual(values=c("Other"="grey85","Thylakoid"="grey30", "Light Reaction"="#0bb003", "Calvin Cycle"="#0235de", "Plastid-encoded photosynthesis"="#eb0003"))+
+      geom_vline(xintercept=0, linetype="dashed", color = "gray50")+
+      theme_void()
+    #set up marginal density plot Y axis
+    densityplotY<-axis_canvas(fig.photosynthesis.bm.2, axis="y", coord_flip = T)+
+      geom_density(aes(df.SL.scat1b.lims[,"l2fc.B73.Mo17"], color=df.SL.scat1b.lims[,"Category"]), df.SL.scat1b.lims, size=0.7)+
+      scale_color_manual(values=c("Other"="grey85","Thylakoid"="grey30", "Light Reaction"="#0bb003", "Calvin Cycle"="#0235de", "Plastid-encoded photosynthesis"="#eb0003"))+
+      geom_vline(xintercept=0, linetype="dashed", color = "gray50")+
+      theme_void()+
+      coord_flip()
+    #put two plots together
+    q <- insert_xaxis_grob(fig.photosynthesis.bm.2, densityplotX, grid::unit(0.275, "null"), position = "top")
+    q <- insert_yaxis_grob(q, densityplotY, grid::unit(0.275, "null"), position = "right")
+    #save
+  ggsave(plot=q, filename = "FigPhotosynthesisBM2.tiff",
+        device="tiff", dpi=300, width=4.5, height=4.5, compression = "lzw")
+```
+
+##Scatterplot - Ribosome
+###Make GOI description column
+```{r define categories}
+df.SL.scat2 <- df.SL
+df.SL.scat2$Category <- "Other"
+df.SL.scat2$Order <- 1
+df.SL.scat2[(df.SL.scat2$Gene %in% eukRibo),"Category"] <- "Eukaryotic ribsome"
+df.SL.scat2[(df.SL.scat2$Gene %in% eukRibo),"Order"] <- 2
+df.SL.scat2[(df.SL.scat2$Gene %in% Nuc.PtRibo),"Category"] <- "Nuclear-encoded plastid ribosome"
+df.SL.scat2[(df.SL.scat2$Gene %in% Nuc.PtRibo),"Order"] <- 3
+df.SL.scat2[(df.SL.scat2$Gene %in% Pt.ribo),"Category"] <- "Plastid-encoded ribosome"
+df.SL.scat2[(df.SL.scat2$Gene %in% Pt.ribo),"Order"] <- 4
+#Re-order
+df.SL.scat2 <- df.SL.scat2[(order(df.SL.scat2$Order)),]
+```
+###Set limits for plot
+```{r}
+df.SL.scat2.lims <- df.SL.scat2
+
+df.SL.scat2.lims$l2fc[df.SL.scat2.lims$l2fc > 1.0] = 1.0
+df.SL.scat2.lims$l2fc[df.SL.scat2.lims$l2fc < -1.0] = -1.0
+
+df.SL.scat2.lims$l2fc.B73.Mo17[df.SL.scat2.lims$l2fc.B73.Mo17 > 1.0] = 1.0
+df.SL.scat2.lims$l2fc.B73.Mo17[df.SL.scat2.lims$l2fc.B73.Mo17 < -1.0] = -1.0
+```
+###Make scatterplot
+```{r}
+fig.ribosome.bm <- ggplot(df.SL.scat2.lims, mapping=aes(x=l2fc, y=l2fc.B73.Mo17, color=Category))+
+  geom_point(size=.8)+
+  scale_color_manual(values=c("Other"="grey85","Eukaryotic ribsome"="red", "Nuclear-encoded plastid ribosome"="#0235de", "Plastid-encoded ribosome"="#0bb003"), name="Protein Category")+
+    theme_classic()+
+    xlim(c(-1,1))+
+    ylim(c(-1,1))+
+    geom_vline(xintercept=0, linetype="dashed", color = "gray50")+
+    geom_hline(yintercept=0, linetype="dashed", color = "gray50")+
+    #geom_abline(intercept =0 , slope = 1, linetype="dashed", color="gray50")+
+    theme(axis.text=element_text(size=10),
+              legend.position="bottom", legend.title = element_text(size=6), legend.text = element_text(size=8))+
+    guides(color=guide_legend(nrow=2,byrow=TRUE))+
+    xlab("log2 hyb/MP protein abundance")+
+    ylab("log2 B73/Mo17 protein abundance")+
+    coord_fixed(expand = F)
+
+fig.ribosome.bm
+```
+###Add density curves
+```{r}
+#add density curves
+#add marginal density plots and resave
+    densityplotX<-axis_canvas(fig.ribosome.bm, axis="x")+
+      geom_density(aes(df.SL.scat2.lims[,"l2fc"], color=df.SL.scat2.lims[,"Category"]), df.SL.scat2.lims, size=0.7)+
+      scale_color_manual(values=c("Other"="grey85","Eukaryotic ribsome"="red", "Nuclear-encoded plastid ribosome"="#0235de", "Plastid-encoded ribosome"="#0bb003"))+
+      geom_vline(xintercept=0, linetype="dashed", color = "gray50")+
+      theme_void()
+    #set up marginal density plot Y axis
+    densityplotY<-axis_canvas(fig.ribosome.bm, axis="y", coord_flip = T)+
+      geom_density(aes(df.SL.scat2.lims[,"l2fc.B73.Mo17"], color=df.SL.scat2.lims[,"Category"]), df.SL.scat2.lims, size=0.7)+
+      scale_color_manual(values=c("Other"="grey85","Eukaryotic ribsome"="red", "Nuclear-encoded plastid ribosome"="#0235de", "Plastid-encoded ribosome"="#0bb003"))+
+      geom_vline(xintercept=0, linetype="dashed", color = "gray50")+
+      theme_void()+
+      coord_flip()
+    #put two plots together
+    q <- insert_xaxis_grob(fig.ribosome.bm, densityplotX, grid::unit(0.275, "null"), position = "top")
+    q <- insert_yaxis_grob(q, densityplotY, grid::unit(0.275, "null"), position = "right")
+    #save
+  ggsave(plot=q, filename = "FigRibosomeBM.tiff",
+        device="tiff", dpi=300, width=4.5, height=4.5, compression = "lzw")
 ```
 #ACS and BxM enrichment overlap
 ```{r subset to proteins amp/bmp in both the mutant and hybrid}
@@ -417,133 +780,47 @@ df.SL.acs.bmp_CC_GOdata.DF <- GOanalysisDF(df.SL.acs.bmp_CC_GOdata)
 ```{r view enrichment}
 df.SL.acs.bmp_BP_GOdata.DF
 ```
-#Merge acs and Seedling Leaf BxM data
+##Merge acs and Seedling Leaf BxM data
 ```{r merge data for scatterplots}
 df.acs.SL <- merge.data.frame(df.acs[,c(1:8,19,24:25)], df.SL[,c(6,c(27,29))], by="Accession", all = F, suffixes = c(".acs", ".BM"))
 ```
 
-#Define GOIs
-##godata
-```{r}
-godataBP <- GOanalysisGodata(df.SL, gamer, "BP")
-godataCC <- GOanalysisGodata(df.SL, gamer, "CC")
-```
-```{r}
-SelectGOgenes <- function(GOdata, GOterm){
- df <- data.frame("Gene"=(topGO::genesInTerm(GOdata, GOterm)))
-colnames(df)="Gene"
-as.character(df$Gene)
-}
-```
-
-##Photosynthesis
-```{r}
-Photosynthesis <- SelectGOgenes(godataBP, "GO:0015979")
-
-#Add CornCyc annotated PhANGs
-#accessed from https://corncyc-b73-v4.maizegdb.org/ on 1/4/2020
-cornCyc<-as.data.frame(readr::read_csv(file = "cornCycGeneLists01042020.csv",
-                         col_names = TRUE
-                         ))
-cornCyc.PHANG <- unique(c(cornCyc$`Gene Accession`[(cornCyc$Pathway=="Oxygenic_Photosynthesis_SuperPath")], cornCyc$`Gene Accession`[(cornCyc$Pathway=="Light_Rxn")]))
-cornCyc.PHANG <- df.SL$Gene[(df.SL$Gene%in%cornCyc.PHANG)]
-Photosynthesis <- unique(c(Photosynthesis, cornCyc.PHANG))
-
-thylakoid <- SelectGOgenes(godataCC, "GO:0009579")
-
-lightrxn <- SelectGOgenes(godataBP, "GO:0019684")
-lightrxn <- unique(c(lightrxn, cornCyc$`Gene Accession`[(cornCyc$Pathway=="Light_Rxn")]))
-
-darkrxn <- SelectGOgenes(godataBP, "GO:0019685")
-cornCyc.CC <- cornCyc$`Gene Accession`[(cornCyc$Pathway=="Calvin_Cycle")]
-darkrxn <- unique(c(darkrxn, cornCyc.CC))
-
-Photosynthesis.other <- Photosynthesis[!Photosynthesis%in%c(darkrxn,lightrxn,thylakoid)]
-```
-
-
-
-
-##Plastid-encoded
-```{r}
-#Plastid-encoded proteins
-Pt<-df.SL[grep("v4:Pt", df.SL$Protein),]
-#define list of plastid-encoded photosynthesis-associated genes
-PtPS <- Pt[-grep("rps|rpo|rpl|orf", Pt$Protein),]
-#Plastid encoded ribosomal proteins (EnsemblPlants Annotation)
-#get subset of Pt encoded genes annotated as ribosomal proteins
-Pt.ribo <- Pt[grep("rps|rpl", Pt$Protein),]
-#Plastid encoded RNA polymerases (EnsemblPlants Annotation)
-Pt.rpo <- Pt[grep("rpo", Pt$Protein),]
-#re-define to gene vector
-Pt <- Pt$Gene
-PtPS <- PtPS$Gene
-Pt.ribo <- Pt.ribo$Gene
-Pt.rpo <- Pt.rpo$Gene
-#Define "other" as everything left
-Pt.other <- Pt[!(Pt%in%c(Pt.ribo, PtPS, Pt.rpo))]
-```
-
-##Nuclear-encoded plastid ribosome
-```{r}
-#Nuclear encoded plastid ribosomal proteins (GO GAMER and EnsemblPlants Annotation)
-Nuc.PtRibo <- SelectGOgenes(godataCC, "GO:0009547")
-#Add proteins annotated as "ribosom" and "plastid/chloroplast" to the nuclear-encoded plastid-localized list
-ribosom <- df.SL[(grep("ribosom", df.SL$Protein)),]
-ribosom.pt <- ribosom[(grep("plastid|Plastid|Chloropl|chloropl", ribosom$Protein)),]
-#remove plastid-encoded 
-ribosom.pt <- ribosom.pt[-grep("NP_04",ribosom.pt$Protein),]
-Nuc.PtRibo <- unique(c(Nuc.PtRibo,ribosom.pt$Gene))
-#Check that there are no missing prokaryotic ribosomal proteins with plastid localization
-ProkRibo <- df.SL[(grep("30S|60S", df.SL$Protein)),]
-ProkRiboNotPt <- ProkRibo[!(ProkRibo$Gene%in%Nuc.PtRibo),]
-GOplastid <- SelectGOgenes(godataCC, "GO:0009536")
-ProkRiboNotPt.plastid <- ProkRiboNotPt[(ProkRiboNotPt$Gene%in%GOplastid),]
-Nuc.PtRibo <- unique(c(Nuc.PtRibo, ProkRiboNotPt.plastid$Gene))
-```
-
-##Eukaryotic ribosome
-```{r}
-#Eukaryotic ribosomal proteins (EnsemblPlants Annotation)
-eukRibo<-df.SL[(grep("40S|60S", df.SL$Protein)),]
-#remove the mitochondrial ones
-eukRibo<- eukRibo$Gene[-(grep("mito|Mito", eukRibo$Protein))]
-```
-
-##Etyhlene
-```{r 7}
-MAT <- cornCyc$`Gene Accession`[(cornCyc$`Enzymatic activity`=="methionine adenosyltransferase")]
-ACS <- cornCyc$`Gene Accession`[(cornCyc$`Enzymatic activity`=="1-aminocyclopropane-1-carboxylate synthase")]
-ACO <- cornCyc$`Gene Accession`[(cornCyc$`Enzymatic activity`=="1-aminocyclopropane-1-carboxylate oxidase")]
-EtBio <- c(MAT,ACS,ACO)
-EtBio <- df.SL$Gene[(df.SL$v4_gene_model%in%EtBio)]
-```
-```{r 8}
-ResponseToEt <- SelectGOgenes(godataBP, "GO:0009723")
-```
-
-
-#Scatterplot - Photosynthesis
-##Make GOI description column
+##Scatterplot - Photosynthesis
+###Make GOI description column
 ```{r define categories}
 df.acs.SL.scat1 <- df.acs.SL
 df.acs.SL.scat1$Category <- "Other"
 df.acs.SL.scat1$Order <- 1
-df.acs.SL.scat1[(df.acs.SL.scat1$Gene %in% Photosynthesis.other),"Category"] <- "Photosynthesis other"
-df.acs.SL.scat1[(df.acs.SL.scat1$Gene %in% Photosynthesis.other),"Order"] <- 2
-df.acs.SL.scat1[(df.acs.SL.scat1$Gene %in% thylakoid),"Category"] <- "thylakoid"
-df.acs.SL.scat1[(df.acs.SL.scat1$Gene %in% thylakoid),"Order"] <- 3
-df.acs.SL.scat1[(df.acs.SL.scat1$Gene %in% lightrxn),"Category"] <- "light reactions"
-df.acs.SL.scat1[(df.acs.SL.scat1$Gene %in% lightrxn),"Order"] <- 4
-df.acs.SL.scat1[(df.acs.SL.scat1$Gene %in% darkrxn),"Category"] <- "dark reactions"
-df.acs.SL.scat1[(df.acs.SL.scat1$Gene %in% darkrxn),"Order"] <- 5
+df.acs.SL.scat1[(df.acs.SL.scat1$Gene %in% thylakoid),"Category"] <- "Thylakoid"
+df.acs.SL.scat1[(df.acs.SL.scat1$Gene %in% thylakoid),"Order"] <- 2
+df.acs.SL.scat1[(df.acs.SL.scat1$Gene %in% lightrxn.PSIIassembly),"Category"] <- "Photosystem II assembly"
+df.acs.SL.scat1[(df.acs.SL.scat1$Gene %in% lightrxn.PSIIassembly),"Order"] <- 3
+df.acs.SL.scat1[(df.acs.SL.scat1$Gene %in% darkrxn.rPP),"Category"] <- "Calvin Cycle"
+df.acs.SL.scat1[(df.acs.SL.scat1$Gene %in% darkrxn.rPP),"Order"] <- 4
+df.acs.SL.scat1[(df.acs.SL.scat1$Gene %in% lightrxn.lightharvesting),"Category"] <- "Light harvesting"
+df.acs.SL.scat1[(df.acs.SL.scat1$Gene %in% lightrxn.lightharvesting),"Order"] <- 5
+df.acs.SL.scat1[(df.acs.SL.scat1$Gene %in% lightrxn.electrontransport),"Category"] <- "Electron transport"
+df.acs.SL.scat1[(df.acs.SL.scat1$Gene %in% lightrxn.electrontransport),"Order"] <- 6
+df.acs.SL.scat1[(df.acs.SL.scat1$Gene %in% lightrxn.NADPreduction),"Category"] <- "NADP reduction"
+df.acs.SL.scat1[(df.acs.SL.scat1$Gene %in% lightrxn.NADPreduction),"Order"] <- 7
+df.acs.SL.scat1[(df.acs.SL.scat1$Gene %in% lightrxn.phosphorylation),"Category"] <- "Phosphorylation"
+df.acs.SL.scat1[(df.acs.SL.scat1$Gene %in% lightrxn.phosphorylation),"Order"] <- 8
+df.acs.SL.scat1[(df.acs.SL.scat1$Gene %in% lightrxn.PSIassembly),"Category"] <- "Photosystem I assembly"
+df.acs.SL.scat1[(df.acs.SL.scat1$Gene %in% lightrxn.PSIassembly),"Order"] <- 9
+df.acs.SL.scat1[(df.acs.SL.scat1$Gene %in% lightrxn.OxEvolassembly),"Category"] <- "Oxygen Evolving Complex assembly"
+df.acs.SL.scat1[(df.acs.SL.scat1$Gene %in% lightrxn.OxEvolassembly),"Order"] <- 10
+df.acs.SL.scat1[(df.acs.SL.scat1$Gene %in% OxEvolComp),"Category"] <- "Oxygen Evolving Complex"
+df.acs.SL.scat1[(df.acs.SL.scat1$Gene %in% OxEvolComp),"Order"] <- 11
 df.acs.SL.scat1[(df.acs.SL.scat1$Gene %in% PtPS),"Category"] <- "Plastid-encoded photosynthesis"
-df.acs.SL.scat1[(df.acs.SL.scat1$Gene %in% PtPS),"Order"] <- 6
+df.acs.SL.scat1[(df.acs.SL.scat1$Gene %in% PtPS),"Order"] <- 12
+
+
 #Re-order
 df.acs.SL.scat1 <- df.acs.SL.scat1[(order(df.acs.SL.scat1$Order)),]
 ```
 
-##Set limits for plot
+
+###Set limits for plot
 ```{r}
 df.acs.SL.scat1.lims <- df.acs.SL.scat1
 
@@ -553,11 +830,11 @@ df.acs.SL.scat1.lims$l2fc.acs[df.acs.SL.scat1.lims$l2fc.acs < -1.0] = -1.0
 df.acs.SL.scat1.lims$l2fc.BM[df.acs.SL.scat1.lims$l2fc.BM > 1.0] = 1.0
 df.acs.SL.scat1.lims$l2fc.BM[df.acs.SL.scat1.lims$l2fc.BM < -1.0] = -1.0
 ```
-##Make scatterplot
+###Make scatterplot
 ```{r}
-fig.photosynthesis <- ggplot(df.acs.SL.scat1.lims, mapping=aes(x=l2fc.BM, y=l2fc.acs, color=Category))+
+fig.photosynthesis.acs <- ggplot(df.acs.SL.scat1.lims, mapping=aes(x=l2fc.BM, y=l2fc.acs, color=Category))+
   geom_point(size=.8)+
-  scale_color_manual(values=c("Other"="grey85","light reactions"="#0bb003", "dark reactions"="#0235de", "thylakoid"="#f5a800", "Photosynthesis other"="#eb0003", "Plastid-encoded photosynthesis"="#e600f5"), name="Protein Category")+
+  scale_color_manual(values=c("Other"="grey85","Thylakoid"="grey50", "Light harvesting"="#0bb003", "Electron transport"="#0235de", "NADP reduction"="#f5a800", "Phosphorylation"="#eb0003", "Photosystem I assembly"="#e600f5", "Photosystem II assembly"="brown", "Oxygen Evolving Complex assembly"="black", "Calvin Cycle"="purple", "Oxygen Evolving Complex"="red", "Plastid-encoded photosynthesis"="#1af97c"), name="Protein Category")+
     theme_classic()+
     xlim(c(-1,1))+
     ylim(c(-1,1))+
@@ -565,39 +842,40 @@ fig.photosynthesis <- ggplot(df.acs.SL.scat1.lims, mapping=aes(x=l2fc.BM, y=l2fc
     geom_hline(yintercept=0, linetype="dashed", color = "gray50")+
     #geom_abline(intercept =0 , slope = 1, linetype="dashed", color="gray50")+
     theme(axis.text=element_text(size=10),
-              legend.position="bottom", legend.title = element_text(size=6), legend.text = element_text(size=8))+
-    guides(color=guide_legend(nrow=3,byrow=TRUE))+
+              legend.position="bottom", legend.title = element_text(size=6), legend.text = element_text(size=6))+
+    guides(color=guide_legend(nrow=4,byrow=TRUE))+
     xlab("log2 hyb/MP protein abundance")+
     ylab("log2 acs/B73 protein abundance")+
     coord_fixed(expand = F)
 
-fig.photosynthesis
+fig.photosynthesis.acs
 ```
-##Add density curves
+###Add density curves
 ```{r}
 #add density curves
 #add marginal density plots and resave
-    densityplotX<-axis_canvas(fig.photosynthesis, axis="x")+
+    densityplotX<-axis_canvas(fig.photosynthesis.acs, axis="x")+
       geom_density(aes(df.acs.SL.scat1.lims[,"l2fc.BM"], color=df.acs.SL.scat1.lims[,"Category"]), df.acs.SL.scat1.lims, size=0.7)+
-      scale_color_manual(values=c("Other"="grey85","light reactions"="#0bb003", "dark reactions"="#0235de", "thylakoid"="#f5a800", "Photosynthesis other"="#eb0003", "Plastid-encoded photosynthesis"="#e600f5"))+
+      scale_color_manual(values=c("Other"="grey85","Thylakoid"="grey50", "Light harvesting"="#0bb003", "Electron transport"="#0235de", "NADP reduction"="#f5a800", "Phosphorylation"="#eb0003", "Photosystem I assembly"="#e600f5", "Photosystem II assembly"="brown", "Oxygen Evolving Complex assembly"="black", "Calvin Cycle"="purple", "Oxygen Evolving Complex"="red", "Plastid-encoded photosynthesis"="#1af97c"))+
       geom_vline(xintercept=0, linetype="dashed", color = "gray50")+
       theme_void()
     #set up marginal density plot Y axis
-    densityplotY<-axis_canvas(fig.photosynthesis, axis="y", coord_flip = T)+
+    densityplotY<-axis_canvas(fig.photosynthesis.acs, axis="y", coord_flip = T)+
       geom_density(aes(df.acs.SL.scat1.lims[,"l2fc.acs"], color=df.acs.SL.scat1.lims[,"Category"]), df.acs.SL.scat1.lims, size=0.7)+
-      scale_color_manual(values=c("Other"="grey85","light reactions"="#0bb003", "dark reactions"="#0235de", "thylakoid"="#f5a800", "Photosynthesis other"="#eb0003", "Plastid-encoded photosynthesis"="#e600f5"))+
+      scale_color_manual(values=c("Other"="grey85","Thylakoid"="grey50", "Light harvesting"="#0bb003", "Electron transport"="#0235de", "NADP reduction"="#f5a800", "Phosphorylation"="#eb0003", "Photosystem I assembly"="#e600f5", "Photosystem II assembly"="brown", "Oxygen Evolving Complex assembly"="black", "Calvin Cycle"="purple", "Oxygen Evolving Complex"="red", "Plastid-encoded photosynthesis"="#1af97c"))+
       geom_vline(xintercept=0, linetype="dashed", color = "gray50")+
       theme_void()+
       coord_flip()
     #put two plots together
-    q <- insert_xaxis_grob(fig.photosynthesis, densityplotX, grid::unit(0.275, "null"), position = "top")
+    q <- insert_xaxis_grob(fig.photosynthesis.acs, densityplotX, grid::unit(0.275, "null"), position = "top")
     q <- insert_yaxis_grob(q, densityplotY, grid::unit(0.275, "null"), position = "right")
     #save
-  ggsave(plot=q, filename = "FigPhotosynthesis.tiff",
+  ggsave(plot=q, filename = "FigPhotosynthesisACS.tiff",
         device="tiff", dpi=300, width=4.5, height=4.5, compression = "lzw")
 ```
-#Scatterplot - Ribosome
-##Make GOI description column
+
+##Scatterplot - Ribosome
+###Make GOI description column
 ```{r define categories}
 df.acs.SL.scat2 <- df.acs.SL
 df.acs.SL.scat2$Category <- "Other"
@@ -611,7 +889,7 @@ df.acs.SL.scat2[(df.acs.SL.scat2$Gene %in% Pt.ribo),"Order"] <- 4
 #Re-order
 df.acs.SL.scat2 <- df.acs.SL.scat2[(order(df.acs.SL.scat2$Order)),]
 ```
-##Set limits for plot
+###Set limits for plot
 ```{r}
 df.acs.SL.scat2.lims <- df.acs.SL.scat2
 
@@ -621,7 +899,7 @@ df.acs.SL.scat2.lims$l2fc.acs[df.acs.SL.scat2.lims$l2fc.acs < -1.0] = -1.0
 df.acs.SL.scat2.lims$l2fc.BM[df.acs.SL.scat2.lims$l2fc.BM > 1.0] = 1.0
 df.acs.SL.scat2.lims$l2fc.BM[df.acs.SL.scat2.lims$l2fc.BM < -1.0] = -1.0
 ```
-##Make scatterplot
+###Make scatterplot
 ```{r}
 fig.ribosome <- ggplot(df.acs.SL.scat2.lims, mapping=aes(x=l2fc.BM, y=l2fc.acs, color=Category))+
   geom_point(size=.8)+
@@ -641,7 +919,7 @@ fig.ribosome <- ggplot(df.acs.SL.scat2.lims, mapping=aes(x=l2fc.BM, y=l2fc.acs, 
 
 fig.ribosome
 ```
-##Add density curves
+###Add density curves
 ```{r}
 #add density curves
 #add marginal density plots and resave
@@ -664,3 +942,85 @@ fig.ribosome
   ggsave(plot=q, filename = "FigRibosome.tiff",
         device="tiff", dpi=300, width=4.5, height=4.5, compression = "lzw")
 ```
+##Scatterplot - Ethylene
+###Make GOI description column
+```{r define categories}
+df.acs.SL.scat3 <- df.acs.SL
+df.acs.SL.scat3$Category <- "Other"
+df.acs.SL.scat3$Order <- 1
+df.acs.SL.scat3[(df.acs.SL.scat3$Gene %in% gamer.responseToEt),"Category"] <- "Response to ethylene"
+df.acs.SL.scat3[(df.acs.SL.scat3$Gene %in% gamer.responseToEt),"Order"] <- 2
+df.acs.SL.scat3[(df.acs.SL.scat3$Gene %in% gamer.EtSignaling),"Category"] <- "Ethylene signaling"
+df.acs.SL.scat3[(df.acs.SL.scat3$Gene %in% gamer.EtSignaling),"Order"] <- 3
+df.acs.SL.scat3[(df.acs.SL.scat3$Gene %in% gamer.DetectionOfEt),"Category"] <- "Detection of ethylene"
+df.acs.SL.scat3[(df.acs.SL.scat3$Gene %in% gamer.DetectionOfEt),"Order"] <- 4
+df.acs.SL.scat3[(df.acs.SL.scat3$Gene %in% gamer.CellResponseToEt),"Category"] <- "Cellular response to ethylene"
+df.acs.SL.scat3[(df.acs.SL.scat3$Gene %in% gamer.CellResponseToEt),"Order"] <- 5
+
+#Re-order
+df.acs.SL.scat3 <- df.acs.SL.scat3[(order(df.acs.SL.scat3$Order)),]
+```
+
+###Set limits for plot
+```{r}
+df.acs.SL.scat3.lims <- df.acs.SL.scat3
+
+df.acs.SL.scat3.lims$l2fc.acs[df.acs.SL.scat3.lims$l2fc.acs > 1.0] = 1.0
+df.acs.SL.scat3.lims$l2fc.acs[df.acs.SL.scat3.lims$l2fc.acs < -1.0] = -1.0
+
+df.acs.SL.scat3.lims$l2fc.BM[df.acs.SL.scat3.lims$l2fc.BM > 1.0] = 1.0
+df.acs.SL.scat3.lims$l2fc.BM[df.acs.SL.scat3.lims$l2fc.BM < -1.0] = -1.0
+```
+###Make scatterplot
+```{r}
+fig.ethylene <- ggplot(df.acs.SL.scat3.lims, mapping=aes(x=l2fc.BM, y=l2fc.acs, color=Category))+
+  geom_point(size=.8)+
+  scale_color_manual(values=c("Other"="grey85","Response to ethylene"="#0bb003", "Ethylene signaling"="#0235de", "Detection of ethylene"="#f5a800", "Cellular response to ethylene"="#eb0003"), name="Protein Category")+
+    theme_classic()+
+    xlim(c(-1,1))+
+    ylim(c(-1,1))+
+    geom_vline(xintercept=0, linetype="dashed", color = "gray50")+
+    geom_hline(yintercept=0, linetype="dashed", color = "gray50")+
+    #geom_abline(intercept =0 , slope = 1, linetype="dashed", color="gray50")+
+    theme(axis.text=element_text(size=10),
+              legend.position="bottom", legend.title = element_text(size=6), legend.text = element_text(size=8))+
+    guides(color=guide_legend(nrow=2,byrow=TRUE))+
+    xlab("log2 hyb/MP protein abundance")+
+    ylab("log2 acs/B73 protein abundance")+
+    coord_fixed(expand = F)
+
+fig.ethylene
+```
+###Add density curves
+```{r}
+#add density curves
+#add marginal density plots and resave
+    densityplotX<-axis_canvas(fig.ethylene, axis="x")+
+      geom_density(aes(df.acs.SL.scat3.lims[,"l2fc.BM"], color=df.acs.SL.scat3.lims[,"Category"]), df.acs.SL.scat3.lims, size=0.7)+
+      scale_color_manual(values=c("Other"="grey85","Response to ethylene"="red", "Ethylene biosynthesis"="blue"))+
+      geom_vline(xintercept=0, linetype="dashed", color = "gray50")+
+      theme_void()
+    #set up marginal density plot Y axis
+    densityplotY<-axis_canvas(fig.ethylene, axis="y", coord_flip = T)+
+      geom_density(aes(df.acs.SL.scat3.lims[,"l2fc.acs"], color=df.acs.SL.scat3.lims[,"Category"]), df.acs.SL.scat3.lims, size=0.7)+
+      scale_color_manual(values=c("Other"="grey85","Response to ethylene"="red", "Ethylene biosynthesis"="blue"))+
+      geom_vline(xintercept=0, linetype="dashed", color = "gray50")+
+      theme_void()+
+      coord_flip()
+    #put two plots together
+    q <- insert_xaxis_grob(fig.ethylene, densityplotX, grid::unit(0.275, "null"), position = "top")
+    q <- insert_yaxis_grob(q, densityplotY, grid::unit(0.275, "null"), position = "right")
+    #save
+  ggsave(plot=q, filename = "FigEthylene.tiff",
+        device="tiff", dpi=300, width=4.5, height=4.5, compression = "lzw")
+```
+
+
+
+
+
+
+
+
+
+
