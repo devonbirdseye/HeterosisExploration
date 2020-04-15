@@ -17,6 +17,10 @@ library(dplyr)
 library(gage)
 library(datapasta)
 library(tibble)
+library(RColorBrewer)
+library(gganimate)
+library(pathview)
+library(GO.db)
 ```
 
 #Import data
@@ -53,8 +57,7 @@ gamer <- GAMER[-(1:2),]
 gamer$Term <- Term(as.character(gamer$term_accession))
 ```
 
-
-#Define topGO functions
+###Define topGO functions
 ```{r GOanalysisGOdata_Function}
 ## Build GOdata object
 # EnrichedDF = AMP/BMP output or other subset dataframe of proteins of interest
@@ -100,316 +103,26 @@ DF
 }
 ```
 
-#Define GOIs
-##godata
-```{r}
-godataBP <- GOanalysisGodata(df, gamer, "BP")
-godataCC <- GOanalysisGodata(df, gamer, "CC")
-```
-```{r}
-SelectGOgenes <- function(GOdata, GOterm){
- df <- data.frame("Gene"=(topGO::genesInTerm(GOdata, GOterm)))
-colnames(df)="Gene"
-as.character(df$Gene)
+```{r SelectSigGOgenes function}
+SelectSigGOgenes <- function(GOdata, GOterm){
+ df <- data.frame(gene=(topGO::genesInTerm(GOdata, GOterm)), score=(topGO::scoresInTerm(GOdata, GOterm))) 
+ colnames(df) <- c("gene", "score")
+ df$gene <- as.character(df$gene)
+ df.s <- df[(df$score==2),]
+ df.s.prot <- merge.data.frame(df.s, DF2, by.x = "gene", by.y = "V4")
+ df.s.prot[(order(-df.s.prot$avg.acs.b73.l2fc)),]
 }
 ```
 
-##Photosynthesis
-
-```{r}
-GOphoto<-read.csv("PhotosynthesisGOterms.csv", stringsAsFactors = F)
+```{r SelectGOgenes function}
+SelectGOgenes <- function(GOdata, GOterm){
+ df <- data.frame(gene=(topGO::genesInTerm(GOdata, GOterm)), score=(topGO::scoresInTerm(GOdata, GOterm))) 
+ colnames(df) <- c("gene", "score")
+ as.vector(df$gene)
+}
 ```
-```{r}
-GOphoto.all <- GOphoto$go
-GOphoto.lightrxn <- GOphoto$go[GOphoto$subpath=="photosynthesis, light reaction"]
-GOphoto.lightrxn.lightharvesting <- GOphoto$go[grep("harvesting",GOphoto$term)]
-GOphoto.lightrxn.electrontransport <- GOphoto$go[grep("transport",GOphoto$term)]
-GOphoto.lightrxn.NADPreduction <- GOphoto$go[grep("NADP",GOphoto$term)]
-GOphoto.lightrxn.phosphorylation <- GOphoto$go[grep("phosphorylation",GOphoto$term)]
-GOphoto.lightrxn.PSIassembly <- GOphoto$go[grep("photosystem I assembly",GOphoto$term)]
-GOphoto.lightrxn.PSIIassembly <- GOphoto$go[grep("photosystem II assembly",GOphoto$term)]
-GOphoto.lightrxn.OxEvolassembly <- GOphoto$go[grep("oxygen evolving",GOphoto$term)]
-
-GOphoto.CalvinCycle <- GOphoto$go[grep("pentose",GOphoto$term)]
-```
-
-
-```{r}
-photosynthesis <- as.vector(gamer$db_object_id[gamer$term_accession%in%GOphoto.all])
-lightrxn <- as.vector(gamer$db_object_id[gamer$term_accession%in%GOphoto.lightrxn])
-lightrxn.lightharvesting <- as.vector(gamer$db_object_id[gamer$term_accession%in%GOphoto.lightrxn.lightharvesting])
-lightrxn.electrontransport <- as.vector(gamer$db_object_id[gamer$term_accession%in%GOphoto.lightrxn.electrontransport])
-lightrxn.NADPreduction <- as.vector(gamer$db_object_id[gamer$term_accession%in%GOphoto.lightrxn.NADPreduction])
-lightrxn.phosphorylation <- as.vector(gamer$db_object_id[gamer$term_accession%in%GOphoto.lightrxn.phosphorylation])
-lightrxn.PSIassembly <- as.vector(gamer$db_object_id[gamer$term_accession%in%GOphoto.lightrxn.PSIassembly])
-lightrxn.PSIIassembly <- as.vector(gamer$db_object_id[gamer$term_accession%in%GOphoto.lightrxn.PSIIassembly])
-lightrxn.OxEvolassembly <- as.vector(gamer$db_object_id[gamer$term_accession%in%GOphoto.lightrxn.OxEvolassembly])
-CalvinCycle <- as.vector(gamer$db_object_id[gamer$term_accession%in%GOphoto.CalvinCycle])
-
-
-#Add CornCyc annotated PhANGs
-#accessed from https://corncyc-b73-v4.maizegdb.org/ on 1/4/2020
-cornCyc<-as.data.frame(readr::read_csv(file = "cornCycGeneLists01042020.csv",
-                         col_names = TRUE
-                         ))
-lightrxn.electrontransport<- unique(c(lightrxn.electrontransport, (cornCyc$`Gene Accession`[(cornCyc$`Enzymatic activity`=="plastoquinol-plastocyanin reductase")])))
-
-lightrxn.NADPreduction<- unique(c(lightrxn.NADPreduction, cornCyc$`Gene Accession`[(cornCyc$`Enzymatic activity`=="ferredoxin NADP reductase")]))
-
-lightrxn.lightharvesting<- unique(c(lightrxn.lightharvesting, cornCyc$`Gene Accession`[(cornCyc$`Enzymatic activity`=="photosystem I")]))
-lightrxn.lightharvesting<- unique(c(lightrxn.lightharvesting, cornCyc$`Gene Accession`[(cornCyc$`Enzymatic activity`=="photosystem II")]))
-
-lightrxn <- unique(c(lightrxn, cornCyc$`Gene Accession`[cornCyc$Pathway=="Light_Rxn"]))
-
-CalvinCycle <- unique(c(CalvinCycle, cornCyc$`Gene Accession`[cornCyc$Pathway=="Calvin_Cycle"]))
-
-#define thylakoid proteins as everything in that cellular compartment, minus our proteins of interest
-thylakoid <- SelectGOgenes(godataCC, "GO:0009579")
-thylakoid.trim <- thylakoid[!thylakoid%in%photosynthesis]
-thylakoid.trim <- thylakoid[!thylakoid%in%cornCyc$`Gene Accession`]
-
-OxEvolComp <- SelectGOgenes(godataCC, "GO:0009654")
-```
-
-##Plastid-encoded
-```{r}
-#Plastid-encoded proteins
-Pt<-df.SL[grep("v4:Pt", df.SL$Protein),]
-#define list of plastid-encoded photosynthesis-associated genes
-Pt.PS <- Pt[grep("psb|psa|ndh|rbc|pet|atp|ccs|cem", Pt$Protein),]
-#Plastid encoded ribosomal proteins (EnsemblPlants Annotation)
-#get subset of Pt encoded genes annotated as ribosomal proteins
-Pt.ribo <- Pt[grep("rps|rpl", Pt$Protein),]
-#Plastid encoded RNA polymerases (EnsemblPlants Annotation)
-Pt.rpo <- Pt[grep("rpo", Pt$Protein),]
-#re-define to gene vector
-Pt <- Pt$Gene
-Pt.PS <- Pt.PS$Gene
-Pt.ribo <- Pt.ribo$Gene
-Pt.rpo <- Pt.rpo$Gene
-#Define "other" as everything left
-Pt.other <- Pt[!(Pt%in%c(Pt.ribo, Pt.PS, Pt.rpo))]
-```
-```{r}
-df.SL$Protein[df.SL$Gene%in%Pt.other]
-```
-
-
-##Nuclear-encoded plastid ribosome
-```{r}
-#Nuclear encoded plastid ribosomal proteins (GO GAMER and EnsemblPlants Annotation)
-Nuc.PtRibo <- SelectGOgenes(godataCC, "GO:0009547")
-#Add proteins annotated as "ribosom" and "plastid/chloroplast" to the nuclear-encoded plastid-localized list
-ribosom <- df.SL[(grep("ribosom", df.SL$Protein)),]
-ribosom.pt <- ribosom[(grep("plastid|Plastid|Chloropl|chloropl", ribosom$Protein)),]
-#remove plastid-encoded 
-ribosom.pt <- ribosom.pt[-grep("NP_04",ribosom.pt$Protein),]
-Nuc.PtRibo <- unique(c(Nuc.PtRibo,ribosom.pt$Gene))
-#Check that there are no missing prokaryotic ribosomal proteins with plastid localization
-ProkRibo <- df.SL[(grep("30S|50S", df.SL$Protein)),]
-ProkRiboNotPt <- ProkRibo[!(ProkRibo$Gene%in%Nuc.PtRibo),]
-GOplastid <- SelectGOgenes(godataCC, "GO:0009536")
-ProkRiboNotPt.plastid <- ProkRiboNotPt[(ProkRiboNotPt$Gene%in%GOplastid),]
-Nuc.PtRibo <- unique(c(Nuc.PtRibo, ProkRiboNotPt.plastid$Gene))
-```
-
-
-
-
-##Eukaryotic ribosome
-```{r}
-#Eukaryotic ribosomal proteins (EnsemblPlants Annotation)
-eukRibo<-df.SL[(grep("40S|60S", df.SL$Protein)),]
-#remove the mitochondrial ones
-eukRibo<- eukRibo$Gene[-(grep("mito|Mito", eukRibo$Protein))]
-```
-
-##Etyhlene
-```{r}
-MAT <- cornCyc$`Gene Accession`[(cornCyc$`Enzymatic activity`=="methionine adenosyltransferase")]
-ACS <- cornCyc$`Gene Accession`[(cornCyc$`Enzymatic activity`=="1-aminocyclopropane-1-carboxylate synthase")]
-ACO <- cornCyc$`Gene Accession`[(cornCyc$`Enzymatic activity`=="1-aminocyclopropane-1-carboxylate oxidase")]
-EtBio <- c(MAT,ACS,ACO)
-```
-```{r}
-ResponseToEt <- SelectGOgenes(godataBP, "GO:0009723")
-```
-
-##Mitochondria
-Code written by Bridget
-###find mitochondrial encoded genes
-```{r}
-Mt <- unique(df[grep("chromosome:B73_RefGen_v4:Mt:", df$Protein),])
-
-#category 1: ribosomal proteins
-#category 2: aerobic respiration related proteins 
-Mt.ribo <- Mt[grep("rps", Mt$Protein), "Gene"]
-Mt.aerobicResp <- Mt[-grep("rps", Mt$Protein), "Gene"]
-```
-
-###MtGO & nuclear-encoded ribosomal proteins
-```{r}
-MtGO <- SelectSigGOgenes(godataCC, "GO:0005739", df)
-MtGO <- MtGO$Gene
-
-#nuclear-encoded ribosomal proteins in MtGO
-MtGO.ribo <- unique(df[grep("ribosom", df$Protein),])
-MtGO.ribo <- MtGO.ribo$Gene[MtGO.ribo$Gene%in%MtGO]
-```
-
-
-##GOI dataframe
-```{r}
-#define highparent
-df.SL.GOI <- df.SL
-df.SL.GOI$highparent <- NA
-df.SL.GOI$highparent[df.SL.GOI$B73.Mo17>1.000] <- "B73"
-df.SL.GOI$highparent[df.SL.GOI$B73.Mo17<1.000] <- "Mo17"
-
-#define GOI columns - separate columns because some categories overlap
-df.SL.GOI$lightrxn<- F
-df.SL.GOI$lightrxn[(df.SL.GOI$Gene%in%lightrxn)] <- T
-
-df.SL.GOI$lightrxn.lightharvesting <- F
-df.SL.GOI$lightrxn.lightharvesting[(df.SL.GOI$Gene%in%lightrxn.lightharvesting)] <- T
-
-df.SL.GOI$lightrxn.electrontransport <- F
-df.SL.GOI$lightrxn.electrontransport[(df.SL.GOI$Gene%in%lightrxn.electrontransport)] <- T
-
-df.SL.GOI$lightrxn.NADPreduction <- F
-df.SL.GOI$lightrxn.NADPreduction[(df.SL.GOI$Gene%in%lightrxn.NADPreduction)] <- T
-
-df.SL.GOI$lightrxn.phosphorylation <- F
-df.SL.GOI$lightrxn.phosphorylation[(df.SL.GOI$Gene%in%lightrxn.phosphorylation)] <- T
-
-df.SL.GOI$lightrxn.PSIassembly <- F
-df.SL.GOI$lightrxn.PSIassembly[(df.SL.GOI$Gene%in%lightrxn.PSIassembly)] <- T
-
-df.SL.GOI$lightrxn.PSIIassembly <- F
-df.SL.GOI$lightrxn.PSIIassembly[(df.SL.GOI$Gene%in%lightrxn.PSIIassembly)] <- T
-
-df.SL.GOI$lightrxn.OxEvolassembly <- F
-df.SL.GOI$lightrxn.OxEvolassembly[(df.SL.GOI$Gene%in%lightrxn.OxEvolassembly)] <- T
-
-df.SL.GOI$CalvinCycle <- F
-df.SL.GOI$CalvinCycle[(df.SL.GOI$Gene%in%CalvinCycle)] <- T
-
-df.SL.GOI$Pt <- F
-df.SL.GOI$Pt[(df.SL.GOI$Gene%in%Pt)] <- T
-
-df.SL.GOI$Pt.PS <- F
-df.SL.GOI$Pt.PS[(df.SL.GOI$Gene%in%Pt.PS)] <- T
-
-df.SL.GOI$Pt.ribo <- F
-df.SL.GOI$Pt.ribo[(df.SL.GOI$Gene%in%Pt.ribo)] <- T
-
-df.SL.GOI$Pt.rpo <- F
-df.SL.GOI$Pt.rpo[(df.SL.GOI$Gene%in%Pt.rpo)] <- T
-
-df.SL.GOI$Nuc.PtRibo <- F
-df.SL.GOI$Nuc.PtRibo[(df.SL.GOI$Gene%in%Nuc.PtRibo)] <- T
-
-df.SL.GOI$eukRibo <- F
-df.SL.GOI$eukRibo[(df.SL.GOI$Gene%in%eukRibo)] <- T
-
-df.SL.GOI$EtBio <- F
-df.SL.GOI$EtBio[(df.SL.GOI$Gene%in%EtBio)] <- T
-
-df.SL.GOI$MAT <- F
-df.SL.GOI$MAT[(df.SL.GOI$Gene%in%MAT)] <- T
-
-df.SL.GOI$ACS <- F
-df.SL.GOI$ACS[(df.SL.GOI$Gene%in%ACS)] <- T
-
-df.SL.GOI$ACO <- F
-df.SL.GOI$ACO[(df.SL.GOI$Gene%in%ACO)] <- T
-
-df.SL.GOI$Mt <- F
-df.SL.GOI$Mt[(df.SL.GOI$Gene%in%Mt)] <- T
-
-df.SL.GOI$Mt.ribo <- F
-df.SL.GOI$Mt.ribo[(df.SL.GOI$Gene%in%Mt.ribo)] <- T
-
-df.SL.GOI$Mt.aerobicResp <- F
-df.SL.GOI$Mt.aerobicResp[(df.SL.GOI$Gene%in%Mt.aerobicResp)] <- T
-
-df.SL.GOI$MtGO <- F
-df.SL.GOI$MtGO[(df.SL.GOI$Gene%in%MtGO)] <- T
-
-df.SL.GOI$MtGO.ribo <- F
-df.SL.GOI$MtGO.ribo[(df.SL.GOI$Gene%in%MtGO.ribo)] <- T
-```
-
-```{r}
-#re-order
-df.SL.GOI<- df.SL.GOI[order(-df.SL.GOI[,33], -df.SL.GOI[,34], -df.SL.GOI[,35] , -df.SL.GOI[,36], -df.SL.GOI[,37], -df.SL.GOI[,38], -df.SL.GOI[,39], -df.SL.GOI[,40], -df.SL.GOI[,41], -df.SL.GOI[,42], -df.SL.GOI[,43], -df.SL.GOI[,44], -df.SL.GOI[,45], -df.SL.GOI[,46], -df.SL.GOI[,47], -df.SL.GOI[,48], -df.SL.GOI[,49], -df.SL.GOI[,50], -df.SL.GOI[,51], -df.SL.GOI[,52], -df.SL.GOI[,53], -df.SL.GOI[,54], -df.SL.GOI[,55], -df.SL.GOI[,56]),]
-```
-```{r}
-write.csv(df.SL.GOI, "df.SL.GOI.csv")
-```
-
-
-
-#acs
+#Analyze BxM
 ##Format df
-```{r format df}
-#Subset
-df.acs <- df[,c(1:18,89)]
-#Remove missing genes
-df.acs <- df.acs[!(df.acs$B73.acs.B73.r1==0),]
-#Calculate averages of bio reps
-df.acs$B73avg <- rowMeans(df.acs[,9:13])
-df.acs$ACSavg <- rowMeans(df.acs[,14:18])
-#calculate ratio
-df.acs$ACS.B73 <- df.acs$ACSavg/df.acs$B73avg
-#calculate t-test
-df.acs$Sig <- ttestFun(df.acs, 9:13, 14:18)
-#calculate log2(acs/b73)
-df.acs$l2fc <- log2(df.acs$ACS.B73)
-#Calculate standard deviation
-df.acs$SD <- rowSds(as.matrix(df.acs[,14:18]))
-#subset to 10% significantly above or below mid-parent
-df.acs.amp <- df.acs[(df.acs$Sig<0.05)&(df.acs$ACS.B73>1.1),]
-df.acs.bmp <- df.acs[(df.acs$Sig<0.05)&(df.acs$ACS.B73<0.9),]
-```
-##GO term enrichment
-```{r trim gamer}
-#Trim gamer to only those genes detected in our data, to use as background for enrichment
-gamerCutACS <- gamer[(gamer$db_object_id %in% df.acs$Gene),]
-```
-```{r run GoanalysisGodata}
-df.acs.amp_BP_GOdata <- GOanalysisGodata(df.acs.amp, gamerCutACS, "BP", nodesize = 5)
-df.acs.amp_MF_GOdata <- GOanalysisGodata(df.acs.amp, gamerCutACS, "MF", nodesize = 5)
-df.acs.amp_CC_GOdata <- GOanalysisGodata(df.acs.amp, gamerCutACS, "CC", nodesize = 5)
-
-df.acs.bmp_BP_GOdata <- GOanalysisGodata(df.acs.bmp, gamerCutACS, "BP", nodesize = 5)
-df.acs.bmp_MF_GOdata <- GOanalysisGodata(df.acs.bmp, gamerCutACS, "MF", nodesize = 5)
-df.acs.bmp_CC_GOdata <- GOanalysisGodata(df.acs.bmp, gamerCutACS, "CC", nodesize = 5)
-```
-```{r run GoanalysisMap}
-dir.create("GOmaps")
-GOanalysisMap(df.acs.amp_BP_GOdata, "GOmaps/df.acs.amp_BP_GOdata")
-GOanalysisMap(df.acs.amp_MF_GOdata, "GOmaps/df.acs.amp_MF_GOdata")
-GOanalysisMap(df.acs.amp_CC_GOdata, "GOmaps/df.acs.amp_CC_GOdata")
-
-GOanalysisMap(df.acs.bmp_BP_GOdata, "GOmaps/df.acs.bmp_BP_GOdata")
-GOanalysisMap(df.acs.bmp_MF_GOdata, "GOmaps/df.acs.bmp_MF_GOdata")
-GOanalysisMap(df.acs.bmp_CC_GOdata, "GOmaps/df.acs.bmp_CC_GOdata")
-```
-```{r run GoanalysisDF}
-df.acs.amp_BP_GOdata.DF <- GOanalysisDF(df.acs.amp_BP_GOdata)
-df.acs.amp_MF_GOdata.DF <- GOanalysisDF(df.acs.amp_MF_GOdata)
-df.acs.amp_CC_GOdata.DF <- GOanalysisDF(df.acs.amp_CC_GOdata)
-
-df.acs.bmp_BP_GOdata.DF <- GOanalysisDF(df.acs.bmp_BP_GOdata)
-df.acs.bmp_MF_GOdata.DF <- GOanalysisDF(df.acs.bmp_MF_GOdata)
-df.acs.bmp_CC_GOdata.DF <- GOanalysisDF(df.acs.bmp_CC_GOdata)
-```
-
-#Seedling Leaf - B73xMo17
-##Format df
-
-###AMP/BMP
 ```{r format df}
 #Subset
 df.SL <- df[,c(1:8,19:28,89)]
@@ -429,13 +142,22 @@ df.SL$HYB.MP <- df.SL$HYBavg/df.SL$MPavg
 df.SL$Sig <- ttestFun(df.SL, 10:12, 24:26)
 #calculate log2(hyb/MP)
 df.SL$l2fc <- log2(df.SL$HYB.MP)
-#subset to 10% significantly above or below mid-parent
-df.SL.amp <- df.SL[(df.SL$Sig<0.05)&(df.SL$HYB.MP>1.1),]
-df.SL.bmp <- df.SL[(df.SL$Sig<0.05)&(df.SL$HYB.MP<0.9),]
 #Calculate log2(B73/Mo17)
 df.SL$B73.Mo17 <- df.SL$B73avg/df.SL$Mo17avg
 df.SL$l2fc.B73.Mo17 <-log2(df.SL$B73.Mo17)
+saveRDS(df.SL, "df.SL")
 ```
+```{r}
+df.SL <- readRDS("df.SL")
+```
+###AMP/BMP
+```{r}
+#subset to 10% significantly above or below mid-parent
+df.SL.amp <- df.SL[(df.SL$Sig<0.05)&(df.SL$HYB.MP>1.1),]
+df.SL.bmp <- df.SL[(df.SL$Sig<0.05)&(df.SL$HYB.MP<0.9),]
+```
+
+
 ###MP + HP
 ```{r Subset to mid-parent proteins where parents are different}
 #Copy data
@@ -633,38 +355,1251 @@ df.SL.3.mo17hp.bmp_MF_GOdata.DF <- GOanalysisDF(df.SL.3.mo17hp.bmp_MF_GOdata)
 ```
 
 
-##Scatterplot - Photosynthesis subterms
+##heatmaps
+```{r}
+colnames(df.SL)
+```
+
+```{r}
+df.SL.avgs <- df.SL[,20:22]
+colnames(df.SL.avgs)<- c("B73", "Mo17", "BxM")
+df.SL.avgs.t <- t(df.SL.avgs)
+df.SL.avgs.t.d <- dist(df.SL.avgs.t, method = "euclidean", diag=T, upper=T)
+df.SL.avgs.t.d.m <- as.matrix(df.SL.avgs.t.d)
+heatmap(df.SL.avgs.t.d.m, col =colorRampPalette(brewer.pal(8, "Blues"))(25), symm = T, cexRow = 2, cexCol = 2)
+```
+
+#Define GOIs
+##corncyc
+```{r}
+cornCyc <- read.csv("cornCycGeneLists01042020.csv", stringsAsFactors = F)
+```
+##MaizeGDB accession conversion
+```{r}
+mgdb <- read.csv("gene_model_xref_v4.csv", stringsAsFactors = F, header = F)
+colnames(mgdb) <- mgdb[5,]
+mgdb <- mgdb[-c(1:5),]
+```
+##Photosynthesis
+###g1
+```{r}
+g1tib <-tibble::tribble(
+              ~V1,                                                                                    ~V2,
+          845199L,                            "psbA; photosystem II protein D1 [KO:K02703] [EC:1.10.3.9]",
+          845200L,                                      "psbB; photosystem II 47 kDa protein [KO:K02704]",
+          845201L,                                      "psbC; photosystem II 44 kDa protein [KO:K02705]",
+          845202L,                            "psbD; photosystem II protein D2 [KO:K02706] [EC:1.10.3.9]",
+          845203L,                                           "psbE; photosystem II protein V [KO:K02707]",
+          845204L,                                          "psbF; photosystem II protein VI [KO:K02708]",
+          845205L,                                           "psbH; photosystem II protein H [KO:K02709]",
+          845206L,                                           "psbI; photosystem II protein I [KO:K02710]",
+          845207L,                                           "psbJ; photosystem II protein J [KO:K02711]",
+          845208L,                                           "psbK; photosystem II protein K [KO:K02712]",
+          845209L,                                           "psbL; photosystem II protein L [KO:K02713]",
+          845210L,                                           "psbM; photosystem II protein M [KO:K02714]",
+       100191684L,                                     "uncharacterized protein LOC100191684 [KO:K02716]",
+       100272890L,                                             "uncharacterized LOC100272890 [KO:K02716]",
+       100281199L,    "chloroplast oxygen-evolving complex/thylakoid lumenal 25.6kDa protein [KO:K02717]",
+       107648855L,                                     "uncharacterized protein LOC107648855 [KO:K02717]",
+       100273117L,                        "oxygen-evolving enhancer protein 2, chloroplastic [KO:K02717]",
+          542279L,               "PSBQ1; oxygen-evolving enhancer protein 3-1, chloroplastic [KO:K08901]",
+       100273120L,                    "oxygen evolving enhancer protein 3 containing protein [KO:K08901]",
+       103647735L,                 "oxygen-evolving enhancer protein 3-1, chloroplastic-like [KO:K08901]",
+       103627333L,          "photosynthetic NDH subunit of lumenal location 2, chloroplastic [KO:K08901]",
+       103653672L,          "photosynthetic NDH subunit of lumenal location 2, chloroplastic [KO:K08901]",
+       100281646L,                         "photosystem II 10 kDa polypeptide, chloroplastic [KO:K03541]",
+          542126L,                                      "psbs1; photosystem II subunit PsbS1 [KO:K03542]",
+         1466364L,                                           "psbT; photosystem II protein T [KO:K02718]",
+       100283816L,                          "pco070877; uncharacterized protein LOC100283816 [KO:K02721]",
+       100283835L,                           "cl5838_2; uncharacterized protein LOC100283835 [KO:K02721]",
+       100280994L,                                "photosystem II core complex proteins psbY [KO:K02723]",
+       100281349L,                                "photosystem II core complex proteins psbY [KO:K02723]",
+         1466358L,                                           "psbZ; photosystem II protein Z [KO:K02724]",
+       100282043L,                                             "photosystem II 11 kD protein [KO:K08902]",
+       100281235L,                                             "photosystem II 11 kD protein [KO:K08902]",
+       103636309L,         "photosystem II reaction center PSB28 protein, chloroplastic-like [KO:K08903]",
+       100284876L,                                 "photosystem II reaction center W protein [KO:K08903]",
+       103650780L,              "photosystem II reaction center PSB28 protein, chloroplastic [KO:K08903]",
+       109945128L,              "photosystem II reaction center PSB28 protein, chloroplastic [KO:K08903]",
+       103650783L,              "photosystem II reaction center PSB28 protein, chloroplastic [KO:K08903]",
+          845195L,                     "psaA; photosystem I P700 chlorophyll a apoprotein A1 [KO:K02689]",
+          845196L,                     "psaB; photosystem I P700 chlorophyll a apoprotein A2 [KO:K02690]",
+         1466379L,                                          "psaC; photosystem I subunit VII [KO:K02691]",
+       100191984L,                                 "photosystem I reaction center subunit II [KO:K02692]",
+          541791L,                  "photosystem I reaction center subunit II, chloroplastic [KO:K02692]",
+       100283327L,                               "photosystem I reaction center subunit IV A [KO:K02693]",
+       100283085L,                                     "uncharacterized protein LOC100283085 [KO:K02693]",
+       100282027L,                                "photosystem I reaction center subunit III [KO:K02694]",
+       103625835L,                 "photosystem I reaction center subunit III, chloroplastic [KO:K02694]",
+       100285458L,                                  "photosystem I reaction center subunit V [KO:K08905]",
+       100284847L,                                  "photosystem I reaction center subunit V [KO:K08905]",
+          541685L, "psah1; photosystem I reaction center subunit VI, chloroplastic precursor [KO:K02695]",
+          845197L,                                         "psaI; photosystem I subunit VIII [KO:K02696]",
+          845198L,                                           "psaJ; photosystem I subunit IX [KO:K02697]",
+       100286020L,                                    "psa6; photosystem I reaction center 6 [KO:K02698]",
+       100281679L,                                 "photosystem I reaction center subunit XI [KO:K02699]",
+       100383080L,                            "umc1974; uncharacterized protein LOC100383080 [KO:K02699]",
+          542605L,                   "photosystem I reaction center subunit N, chloroplastic [KO:K02701]",
+       103640891L,              "photosystem I reaction center subunit N, chloroplastic-like [KO:K02701]",
+       100283848L,                          "pco139896; uncharacterized protein LOC100283848 [KO:K14332]",
+          845191L,                                                       "petA; cytochrome f [KO:K02634]",
+       103643185L,                                     "uncharacterized protein LOC103643185 [KO:K02634]",
+          845192L,                                                      "petB; cytochrome b6 [KO:K02635]",
+       100273354L,                                 "ris2; iron-sulfur protein 2 [KO:K02636] [EC:7.1.1.6]",
+       100273026L,                 "cytochrome b6-f complex iron-sulfur subunit [KO:K02636] [EC:7.1.1.6]",
+          845193L,                                 "petD; cytochrome b6/f complex subunit IV [KO:K02637]",
+          845194L,                                  "petG; cytochrome b6/f complex subunit V [KO:K02640]",
+         1466360L,                               "petN; cytochrome b6/f complex subunit VIII [KO:K03689]",
+       100192779L,                                     "uncharacterized protein LOC100192779 [KO:K02638]",
+       103629356L,                                              "plastocyanin, chloroplastic [KO:K02638]",
+       100191704L,                                     "uncharacterized protein LOC100191704 [KO:K02639]",
+       103628935L,                                        "fdx5; ferredoxin-5, chloroplastic [KO:K02639]",
+          541619L,                                        "fdx2; ferredoxin-2, chloroplastic [KO:K02639]",
+       100283643L,                                                             "ferredoxin-3 [KO:K02639]",
+          541612L,                              "pco072676(750); ferredoxin-6, chloroplastic [KO:K02639]",
+       100382495L,                                      "putative ferredoxin-4 chloroplastic [KO:K02639]",
+       100281226L,                                                             "ferredoxin-6 [KO:K02639]",
+          542276L,                                        "fdx3; ferredoxin-3, chloroplastic [KO:K02639]",
+       100284745L,                                                               "ferredoxin [KO:K02639]",
+       101027099L,                                         "FDX1; adrenodoxin, mitochondrial [KO:K02639]",
+       103653165L,                                                               "ferredoxin [KO:K02639]",
+          541626L,                                        "L-FNRII; ferredoxin [KO:K02641] [EC:1.18.1.2]",
+       100194249L,               "IDP808; uncharacterized protein LOC100194249 [KO:K02641] [EC:1.18.1.2]",
+          542713L,                          "fnr1; ferredoxin NADP reductase 1 [KO:K02641] [EC:1.18.1.2]",
+       100282643L,                   "ferredoxin--NADP reductase, leaf isozyme [KO:K02641] [EC:1.18.1.2]",
+          542558L,                                         "L-FNRI; ferredoxin [KO:K02641] [EC:1.18.1.2]",
+       103644035L,  "ferredoxin--NADP reductase, leaf isozyme 1, chloroplastic [KO:K02641] [EC:1.18.1.2]",
+       100382419L,                                                            "cytochrome c6 [KO:K08906]",
+          845171L,                                   "atpE; ATP synthase CF1 epsilon subunit [KO:K02114]",
+          845170L,                 "atpB; ATP synthase CF1 beta subunit [KO:K02112] [EC:7.1.2.2 7.2.2.1]",
+       100284505L,        "csu309(atpc); ATP synthase subunit gamma, chloroplastic precursor [KO:K02115]",
+       103637166L,                                "ATP synthase subunit gamma, chloroplastic [KO:K02115]",
+       103655982L,                           "ATP synthase subunit gamma, chloroplastic-like [KO:K02115]",
+       103649250L,                           "ATP synthase subunit gamma, chloroplastic-like [KO:K02115]",
+          845169L,                "atpA; ATP synthase CF1 alpha subunit [KO:K02111] [EC:7.1.2.2 7.2.2.1]",
+       100281924L,                                                 "ATP synthase delta chain [KO:K02113]",
+       103627748L,                                  "ATP synthase delta chain, chloroplastic [KO:K02113]",
+       100282566L,                         "pco080036b; uncharacterized protein LOC100282566 [KO:K02109]",
+          845172L,                                         "atpF; ATP synthase CF0 B subunit [KO:K02109]",
+          845173L,                                         "atpH; ATP synthase CF0 C subunit [KO:K02110]",
+          845174L,                                         "atpI; ATP synthase CF0 A subunit [KO:K02108]"
+       )
+
+```
+```{r}
+g1entrez <- as.character(g1tib$V1)
+```
+```{r}
+g1 <- mgdb$v4_gene_model[mgdb$Entrez%in%g1entrez]
+```
+```{r}
+g1entrez
+```
+
+
+###g2
+```{r}
+g2 <- as.vector(gamer$db_object_id[gamer$term_accession=="GO:0015979"])
+```
+###g3
+```{r}
+g3 <- as.vector(gamer$db_object_id[gamer$term_accession=="GO:1905157"])
+```
+###g4
+```{r}
+g4 <- as.vector(gamer$db_object_id[gamer$term_accession=="GO:0010109"])
+```
+###g5
+```{r}
+g5 <- as.vector(gamer$db_object_id[gamer$term_accession=="GO:0080005"])
+```
+###g6
+```{r}
+g6 <- as.vector(gamer$db_object_id[gamer$term_accession=="GO:0019684"])
+```
+###g7
+```{r}
+g7 <- as.vector(gamer$db_object_id[gamer$term_accession=="GO:0042548"])
+```
+###g8
+```{r}
+g8 <- as.vector(gamer$db_object_id[gamer$term_accession=="GO:0010205"])
+```
+###g9
+```{r}
+g9 <- as.vector(gamer$db_object_id[gamer$term_accession=="GO:0042549"])
+```
+###g10
+```{r}
+g10 <- as.vector(gamer$db_object_id[gamer$term_accession=="GO:0042550"])
+```
+###g11
+```{r}
+g11 <- as.vector(gamer$db_object_id[gamer$term_accession=="GO:0009522"])
+```
+###g12
+```{r}
+g12 <- as.vector(gamer$db_object_id[gamer$term_accession=="GO:0030093"])
+```
+###g13
+```{r}
+g13 <- as.vector(gamer$db_object_id[gamer$term_accession=="GO:0009782"])
+```
+###g14
+```{r}
+g14 <- as.vector(gamer$db_object_id[gamer$term_accession=="GO:0009538"])
+```
+###g15
+```{r}
+g15entrez <- g1entrez[38:57]
+```
+```{r}
+g15 <- mgdb$v4_gene_model[mgdb$Entrez%in%g15entrez]
+```
+
+
+
+###g16
+```{r}
+CornCycLightRxns <- tibble::tribble(
+                          ~Gene.ID,  ~Gene.Accession,       ~Gene.name,                               ~Reaction.id, ~Reaction.EC,                   ~Enzymatic.activity, ~Evidence,
+                       "GDQC-8387", "Zm00001d010715", "Zm00001d010715",                                 "PSII-RXN",   "1.10.3.9",                      "photosystem II", "EV-COMP",
+                       "GDQC-8546", "Zm00001d020002", "Zm00001d020002",                                 "PSII-RXN",   "1.10.3.9",                      "photosystem II", "EV-COMP",
+                       "GDQC-8747", "Zm00001d000417", "Zm00001d000417",                                 "PSII-RXN",   "1.10.3.9",                      "photosystem II", "EV-COMP",
+                       "GDQC-9170", "Zm00001d039715", "Zm00001d039715",                                 "PSII-RXN",   "1.10.3.9",                      "photosystem II", "EV-COMP",
+                       "GDQC-9254", "Zm00001d011362", "Zm00001d011362",                                 "PSII-RXN",   "1.10.3.9",                      "photosystem II", "EV-COMP",
+                       "GDQC-9445", "Zm00001d008681", "Zm00001d008681",                                 "PSII-RXN",   "1.10.3.9",                      "photosystem II", "EV-COMP",
+                       "GDQC-9899", "Zm00001d043167", "Zm00001d043167",                                 "PSII-RXN",   "1.10.3.9",                      "photosystem II", "EV-COMP",
+                      "GDQC-10138", "Zm00001d008625", "Zm00001d008625",                                 "PSII-RXN",   "1.10.3.9",                      "photosystem II", "EV-COMP",
+                      "GDQC-10311", "Zm00001d041824", "Zm00001d041824",                                 "PSII-RXN",   "1.10.3.9",                      "photosystem II", "EV-COMP",
+                      "GDQC-10950", "Zm00001d022464", "Zm00001d022464",                                 "PSII-RXN",   "1.10.3.9",                      "photosystem II", "EV-COMP",
+                      "GDQC-11782", "Zm00001d044217", "Zm00001d044217",                                 "PSII-RXN",   "1.10.3.9",                      "photosystem II", "EV-COMP",
+                      "GDQC-11860", "Zm00001d030638", "Zm00001d030638",                                 "PSII-RXN",   "1.10.3.9",                      "photosystem II", "EV-COMP",
+                      "GDQC-11887",  "GRMZM5G808939",  "GRMZM5G808939",                                 "PSII-RXN",   "1.10.3.9",                      "photosystem II", "EV-COMP",
+                      "GDQC-11985", "Zm00001d043299", "Zm00001d043299",                                 "PSII-RXN",   "1.10.3.9",                      "photosystem II", "EV-COMP",
+                      "GDQC-11996", "Zm00001d034153", "Zm00001d034153",                                 "PSII-RXN",   "1.10.3.9",                      "photosystem II", "EV-COMP",
+                      "GDQC-12078", "Zm00001d000260", "Zm00001d000260",                                 "PSII-RXN",   "1.10.3.9",                      "photosystem II", "EV-COMP",
+                      "GDQC-13214", "Zm00001d031484", "Zm00001d031484",                                 "PSII-RXN",   "1.10.3.9",                      "photosystem II", "EV-COMP",
+                      "GDQC-14006", "Zm00001d039852", "Zm00001d039852",                                 "PSII-RXN",   "1.10.3.9",                      "photosystem II", "EV-COMP",
+                       "GDQC-8316", "Zm00001d016134", "Zm00001d016134", "PLASTOQUINOL--PLASTOCYANIN-REDUCTASE-RXN",   "1.10.9.1", "plastoquinol-plastocyanin reductase", "EV-COMP",
+                       "GDQC-9168", "Zm00001d018162", "Zm00001d018162", "PLASTOQUINOL--PLASTOCYANIN-REDUCTASE-RXN",   "1.10.9.1", "plastoquinol-plastocyanin reductase", "EV-COMP",
+                      "GDQC-11523", "Zm00001d053432", "Zm00001d053432", "PLASTOQUINOL--PLASTOCYANIN-REDUCTASE-RXN",   "1.10.9.1", "plastoquinol-plastocyanin reductase", "EV-COMP",
+                      "GDQC-13682",  "GRMZM5G800780",  "GRMZM5G800780", "PLASTOQUINOL--PLASTOCYANIN-REDUCTASE-RXN",   "1.10.9.1", "plastoquinol-plastocyanin reductase", "EV-COMP",
+                       "GDQC-8046", "Zm00001d003767", "Zm00001d003767",                                "RXN-15479",  "1.97.1.12",                       "photosystem I", "EV-COMP",
+                       "GDQC-8673", "Zm00001d034283", "Zm00001d034283",                                "RXN-15479",  "1.97.1.12",                       "photosystem I", "EV-COMP",
+                       "GDQC-9216",  "GRMZM5G815553",  "GRMZM5G815553",                                "RXN-15479",  "1.97.1.12",                       "photosystem I", "EV-COMP",
+                      "GDQC-10703", "Zm00001d013146", "Zm00001d013146",                                "RXN-15479",  "1.97.1.12",                       "photosystem I", "EV-COMP",
+                      "GDQC-12161", "Zm00001d000272", "Zm00001d000272",                                "RXN-15479",  "1.97.1.12",                       "photosystem I", "EV-COMP",
+                       "GDQC-7635", "Zm00001d011833", "Zm00001d011833",                             "1.18.1.2-RXN",   "1.18.1.2",           "ferredoxin NADP reductase", "EV-COMP",
+                       "GDQC-7812", "Zm00001d023296", "Zm00001d023296",                             "1.18.1.2-RXN",   "1.18.1.2",           "ferredoxin NADP reductase", "EV-COMP",
+                       "GDQC-8192", "Zm00001d045575", "Zm00001d045575",                             "1.18.1.2-RXN",   "1.18.1.2",           "ferredoxin NADP reductase", "EV-COMP",
+                       "GDQC-8377", "Zm00001d051680", "Zm00001d051680",                             "1.18.1.2-RXN",   "1.18.1.2",           "ferredoxin NADP reductase", "EV-COMP",
+                       "GDQC-8916", "Zm00001d048452", "Zm00001d048452",                             "1.18.1.2-RXN",   "1.18.1.2",           "ferredoxin NADP reductase", "EV-COMP",
+                      "GDQC-10511", "Zm00001d005458", "Zm00001d005458",                             "1.18.1.2-RXN",   "1.18.1.2",           "ferredoxin NADP reductase", "EV-COMP",
+                      "GDQC-10877", "Zm00001d018794", "Zm00001d018794",                             "1.18.1.2-RXN",   "1.18.1.2",           "ferredoxin NADP reductase", "EV-COMP",
+                      "GDQC-10917", "Zm00001d034099", "Zm00001d034099",                             "1.18.1.2-RXN",   "1.18.1.2",           "ferredoxin NADP reductase", "EV-COMP",
+                      "GDQC-11276", "Zm00001d042049", "Zm00001d042049",                             "1.18.1.2-RXN",   "1.18.1.2",           "ferredoxin NADP reductase", "EV-COMP",
+                      "GDQC-11941", "Zm00001d039519", "Zm00001d039519",                             "1.18.1.2-RXN",   "1.18.1.2",           "ferredoxin NADP reductase", "EV-COMP",
+                      "GDQC-11960", "Zm00001d034345", "Zm00001d034345",                             "1.18.1.2-RXN",   "1.18.1.2",           "ferredoxin NADP reductase", "EV-COMP",
+                      "GDQC-12126", "Zm00001d051407", "Zm00001d051407",                             "1.18.1.2-RXN",   "1.18.1.2",           "ferredoxin NADP reductase", "EV-COMP",
+                      "GDQC-12735", "Zm00001d045574", "Zm00001d045574",                             "1.18.1.2-RXN",   "1.18.1.2",           "ferredoxin NADP reductase", "EV-COMP",
+                      "GDQC-13931", "Zm00001d036041", "Zm00001d036041",                             "1.18.1.2-RXN",   "1.18.1.2",           "ferredoxin NADP reductase", "EV-COMP",
+                      "GDQC-14028", "Zm00001d037231", "Zm00001d037231",                             "1.18.1.2-RXN",   "1.18.1.2",           "ferredoxin NADP reductase", "EV-COMP"
+                      )
+
+```
+```{r}
+g16 <- CornCycLightRxns$Gene.Accession[CornCycLightRxns$Reaction.EC=="1.97.1.12"]
+```
+```{r}
+g16 <- substr(g16, start = 1, stop = 14)
+```
+
+
+###g17
+```{r}
+g17 <- as.vector(gamer$db_object_id[gamer$term_accession=="GO:0009768"])
+```
+###g18
+```{r}
+g18tib <- tibble::tribble(
+                   ~V1,                                                                              ~V2,
+            100281791L,                                 "chlorophyll a-b binding protein 6A [KO:K08907]",
+            100283212L,                                 "chlorophyll a-b binding protein 6A [KO:K08907]",
+            100273427L,      "Photosystem I chlorophyll a/b-binding protein 6 chloroplastic [KO:K08908]",
+            100191715L,                                    "chlorophyll a-b binding protein [KO:K08908]",
+            100282512L,                                    "chlorophyll a-b binding protein [KO:K08908]",
+            100282214L,                                  "chlorophyll a-b binding protein 8 [KO:K08909]",
+            100284001L,                       "gpm571; uncharacterized protein LOC100284001 [KO:K08910]",
+            100280410L,                               "uncharacterized protein LOC100280410 [KO:K08910]",
+            100281795L,                "csu1028(lhcb); uncharacterized protein LOC100281795 [KO:K08911]",
+            100281248L,         "chlorophyll a-b binding protein 1, chloroplastic precursor [KO:K08912]",
+            100193833L,              "lhcb7; chlorophyll a-b binding protein, chloroplastic [KO:K08912]",
+            100282054L,                                  "chlorophyll a-b binding protein 2 [KO:K08912]",
+               542530L, "lhcb3; chlorophyll a-b binding protein M9, chloroplastic precursor [KO:K08912]",
+            100274453L,                  "light harvesting chlorophyll a/b binding protein1 [KO:K08912]",
+            103651575L,                  "chlorophyll a-b binding protein 48, chloroplastic [KO:K08912]",
+            103651577L,                    "chlorophyll a-b binding protein of LHCII type 1 [KO:K08912]",
+            103651578L,                    "chlorophyll a-b binding protein of LHCII type 1 [KO:K08912]",
+            100281879L,                                    "chlorophyll a-b binding protein [KO:K08913]",
+            103643653L,                     "chlorophyll a-b binding protein, chloroplastic [KO:K08913]",
+            100284154L,                  "chlorophyll a-b binding protein of LHCII type III [KO:K08914]",
+            100216729L,                               "uncharacterized protein LOC100216729 [KO:K08915]",
+               542478L,                                    "psb29; photosystem II subunit29 [KO:K08915]",
+               542320L,         "Lhcb5-2; chlorophyll a/b-binding apoprotein CP26 precursor [KO:K08916]",
+               542716L,          "lhcb5; light harvesting chlorophyll a/b binding protein 5 [KO:K08916]",
+            100273752L,                               "uncharacterized protein LOC100273752 [KO:K08917]",
+               542321L,          "lhcb6; light harvesting chlorophyll a/b binding protein 6 [KO:K08917]",
+            109944964L,            "chlorophyll a-b binding protein CP24 10B, chloroplastic [KO:K08917]",
+            113561367L,                               "chlorophyll a-b binding protein CP24 [KO:K08917]",
+            100274085L,                  "si486069e02; uncharacterized protein LOC100274085 [KO:K14172]"
+            )
+
+```
+```{r}
+g18entrez <- as.character(g18tib$V1)
+```
+```{r}
+g18entrez.lhc1 <- g18entrez[1:10]
+```
+```{r}
+g18 <- mgdb$v4_gene_model[mgdb$Entrez%in%g18entrez.lhc1]
+```
+
+
+###g19
+```{r}
+g19 <- as.vector(gamer$db_object_id[gamer$term_accession=="GO:0048564"])
+```
+###g20
+```{r}
+g20 <- as.vector(gamer$db_object_id[gamer$term_accession=="GO:0009523"])
+```
+###g21
+```{r}
+g21 <- as.vector(gamer$db_object_id[gamer$term_accession=="GO:0030095"])
+```
+###g22
+```{r}
+g22 <- as.vector(gamer$db_object_id[gamer$term_accession=="GO:0009783"])
+```
+###g23
+```{r}
+g23 <- as.vector(gamer$db_object_id[gamer$term_accession=="GO:0009654"])
+```
+###g24
+```{r}
+g24 <- as.vector(gamer$db_object_id[gamer$term_accession=="GO:0009539"])
+```
+
+###g25
+```{r}
+g25entrez <- g1entrez[1:37]
+```
+```{r}
+g25 <- mgdb$v4_gene_model[mgdb$Entrez%in%g25entrez]
+```
+###g26
+```{r}
+g26 <- CornCycLightRxns$Gene.Accession[CornCycLightRxns$Reaction.EC=="1.10.3.9"]
+```
+```{r}
+g26 <- substr(g26, start = 1, stop = 14)
+```
+
+
+###g27
+```{r}
+g27 <- as.vector(gamer$db_object_id[gamer$term_accession=="GO:0009769"])
+```
+###g28
+```{r}
+g28entrez.lhc2 <- g18entrez[11:29]
+```
+```{r}
+g28 <- mgdb$v4_gene_model[mgdb$Entrez%in%g28entrez.lhc2]
+```
+
+###g29
+```{r}
+g29 <- as.vector(gamer$db_object_id[gamer$term_accession=="GO:0010206"])
+```
+###g30
+```{r}
+g30 <- as.vector(gamer$db_object_id[gamer$term_accession=="GO:0010207"])
+```
+###g31
+```{r}
+g31 <- as.vector(gamer$db_object_id[gamer$term_accession=="GO:0010270"])
+```
+###g32
+```{r}
+g32 <- as.vector(gamer$db_object_id[gamer$term_accession=="GO:0009767"])
+```
+###g33
+```{r}
+g33 <- as.vector(gamer$db_object_id[gamer$term_accession=="GO:0009773"])
+```
+###g34
+```{r}
+g34 <- as.vector(gamer$db_object_id[gamer$term_accession=="GO:0009772"])
+```
+###g35
+```{r}
+g35entrez <- g1entrez[66:85]
+```
+```{r}
+g35 <- mgdb$v4_gene_model[mgdb$Entrez%in%g35entrez]
+```
+###g36
+```{r}
+g36 <- CornCycLightRxns$Gene.Accession[CornCycLightRxns$Reaction.EC=="1.10.9.1"]
+```
+```{r}
+g36 <- substr(g36, start = 1, stop = 14)
+```
+
+###g37
+```{r}
+g37entrez <- g1entrez[58:65]
+```
+```{r}
+g37entrez
+```
+
+```{r}
+g37 <- mgdb$v4_gene_model[mgdb$Entrez%in%g37entrez]
+```
+```{r}
+g37
+```
+
+###g38
+```{r}
+g38 <- as.vector(gamer$db_object_id[gamer$term_accession=="GO:0009780"])
+```
+###g39
+```{r}
+g39 <- CornCycLightRxns$Gene.Accession[CornCycLightRxns$Reaction.EC=="1.18.1.2"]
+```
+```{r}
+g39 <- substr(g39, start = 1, stop = 14)
+```
+
+###g40
+```{r}
+g40entrez <- g1entrez[86:98]
+```
+```{r}
+g40 <- mgdb$v4_gene_model[mgdb$Entrez%in%g40entrez]
+```
+###g41
+```{r}
+g41 <- as.vector(gamer$db_object_id[gamer$term_accession=="GO:0019685"])
+```
+###g42
+```{r}
+CornCycC4NADP <- tibble::tribble(
+                        ~Gene.ID,         ~Gene.Accession,         ~Gene.name,                          ~Reaction.id, ~Reaction.EC,                                           ~Enzymatic.activity, ~Evidence,
+                   "GDQC-112543",        "Zm00001d044096",   "Zm00001d044096",                           "RXN0-5224",    "4.2.1.1",                                       "carbonate dehydratase",  "EV-EXP",
+                   "GDQC-113944",        "Zm00001d044099",             "cah1",                           "RXN0-5224",    "4.2.1.1",                                       "carbonate dehydratase",  "EV-EXP",
+                     "GDQC-7639",        "Zm00001d024980",   "Zm00001d024980",                       "PEPCARBOX-RXN",   "4.1.1.31",                             "phosphoenolpyruvate carboxylase", "EV-COMP",
+                     "GDQC-8952",        "Zm00001d016166",   "Zm00001d016166",                       "PEPCARBOX-RXN",   "4.1.1.31",                             "phosphoenolpyruvate carboxylase", "EV-COMP",
+                     "GDQC-9159",        "Zm00001d040129",   "Zm00001d040129",                       "PEPCARBOX-RXN",   "4.1.1.31",                             "phosphoenolpyruvate carboxylase", "EV-COMP",
+                     "GDQC-9830",        "Zm00001d046754",   "Zm00001d046754",                       "PEPCARBOX-RXN",   "4.1.1.31",                             "phosphoenolpyruvate carboxylase", "EV-COMP",
+                    "GDQC-10258",        "Zm00001d020057",   "Zm00001d020057",                       "PEPCARBOX-RXN",   "4.1.1.31",                             "phosphoenolpyruvate carboxylase", "EV-COMP",
+                    "GDQC-11167",        "Zm00001d053453",   "Zm00001d053453",                       "PEPCARBOX-RXN",   "4.1.1.31",                             "phosphoenolpyruvate carboxylase", "EV-COMP",
+                    "GDQC-13992",        "Zm00001d037294",   "Zm00001d037294",                       "PEPCARBOX-RXN",   "4.1.1.31",                             "phosphoenolpyruvate carboxylase", "EV-COMP",
+                    "GDQC-14269",        "Zm00001d012702",   "Zm00001d012702",                       "PEPCARBOX-RXN",   "4.1.1.31",                             "phosphoenolpyruvate carboxylase", "EV-COMP",
+                          "G-41",        "Zm00001d046170",             "pep1",                       "PEPCARBOX-RXN",   "4.1.1.31",                             "phosphoenolpyruvate carboxylase",  "EV-EXP",
+                          "G-61",        "Zm00001d031899",   "Zm00001d031899",      "MALATE-DEHYDROGENASE-NADP+-RXN",   "1.1.1.82",                                   "NADP malate dehydrogenase",  "EV-EXP",
+                           "ME1",        "Zm00001d000316",   "Zm00001d000316",                      "MALIC-NADP-RXN",   "1.1.1.40",                                        "malate dehydrogenase", "EV-COMP",
+                     "GDQC-7940",        "Zm00001d010358",   "Zm00001d010358",                      "MALIC-NADP-RXN",   "1.1.1.40",                                        "malate dehydrogenase", "EV-COMP",
+                     "GDQC-8014",        "Zm00001d037693",   "Zm00001d037693",                      "MALIC-NADP-RXN",   "1.1.1.40",                                        "malate dehydrogenase", "EV-COMP",
+                     "GDQC-9044",        "Zm00001d003090",   "Zm00001d003090",                      "MALIC-NADP-RXN",   "1.1.1.40",                                        "malate dehydrogenase", "EV-COMP",
+                     "GDQC-9094",        "Zm00001d037961",   "Zm00001d037961",                      "MALIC-NADP-RXN",   "1.1.1.40",                                        "malate dehydrogenase", "EV-COMP",
+                     "GDQC-9862",        "Zm00001d011289",   "Zm00001d011289",                      "MALIC-NADP-RXN",   "1.1.1.40",                                        "malate dehydrogenase", "EV-COMP",
+                     "GDQC-9900",        "Zm00001d042392",   "Zm00001d042392",                      "MALIC-NADP-RXN",   "1.1.1.40",                                        "malate dehydrogenase", "EV-COMP",
+                    "GDQC-11405",        "Zm00001d036873",   "Zm00001d036873",                      "MALIC-NADP-RXN",   "1.1.1.40",                                        "malate dehydrogenase", "EV-COMP",
+                    "GDQC-12576",        "Zm00001d043601",   "Zm00001d043601",                      "MALIC-NADP-RXN",   "1.1.1.40",                                        "malate dehydrogenase", "EV-COMP",
+                    "GDQC-12623",        "Zm00001d034292",   "Zm00001d034292",                      "MALIC-NADP-RXN",   "1.1.1.40",                                        "malate dehydrogenase", "EV-COMP",
+                    "GDQC-12650",        "Zm00001d039633",   "Zm00001d039633",                      "MALIC-NADP-RXN",   "1.1.1.40",                                        "malate dehydrogenase", "EV-COMP",
+                    "GDQC-13022",        "Zm00001d004962",   "Zm00001d004962",                      "MALIC-NADP-RXN",   "1.1.1.40",                                        "malate dehydrogenase", "EV-COMP",
+                    "GDQC-14112",        "Zm00001d012764",   "Zm00001d012764",                      "MALIC-NADP-RXN",   "1.1.1.40",                                        "malate dehydrogenase", "EV-COMP",
+                    "GDQC-14700",        "Zm00001d051182",   "Zm00001d051182",                      "MALIC-NADP-RXN",   "1.1.1.40",                                        "malate dehydrogenase", "EV-COMP",
+                   "GDQC-108581",        "Zm00001d037962",              "me2",                      "MALIC-NADP-RXN",   "1.1.1.40", "malate dehydrogenase (oxaloacetate-decarboxylating) (NADP+)",  "EV-EXP",
+                           "me1", "Zm00001d000316_T001.1",              "me3",                      "MALIC-NADP-RXN",   "1.1.1.40",   "malate dehydrogenase NADP+ (oxaloacetate-decarboxylating)",  "EV-EXP",
+                     "GDQC-8439",        "Zm00001d010321",   "Zm00001d010321", "PYRUVATEORTHOPHOSPHATE-DIKINASE-RXN",    "2.7.9.1",                                 "pyruvate phosphate dikinase", "EV-COMP",
+                     "GDQC-9261",        "Zm00001d038161",   "Zm00001d038161", "PYRUVATEORTHOPHOSPHATE-DIKINASE-RXN",    "2.7.9.1",                                 "pyruvate phosphate dikinase", "EV-COMP",
+                   "GDQC-112401",        "Zm00001d038163", "pdk1 chloroplast", "PYRUVATEORTHOPHOSPHATE-DIKINASE-RXN",    "2.7.9.1",                                "pyruvate, phosphate dikinase",  "EV-EXP"
+                   )
+
+```
+```{r}
+g42 <- CornCycC4NADP$Gene.Accession
+```
+```{r}
+g42 <- substr(g42, start = 1, stop = 14)
+```
+
+###g43
+```{r}
+CornCycC4PEPCK <- tibble::tribble(
+                         ~Gene.ID,         ~Gene.Accession,         ~Gene.name,                          ~Reaction.id, ~Reaction.EC,                                           ~Enzymatic.activity, ~Evidence,
+                    "GDQC-112543",        "Zm00001d044096",   "Zm00001d044096",                           "RXN0-5224",    "4.2.1.1",                                       "carbonate dehydratase",  "EV-EXP",
+                    "GDQC-113944",        "Zm00001d044099",             "cah1",                           "RXN0-5224",    "4.2.1.1",                                       "carbonate dehydratase",  "EV-EXP",
+                    "GDQC-108139",        "Zm00001d018429",            "ppck1",                   "PEPCARBOXYKIN-RXN",   "4.1.1.49",                     "phosphoenolpyruvate carboxykinase (ATP)", "EV-COMP",
+                      "GDQC-8305",        "Zm00001d008318",   "Zm00001d008318",                   "PEPCARBOXYKIN-RXN",   "4.1.1.49",                     "phosphoenolpyruvate carboxykinase (ATP)", "EV-COMP",
+                     "GDQC-13994",        "Zm00001d026192",   "Zm00001d026192",                   "PEPCARBOXYKIN-RXN",   "4.1.1.49",                     "phosphoenolpyruvate carboxykinase (ATP)", "EV-COMP",
+                     "GDQC-14364",        "Zm00001d047893",   "Zm00001d047893",                   "PEPCARBOXYKIN-RXN",   "4.1.1.49",                     "phosphoenolpyruvate carboxykinase (ATP)", "EV-COMP",
+                     "GDQC-14687",        "Zm00001d029398",   "Zm00001d029398",                   "PEPCARBOXYKIN-RXN",   "4.1.1.49",                     "phosphoenolpyruvate carboxykinase (ATP)", "EV-COMP",
+                    "GDQC-113518",        "Zm00001d028471",   "Zm00001d028471",                   "PEPCARBOXYKIN-RXN",   "4.1.1.49",                           "phosphoenolpyruvate carboxykinase",  "EV-EXP",
+                      "GDQC-7639",        "Zm00001d024980",   "Zm00001d024980",                       "PEPCARBOX-RXN",   "4.1.1.31",                             "phosphoenolpyruvate carboxylase", "EV-COMP",
+                      "GDQC-8952",        "Zm00001d016166",   "Zm00001d016166",                       "PEPCARBOX-RXN",   "4.1.1.31",                             "phosphoenolpyruvate carboxylase", "EV-COMP",
+                      "GDQC-9159",        "Zm00001d040129",   "Zm00001d040129",                       "PEPCARBOX-RXN",   "4.1.1.31",                             "phosphoenolpyruvate carboxylase", "EV-COMP",
+                      "GDQC-9830",        "Zm00001d046754",   "Zm00001d046754",                       "PEPCARBOX-RXN",   "4.1.1.31",                             "phosphoenolpyruvate carboxylase", "EV-COMP",
+                     "GDQC-10258",        "Zm00001d020057",   "Zm00001d020057",                       "PEPCARBOX-RXN",   "4.1.1.31",                             "phosphoenolpyruvate carboxylase", "EV-COMP",
+                     "GDQC-11167",        "Zm00001d053453",   "Zm00001d053453",                       "PEPCARBOX-RXN",   "4.1.1.31",                             "phosphoenolpyruvate carboxylase", "EV-COMP",
+                     "GDQC-13992",        "Zm00001d037294",   "Zm00001d037294",                       "PEPCARBOX-RXN",   "4.1.1.31",                             "phosphoenolpyruvate carboxylase", "EV-COMP",
+                     "GDQC-14269",        "Zm00001d012702",   "Zm00001d012702",                       "PEPCARBOX-RXN",   "4.1.1.31",                             "phosphoenolpyruvate carboxylase", "EV-COMP",
+                           "G-41",        "Zm00001d046170",             "pep1",                       "PEPCARBOX-RXN",   "4.1.1.31",                             "phosphoenolpyruvate carboxylase",  "EV-EXP",
+                           "G-61",        "Zm00001d031899",   "Zm00001d031899",      "MALATE-DEHYDROGENASE-NADP+-RXN",   "1.1.1.82",                                   "NADP malate dehydrogenase",  "EV-EXP",
+                            "ME1",        "Zm00001d000316",   "Zm00001d000316",                      "MALIC-NADP-RXN",   "1.1.1.40",                                        "malate dehydrogenase", "EV-COMP",
+                      "GDQC-7940",        "Zm00001d010358",   "Zm00001d010358",                      "MALIC-NADP-RXN",   "1.1.1.40",                                        "malate dehydrogenase", "EV-COMP",
+                      "GDQC-8014",        "Zm00001d037693",   "Zm00001d037693",                      "MALIC-NADP-RXN",   "1.1.1.40",                                        "malate dehydrogenase", "EV-COMP",
+                      "GDQC-9044",        "Zm00001d003090",   "Zm00001d003090",                      "MALIC-NADP-RXN",   "1.1.1.40",                                        "malate dehydrogenase", "EV-COMP",
+                      "GDQC-9094",        "Zm00001d037961",   "Zm00001d037961",                      "MALIC-NADP-RXN",   "1.1.1.40",                                        "malate dehydrogenase", "EV-COMP",
+                      "GDQC-9862",        "Zm00001d011289",   "Zm00001d011289",                      "MALIC-NADP-RXN",   "1.1.1.40",                                        "malate dehydrogenase", "EV-COMP",
+                      "GDQC-9900",        "Zm00001d042392",   "Zm00001d042392",                      "MALIC-NADP-RXN",   "1.1.1.40",                                        "malate dehydrogenase", "EV-COMP",
+                     "GDQC-11405",        "Zm00001d036873",   "Zm00001d036873",                      "MALIC-NADP-RXN",   "1.1.1.40",                                        "malate dehydrogenase", "EV-COMP",
+                     "GDQC-12576",        "Zm00001d043601",   "Zm00001d043601",                      "MALIC-NADP-RXN",   "1.1.1.40",                                        "malate dehydrogenase", "EV-COMP",
+                     "GDQC-12623",        "Zm00001d034292",   "Zm00001d034292",                      "MALIC-NADP-RXN",   "1.1.1.40",                                        "malate dehydrogenase", "EV-COMP",
+                     "GDQC-12650",        "Zm00001d039633",   "Zm00001d039633",                      "MALIC-NADP-RXN",   "1.1.1.40",                                        "malate dehydrogenase", "EV-COMP",
+                     "GDQC-13022",        "Zm00001d004962",   "Zm00001d004962",                      "MALIC-NADP-RXN",   "1.1.1.40",                                        "malate dehydrogenase", "EV-COMP",
+                     "GDQC-14112",        "Zm00001d012764",   "Zm00001d012764",                      "MALIC-NADP-RXN",   "1.1.1.40",                                        "malate dehydrogenase", "EV-COMP",
+                     "GDQC-14700",        "Zm00001d051182",   "Zm00001d051182",                      "MALIC-NADP-RXN",   "1.1.1.40",                                        "malate dehydrogenase", "EV-COMP",
+                    "GDQC-108581",        "Zm00001d037962",              "me2",                      "MALIC-NADP-RXN",   "1.1.1.40", "malate dehydrogenase (oxaloacetate-decarboxylating) (NADP+)",  "EV-EXP",
+                            "me1", "Zm00001d000316_T001.1",              "me3",                      "MALIC-NADP-RXN",   "1.1.1.40",   "malate dehydrogenase NADP+ (oxaloacetate-decarboxylating)",  "EV-EXP",
+                      "GDQC-7790",        "Zm00001d003953",   "Zm00001d003953",        "ALANINE-AMINOTRANSFERASE-RXN",    "2.6.1.2",                         "glutamate-pyruvate aminotransferase", "EV-COMP",
+                      "GDQC-7870",        "Zm00001d030557",   "Zm00001d030557",        "ALANINE-AMINOTRANSFERASE-RXN",    "2.6.1.2",                         "glutamate-pyruvate aminotransferase", "EV-COMP",
+                      "GDQC-9203",        "Zm00001d008277",   "Zm00001d008277",        "ALANINE-AMINOTRANSFERASE-RXN",    "2.6.1.2",                         "glutamate-pyruvate aminotransferase", "EV-COMP",
+                      "GDQC-9262",        "Zm00001d006875",   "Zm00001d006875",        "ALANINE-AMINOTRANSFERASE-RXN",    "2.6.1.2",                         "glutamate-pyruvate aminotransferase", "EV-COMP",
+                     "GDQC-10679",        "Zm00001d032984",   "Zm00001d032984",        "ALANINE-AMINOTRANSFERASE-RXN",    "2.6.1.2",                         "glutamate-pyruvate aminotransferase", "EV-COMP",
+                     "GDQC-11731",        "Zm00001d020590",   "Zm00001d020590",        "ALANINE-AMINOTRANSFERASE-RXN",    "2.6.1.2",                         "glutamate-pyruvate aminotransferase", "EV-COMP",
+                     "GDQC-11867",        "Zm00001d022152",   "Zm00001d022152",        "ALANINE-AMINOTRANSFERASE-RXN",    "2.6.1.2",                         "glutamate-pyruvate aminotransferase", "EV-COMP",
+                     "GDQC-12271",        "Zm00001d044135",   "Zm00001d044135",        "ALANINE-AMINOTRANSFERASE-RXN",    "2.6.1.2",                         "glutamate-pyruvate aminotransferase", "EV-COMP",
+                     "GDQC-12767",        "Zm00001d014258",   "Zm00001d014258",        "ALANINE-AMINOTRANSFERASE-RXN",    "2.6.1.2",                         "glutamate-pyruvate aminotransferase", "EV-COMP",
+                     "GDQC-12961",        "Zm00001d018639",   "Zm00001d018639",        "ALANINE-AMINOTRANSFERASE-RXN",    "2.6.1.2",                         "glutamate-pyruvate aminotransferase", "EV-COMP",
+                    "GDQC-104563",        "Zm00001d007937",             "alt8",        "ALANINE-AMINOTRANSFERASE-RXN",    "2.6.1.2",                                        "alanine transaminase",  "EV-EXP",
+                    "GDQC-113394",                      NA,             "alt7",        "ALANINE-AMINOTRANSFERASE-RXN",    "2.6.1.2",                                        "alanine transaminase",  "EV-EXP",
+                    "GDQC-113394",                      NA,             "alt7",                           "RXN-13698",    "2.6.1.2",                                        "alanine transaminase", "EV-COMP",
+                      "GDQC-8439",        "Zm00001d010321",   "Zm00001d010321", "PYRUVATEORTHOPHOSPHATE-DIKINASE-RXN",    "2.7.9.1",                                 "pyruvate phosphate dikinase", "EV-COMP",
+                      "GDQC-9261",        "Zm00001d038161",   "Zm00001d038161", "PYRUVATEORTHOPHOSPHATE-DIKINASE-RXN",    "2.7.9.1",                                 "pyruvate phosphate dikinase", "EV-COMP",
+                    "GDQC-112401",        "Zm00001d038163", "pdk1 chloroplast", "PYRUVATEORTHOPHOSPHATE-DIKINASE-RXN",    "2.7.9.1",                                "pyruvate, phosphate dikinase",  "EV-EXP",
+                    "GDQC-111967",        "Zm00001d038163",     "pdk1 cytosol", "PYRUVATEORTHOPHOSPHATE-DIKINASE-RXN",    "2.7.9.1",                                "pyruvate, phosphate dikinase",  "EV-EXP",
+                      "GDQC-9889",        "Zm00001d010190",   "Zm00001d010190",                   "ASPAMINOTRANS-RXN",    "2.6.1.1",                                      "aspartate transaminase", "EV-COMP",
+                     "GDQC-10379",        "Zm00001d016198",   "Zm00001d016198",                   "ASPAMINOTRANS-RXN",    "2.6.1.1",                                      "aspartate transaminase", "EV-COMP",
+                     "GDQC-10415",        "Zm00001d042685",   "Zm00001d042685",                   "ASPAMINOTRANS-RXN",    "2.6.1.1",                                      "aspartate transaminase", "EV-COMP",
+                     "GDQC-12672",        "Zm00001d043382",   "Zm00001d043382",                   "ASPAMINOTRANS-RXN",    "2.6.1.1",                                      "aspartate transaminase", "EV-COMP",
+                    "GDQC-108527",        "Zm00001d018386",   "Zm00001d018386",                   "ASPAMINOTRANS-RXN",    "2.6.1.1",                                      "aspartate transaminase",  "EV-EXP"
+                    )
+
+```
+```{r}
+g43 <- CornCycC4PEPCK$Gene.Accession
+```
+```{r}
+g43 <- substr(g43, start = 1, stop = 14)
+```
+
+###g44
+```{r}
+g44 <- as.vector(gamer$db_object_id[gamer$term_accession=="GO:0019253"])
+```
+###g45
+```{r}
+g45 <- as.vector(gamer$db_object_id[gamer$term_accession=="GO:0080153"])
+```
+###g46
+```{r}
+g46tib <- tibble::tribble(
+                   ~V1,                                                                                                      ~V2,
+               845212L,          "rbcL; ribulose-1,5-bisphosphate carboxylase/oxygenase large subunit [KO:K01601] [EC:4.1.1.39]",
+               542212L, "ssu1; ribulose bisphosphate carboxylase small chain, chloroplastic precursor [KO:K01602] [EC:4.1.1.39]",
+            100279574L,                            "ribulose bisphosphate carboxylase small subunit 2 [KO:K01602] [EC:4.1.1.39]",
+            100274579L,                                              "umc1110; Phosphoglycerate kinase [KO:K00927] [EC:2.7.2.3]",
+            100281237L,                                                       "phosphoglycerate kinase [KO:K00927] [EC:2.7.2.3]",
+            100381624L,                                                       "phosphoglycerate kinase [KO:K00927] [EC:2.7.2.3]",
+            100383528L,                                                       "phosphoglycerate kinase [KO:K00927] [EC:2.7.2.3]",
+            103635817L,                                        "phosphoglycerate kinase, chloroplastic [KO:K00927] [EC:2.7.2.3]",
+               542718L,                 "GAPC2; glyceraldehyde-3-phosphate dehydrogenase 2, cytosolic [KO:K00134] [EC:1.2.1.12]",
+            100191900L,                          "glyceraldehyde-3-phosphate dehydrogenase, cytosolic [KO:K00134] [EC:1.2.1.12]",
+               542333L,                 "GAPC3; glyceraldehyde-3-phosphate dehydrogenase 3, cytosolic [KO:K00134] [EC:1.2.1.12]",
+               542367L,                        "glyceraldehyde-3-phosphate dehydrogenase 1, cytosolic [KO:K00134] [EC:1.2.1.12]",
+            100037774L,                               "TIDP3317; uncharacterized protein LOC100037774 [KO:K00134] [EC:1.2.1.12]",
+            100282981L,                             "pco070235b; uncharacterized protein LOC100282981 [KO:K00134] [EC:1.2.1.12]",
+               542368L,    "gpa1; glyceraldehyde-3-phosphate dehydrogenase A, chloroplastic precursor [KO:K05298] [EC:1.2.1.13]",
+               542290L,                              "gpb1; glyceraldehyde phosphate dehydrogenase B1 [KO:K05298] [EC:1.2.1.13]",
+            103641723L,                    "glyceraldehyde-3-phosphate dehydrogenase A, chloroplastic [KO:K05298] [EC:1.2.1.13]",
+            103642790L,                    "glyceraldehyde-3-phosphate dehydrogenase A, chloroplastic [KO:K05298] [EC:1.2.1.13]",
+            109943118L,                    "glyceraldehyde-3-phosphate dehydrogenase A, chloroplastic [KO:K05298] [EC:1.2.1.13]",
+               542261L,                    "ald1; fructose-bisphosphate aldolase, cytoplasmic isozyme [KO:K01623] [EC:4.1.2.13]",
+            100272845L,                               "AY110170; uncharacterized protein LOC100272845 [KO:K01623] [EC:4.1.2.13]",
+            100273196L,                                "IDP1438; uncharacterized protein LOC100273196 [KO:K01623] [EC:4.1.2.13]",
+            100272913L,                           "fructose-bisphosphate aldolase cytoplasmic isozyme [KO:K01623] [EC:4.1.2.13]",
+            100286050L,                                               "fructose-bisphosphate aldolase [KO:K01623] [EC:4.1.2.13]",
+            103644539L,                              "fructose-bisphosphate aldolase 3, chloroplastic [KO:K01623] [EC:4.1.2.13]",
+            100502020L,                              "fructose-bisphosphate aldolase 3, chloroplastic [KO:K01623] [EC:4.1.2.13]",
+            100274515L,                                                 "uncharacterized LOC100274515 [KO:K01623] [EC:4.1.2.13]",
+            103653043L,                         "fructose-bisphosphate aldolase 3, chloroplastic-like [KO:K01623] [EC:4.1.2.13]",
+            103648726L,                              "fructose-bisphosphate aldolase 3, chloroplastic [KO:K01623] [EC:4.1.2.13]",
+            103653987L,                              "fructose-bisphosphate aldolase 3, chloroplastic [KO:K01623] [EC:4.1.2.13]",
+            100273700L,                              "pco073762; uncharacterized protein LOC100273700 [KO:K03841] [EC:3.1.3.11]",
+            100216767L,                                         "uncharacterized protein LOC100216767 [KO:K03841] [EC:3.1.3.11]",
+            100281068L,                                                  "fructose-1,6-bisphosphatase [KO:K03841] [EC:3.1.3.11]",
+            100284739L,                                       "fructose-1,6-bisphosphatase, cytosolic [KO:K03841] [EC:3.1.3.11]",
+            103631224L,                                       "fructose-1,6-bisphosphatase, cytosolic [KO:K03841] [EC:3.1.3.11]",
+            100279513L,                                                  "uncharacterized LOC100279513 [KO:K00615] [EC:2.2.1.1]",
+            103646666L,                                             "transketolase, chloroplastic-like [KO:K00615] [EC:2.2.1.1]",
+            103640190L,                                                  "transketolase, chloroplastic [KO:K00615] [EC:2.2.1.1]",
+            100282017L,                                        "shbp1; sedoheptulose bisphosphatase 1 [KO:K01100] [EC:3.1.3.37]",
+            100283465L,                                                  "ribose-5-phosphate isomerase [KO:K01807] [EC:5.3.1.6]",
+            100284292L,                                                  "ribose-5-phosphate isomerase [KO:K01807] [EC:5.3.1.6]",
+            100284771L,                                          "uncharacterized protein LOC100284771 [KO:K01807] [EC:5.3.1.6]",
+            100285298L,                                                  "ribose-5-phosphate isomerase [KO:K01807] [EC:5.3.1.6]",
+            100285676L,                                                  "ribose-5-phosphate isomerase [KO:K01807] [EC:5.3.1.6]",
+            103626247L,                                       "probable ribose-5-phosphate isomerase 2 [KO:K01807] [EC:5.3.1.6]",
+            103655139L,                                       "probable ribose-5-phosphate isomerase 2 [KO:K01807] [EC:5.3.1.6]",
+            100279820L,                                                 "uncharacterized LOC100279820 [KO:K00855] [EC:2.7.1.19]",
+            100282845L,                              "pco092382; uncharacterized protein LOC100282845 [KO:K00855] [EC:2.7.1.19]",
+            100281866L,                            "si707035f08; uncharacterized protein LOC100281866 [KO:K00855] [EC:2.7.1.19]",
+            100191222L,                                          "uncharacterized protein LOC100191222 [KO:K01803] [EC:5.3.1.1]",
+            100193000L,                                 "gpm397a; uncharacterized protein LOC100193000 [KO:K01803] [EC:5.3.1.1]",
+            103645706L,                                     "triosephosphate isomerase, cytosolic-like [KO:K01803] [EC:5.3.1.1]",
+            100194114L,                                          "uncharacterized protein LOC100194114 [KO:K01803] [EC:5.3.1.1]",
+            100272481L,                                     "TIM; triosephosphate isomerase, cytosolic [KO:K01803] [EC:5.3.1.1]",
+            100280823L,                                          "triosephosphate isomerase, cytosolic [KO:K01803] [EC:5.3.1.1]",
+            103651898L,                                     "triosephosphate isomerase, cytosolic-like [KO:K01803] [EC:5.3.1.1]",
+            103644857L,                                          "triosephosphate isomerase, cytosolic [KO:K01803] [EC:5.3.1.1]",
+            100274365L,                                          "uncharacterized protein LOC100274365 [KO:K01783] [EC:5.1.3.1]",
+            100282201L,                                                "ribulose-phosphate 3-epimerase [KO:K01783] [EC:5.1.3.1]",
+            100283478L,                                                "ribulose-phosphate 3-epimerase [KO:K01783] [EC:5.1.3.1]",
+            100191460L,                          "IDP1621; phosphoenolpyruvate carboxylase isoform X1 [KO:K01595] [EC:4.1.1.31]",
+               542393L,                                      "pep4; phosphoenolpyruvate carboxylase 2 [KO:K01595] [EC:4.1.1.31]",
+               542479L,                                        "pep7; phosphoenolpyruvate carboxylase [KO:K01595] [EC:4.1.1.31]",
+               542372L,                                      "pep1; phosphoenolpyruvate carboxylase 1 [KO:K01595] [EC:4.1.1.31]",
+            100384708L,                              "uncharacterized protein LOC100384708 isoform X1 [KO:K01595] [EC:4.1.1.31]",
+            103649899L,                                 "phosphoenolpyruvate carboxylase 4 isoform X1 [KO:K01595] [EC:4.1.1.31]",
+            103642664L,                                       "phosphoenolpyruvate carboxylase 1-like [KO:K01595] [EC:4.1.1.31]",
+            100273311L,                               "pco118382; uncharacterized protein LOC100273311 [KO:K14454] [EC:2.6.1.1]",
+               541622L,                            "phosphoenolpyruvate carboxykinase (ATP) isoform 1 [KO:K01610] [EC:4.1.1.49]",
+            100279748L,                            "pck2; phosphoenolpyruvate carboxykinase homolog 2 [KO:K01610] [EC:4.1.1.49]",
+            109939179L,                                      "phosphoenolpyruvate carboxykinase (ATP) [KO:K01610] [EC:4.1.1.49]",
+            100216685L,                                          "uncharacterized protein LOC100216685 [KO:K00814] [EC:2.6.1.2]",
+            100279149L,                                          "uncharacterized protein LOC100279149 [KO:K00814] [EC:2.6.1.2]",
+            100193705L,                                          "uncharacterized protein LOC100193705 [KO:K00814] [EC:2.6.1.2]",
+            100384793L,                                                    "alanine aminotransferase 2 [KO:K00814] [EC:2.6.1.2]",
+            100282849L,                                          "uncharacterized protein LOC100282849 [KO:K00814] [EC:2.6.1.2]",
+            100280822L,                                                    "alanine aminotransferase 2 [KO:K00814] [EC:2.6.1.2]",
+            103634667L,                                                    "alanine aminotransferase 2 [KO:K00814] [EC:2.6.1.2]",
+            100501386L,                         "uncharacterized protein LOC100501386 [KO:K14272] [EC:2.6.1.4 2.6.1.2 2.6.1.44]",
+            100284842L,                         "uncharacterized protein LOC100284842 [KO:K14272] [EC:2.6.1.4 2.6.1.2 2.6.1.44]",
+               542759L,                 "pdk1; pyruvate, phosphate dikinase 1, chloroplastic precursor [KO:K01006] [EC:2.7.9.1]",
+            103635678L,                                                "pyruvate, phosphate dikinase 2 [KO:K01006] [EC:2.7.9.1]",
+               542233L,                    "me3; NADP-dependent malic enzyme, chloroplastic precursor [KO:K00029] [EC:1.1.1.40]",
+               542331L,                                             "me2; NADP-dependent malic enzyme [KO:K00029] [EC:1.1.1.40]",
+               542209L,                                                     "me4; NADP malic enzyme 4 [KO:K00029] [EC:1.1.1.40]",
+            100284598L,                                                  "NADP-dependent malic enzyme [KO:K00029] [EC:1.1.1.40]",
+            100286036L,                               "AY104511; uncharacterized protein LOC100286036 [KO:K00029] [EC:1.1.1.40]",
+            109939197L,                        "NADP-dependent malic enzyme, chloroplastic isoform X1 [KO:K00029] [EC:1.1.1.40]",
+            103635691L,                                   "NADP-dependent malic enzyme, chloroplastic [KO:K00029] [EC:1.1.1.40]",
+               542374L,                   "mdh6; malate dehydrogenase [NADP], chloroplastic precursor [KO:K00051] [EC:1.1.1.82]",
+            100274119L,                                                    "aspartate aminotransferase [KO:K14455] [EC:2.6.1.1]",
+            103648465L,                                            "malate dehydrogenase, cytoplasmic [KO:K00025] [EC:1.1.1.37]",
+               542598L,                                      "mdh5; malate dehydrogenase, cytoplasmic [KO:K00025] [EC:1.1.1.37]",
+            100280767L,                                            "malate dehydrogenase, cytoplasmic [KO:K00025] [EC:1.1.1.37]",
+            103633793L,                                            "malate dehydrogenase, cytoplasmic [KO:K00025] [EC:1.1.1.37]",
+            100274264L,                                                       "malate dehydrogenase 2 [KO:K00026] [EC:1.1.1.37]",
+            100273428L,                                                 "uncharacterized LOC100273428 [KO:K00026] [EC:1.1.1.37]",
+            100272900L,                                         "uncharacterized protein LOC100272900 [KO:K00026] [EC:1.1.1.37]",
+            100193491L,                              "pco104294; uncharacterized protein LOC100193491 [KO:K00026] [EC:1.1.1.37]",
+            100193663L,                                                         "malate dehydrogenase [KO:K00026] [EC:1.1.1.37]",
+            100282134L,                                            "malate dehydrogenase, glyoxysomal [KO:K00026] [EC:1.1.1.37]",
+            100193743L,                                             "pco143139c; Malate dehydrogenase [KO:K00026] [EC:1.1.1.37]",
+            107305678L,                                         "uncharacterized protein LOC107305678 [KO:K00026] [EC:1.1.1.37]",
+            100191942L,                             "pco115183b; uncharacterized protein LOC100191942 [KO:K00028] [EC:1.1.1.39]",
+            100501486L,                                         "uncharacterized protein LOC100501486 [KO:K00028] [EC:1.1.1.39]"
+            )
+
+```
+```{r}
+g46entrez <- as.character(g46tib$V1)
+```
+```{r}
+g46 <- mgdb$v4_gene_model[mgdb$Entrez%in%g46entrez]
+```
+
+###g47
+```{r}
+CornCycCalvinCycle <- tibble::tribble(
+                            ~Gene.ID,  ~Gene.Accession,       ~Gene.name,                            ~Reaction.id, ~Reaction.EC,                        ~Enzymatic.activity, ~Evidence,
+                         "GDQC-7815",  "GRMZM5G815453",  "GRMZM5G815453", "RIBULOSE-BISPHOSPHATE-CARBOXYLASE-RXN",   "4.1.1.39",        "ribulose bisphosphate carboxylase", "EV-COMP",
+                         "GDQC-9028", "Zm00001d004894", "Zm00001d004894", "RIBULOSE-BISPHOSPHATE-CARBOXYLASE-RXN",   "4.1.1.39",        "ribulose bisphosphate carboxylase", "EV-COMP",
+                        "GDQC-11504", "Zm00001d037514", "Zm00001d037514", "RIBULOSE-BISPHOSPHATE-CARBOXYLASE-RXN",   "4.1.1.39",        "ribulose bisphosphate carboxylase", "EV-COMP",
+                        "GDQC-12129", "Zm00001d045698", "Zm00001d045698", "RIBULOSE-BISPHOSPHATE-CARBOXYLASE-RXN",   "4.1.1.39",        "ribulose bisphosphate carboxylase", "EV-COMP",
+                        "GDQC-12448", "Zm00001d006402", "Zm00001d006402", "RIBULOSE-BISPHOSPHATE-CARBOXYLASE-RXN",   "4.1.1.39",        "ribulose bisphosphate carboxylase", "EV-COMP",
+                        "GDQC-13860", "Zm00001d052595", "Zm00001d052595", "RIBULOSE-BISPHOSPHATE-CARBOXYLASE-RXN",   "4.1.1.39",        "ribulose bisphosphate carboxylase", "EV-COMP",
+                        "GDQC-14404", "Zm00001d051485", "Zm00001d051485", "RIBULOSE-BISPHOSPHATE-CARBOXYLASE-RXN",   "4.1.1.39",        "ribulose bisphosphate carboxylase", "EV-COMP",
+                        "GDQC-14718", "Zm00001d000279", "Zm00001d000279", "RIBULOSE-BISPHOSPHATE-CARBOXYLASE-RXN",   "4.1.1.39",        "ribulose bisphosphate carboxylase", "EV-COMP",
+                         "GDQC-8568", "Zm00001d010672", "Zm00001d010672",                       "PHOSGLYPHOS-RXN",    "2.7.2.3",                  "phosphoglycerate kinase", "EV-COMP",
+                         "GDQC-9820", "Zm00001d032867", "Zm00001d032867",                       "PHOSGLYPHOS-RXN",    "2.7.2.3",                  "phosphoglycerate kinase", "EV-COMP",
+                         "GDQC-9835", "Zm00001d043194", "Zm00001d043194",                       "PHOSGLYPHOS-RXN",    "2.7.2.3",                  "phosphoglycerate kinase", "EV-COMP",
+                        "GDQC-13456", "Zm00001d015376", "Zm00001d015376",                       "PHOSGLYPHOS-RXN",    "2.7.2.3",                  "phosphoglycerate kinase", "EV-COMP",
+                        "GDQC-14659", "Zm00001d038579", "Zm00001d038579",                       "PHOSGLYPHOS-RXN",    "2.7.2.3",                  "phosphoglycerate kinase", "EV-COMP",
+                         "GDQC-7880", "Zm00001d027488", "Zm00001d027488",                          "1.2.1.13-RXN",   "1.2.1.13", "glyceraldehyde-3-phosphate dehydrogenase", "EV-COMP",
+                         "GDQC-9182", "Zm00001d003429", "Zm00001d003429",                          "1.2.1.13-RXN",   "1.2.1.13", "glyceraldehyde-3-phosphate dehydrogenase", "EV-COMP",
+                         "GDQC-9880", "Zm00001d025601", "Zm00001d025601",                          "1.2.1.13-RXN",   "1.2.1.13", "glyceraldehyde-3-phosphate dehydrogenase", "EV-COMP",
+                        "GDQC-10044", "Zm00001d025607", "Zm00001d025607",                          "1.2.1.13-RXN",   "1.2.1.13", "glyceraldehyde-3-phosphate dehydrogenase", "EV-COMP",
+                        "GDQC-13181", "Zm00001d025599", "Zm00001d025599",                          "1.2.1.13-RXN",   "1.2.1.13", "glyceraldehyde-3-phosphate dehydrogenase", "EV-COMP",
+                        "GDQC-14696", "Zm00001d025593", "Zm00001d025593",                          "1.2.1.13-RXN",   "1.2.1.13", "glyceraldehyde-3-phosphate dehydrogenase", "EV-COMP",
+                         "GDQC-7719", "Zm00001d009835", "Zm00001d009835",              "TRIOSEPISOMERIZATION-RXN",    "5.3.1.1",                "triosephosphate isomerase", "EV-COMP",
+                         "GDQC-8254", "Zm00001d006221", "Zm00001d006221",              "TRIOSEPISOMERIZATION-RXN",    "5.3.1.1",                "triosephosphate isomerase", "EV-COMP",
+                         "GDQC-8259", "Zm00001d033237", "Zm00001d033237",              "TRIOSEPISOMERIZATION-RXN",    "5.3.1.1",                "triosephosphate isomerase", "EV-COMP",
+                         "GDQC-9733", "Zm00001d039865", "Zm00001d039865",              "TRIOSEPISOMERIZATION-RXN",    "5.3.1.1",                "triosephosphate isomerase", "EV-COMP",
+                        "GDQC-11094", "Zm00001d030216", "Zm00001d030216",              "TRIOSEPISOMERIZATION-RXN",    "5.3.1.1",                "triosephosphate isomerase", "EV-COMP",
+                        "GDQC-11682", "Zm00001d024005", "Zm00001d024005",              "TRIOSEPISOMERIZATION-RXN",    "5.3.1.1",                "triosephosphate isomerase", "EV-COMP",
+                        "GDQC-12310", "Zm00001d021310", "Zm00001d021310",              "TRIOSEPISOMERIZATION-RXN",    "5.3.1.1",                "triosephosphate isomerase", "EV-COMP",
+                        "GDQC-12367", "Zm00001d008619", "Zm00001d008619",              "TRIOSEPISOMERIZATION-RXN",    "5.3.1.1",                "triosephosphate isomerase", "EV-COMP",
+                        "GDQC-12389", "Zm00001d012407", "Zm00001d012407",              "TRIOSEPISOMERIZATION-RXN",    "5.3.1.1",                "triosephosphate isomerase", "EV-COMP",
+                        "GDQC-12402", "Zm00001d040375", "Zm00001d040375",              "TRIOSEPISOMERIZATION-RXN",    "5.3.1.1",                "triosephosphate isomerase", "EV-COMP",
+                        "GDQC-13866", "Zm00001d029307", "Zm00001d029307",              "TRIOSEPISOMERIZATION-RXN",    "5.3.1.1",                "triosephosphate isomerase", "EV-COMP",
+                        "GDQC-11235", "Zm00001d042840", "Zm00001d042840",      "SEDOHEPTULOSE-BISPHOSPHATASE-RXN",   "3.1.3.37",             "sedoheptulose bisphosphatase", "EV-COMP",
+                         "GDQC-8410", "Zm00001d046962", "Zm00001d046962",                        "1TRANSKETO-RXN",    "2.2.1.1",                            "transketolase", "EV-COMP",
+                         "GDQC-8808", "Zm00001d045451", "Zm00001d045451",                        "1TRANSKETO-RXN",    "2.2.1.1",                            "transketolase", "EV-COMP",
+                         "GDQC-9566", "Zm00001d004171", "Zm00001d004171",                        "1TRANSKETO-RXN",    "2.2.1.1",                            "transketolase", "EV-COMP",
+                         "GDQC-8788", "Zm00001d030701", "Zm00001d030701",                         "RIB5PISOM-RXN",    "5.3.1.6",             "ribose-5-phosphate isomerase", "EV-COMP",
+                         "GDQC-9330", "Zm00001d052482", "Zm00001d052482",                         "RIB5PISOM-RXN",    "5.3.1.6",             "ribose-5-phosphate isomerase", "EV-COMP",
+                        "GDQC-11246", "Zm00001d013135", "Zm00001d013135",                         "RIB5PISOM-RXN",    "5.3.1.6",             "ribose-5-phosphate isomerase", "EV-COMP",
+                        "GDQC-12396", "Zm00001d018936", "Zm00001d018936",                         "RIB5PISOM-RXN",    "5.3.1.6",             "ribose-5-phosphate isomerase", "EV-COMP",
+                        "GDQC-14749", "Zm00001d044548", "Zm00001d044548",                         "RIB5PISOM-RXN",    "5.3.1.6",             "ribose-5-phosphate isomerase", "EV-COMP",
+                        "GDQC-11498", "Zm00001d028395", "Zm00001d028395",                       "F16ALDOLASE-RXN",   "4.1.2.13",           "fructose bisphosphate aldolase", "EV-COMP",
+                        "GDQC-11630", "Zm00001d028270", "Zm00001d028270",                       "F16ALDOLASE-RXN",   "4.1.2.13",           "fructose bisphosphate aldolase", "EV-COMP",
+                        "GDQC-12132", "Zm00001d008491", "Zm00001d008491",                       "F16ALDOLASE-RXN",   "4.1.2.13",           "fructose bisphosphate aldolase", "EV-COMP",
+                        "GDQC-12701", "Zm00001d053015", "Zm00001d053015",                       "F16ALDOLASE-RXN",   "4.1.2.13",           "fructose bisphosphate aldolase", "EV-COMP",
+                        "GDQC-12807", "Zm00001d037333", "Zm00001d037333",                       "F16ALDOLASE-RXN",   "4.1.2.13",           "fructose bisphosphate aldolase", "EV-COMP",
+                        "GDQC-13437", "Zm00001d042453", "Zm00001d042453",                       "F16ALDOLASE-RXN",   "4.1.2.13",           "fructose bisphosphate aldolase", "EV-COMP",
+                        "GDQC-13481", "Zm00001d046553", "Zm00001d046553",                       "F16ALDOLASE-RXN",   "4.1.2.13",           "fructose bisphosphate aldolase", "EV-COMP",
+                        "GDQC-13554", "Zm00001d012103", "Zm00001d012103",                       "F16ALDOLASE-RXN",   "4.1.2.13",           "fructose bisphosphate aldolase", "EV-COMP",
+                        "GDQC-13634", "Zm00001d003968", "Zm00001d003968",                       "F16ALDOLASE-RXN",   "4.1.2.13",           "fructose bisphosphate aldolase", "EV-COMP",
+                        "GDQC-13867", "Zm00001d023559", "Zm00001d023559",                       "F16ALDOLASE-RXN",   "4.1.2.13",           "fructose bisphosphate aldolase", "EV-COMP",
+                        "GDQC-14596", "Zm00001d040084", "Zm00001d040084",                       "F16ALDOLASE-RXN",   "4.1.2.13",           "fructose bisphosphate aldolase", "EV-COMP",
+                        "GDQC-14702", "Zm00001d051622", "Zm00001d051622",                       "F16ALDOLASE-RXN",   "4.1.2.13",           "fructose bisphosphate aldolase", "EV-COMP",
+                         "GDQC-9110", "Zm00001d042727", "Zm00001d042727",                        "F16BDEPHOS-RXN",   "3.1.3.11",              "fructose-1,6-bisphosphatase", "EV-COMP",
+                        "GDQC-10262", "Zm00001d036552", "Zm00001d036552",                        "F16BDEPHOS-RXN",   "3.1.3.11",              "fructose-1,6-bisphosphatase", "EV-COMP",
+                        "GDQC-13231", "Zm00001d010172", "Zm00001d010172",                        "F16BDEPHOS-RXN",   "3.1.3.11",              "fructose-1,6-bisphosphatase", "EV-COMP",
+                        "GDQC-13510", "Zm00001d046942", "Zm00001d046942",                        "F16BDEPHOS-RXN",   "3.1.3.11",              "fructose-1,6-bisphosphatase", "EV-COMP",
+                        "GDQC-14499", "Zm00001d028562", "Zm00001d028562",                        "F16BDEPHOS-RXN",   "3.1.3.11",              "fructose-1,6-bisphosphatase", "EV-COMP",
+                         "GDQC-9420", "Zm00001d027841", "Zm00001d027841",                       "RIBULP3EPIM-RXN",    "5.1.3.1",         "ribulose-5-phosphate 3-epimerase", "EV-COMP",
+                        "GDQC-12905", "Zm00001d021050", "Zm00001d021050",                       "RIBULP3EPIM-RXN",    "5.1.3.1",         "ribulose-5-phosphate 3-epimerase", "EV-COMP",
+                        "GDQC-14125", "Zm00001d048324", "Zm00001d048324",                       "RIBULP3EPIM-RXN",    "5.1.3.1",         "ribulose-5-phosphate 3-epimerase", "EV-COMP",
+                         "GDQC-8653", "Zm00001d002454", "Zm00001d002454",               "PHOSPHORIBULOKINASE-RXN",   "2.7.1.19",                      "phosphoribulokinase", "EV-COMP",
+                        "GDQC-10278", "Zm00001d017711", "Zm00001d017711",               "PHOSPHORIBULOKINASE-RXN",   "2.7.1.19",                      "phosphoribulokinase", "EV-COMP",
+                        "GDQC-13352", "Zm00001d000164", "Zm00001d000164",               "PHOSPHORIBULOKINASE-RXN",   "2.7.1.19",                      "phosphoribulokinase", "EV-COMP"
+                        )
+
+```
+```{r}
+g47 <- CornCycCalvinCycle$Gene.Accession
+```
+```{r}
+g47 <- substr(g47, start = 1, stop = 14)
+```
+
+###g48
+```{r}
+g48 <- as.vector(gamer$db_object_id[gamer$term_accession=="GO:0009853"])
+```
+###g49
+```{r}
+g49 <- as.vector(gamer$db_object_id[gamer$term_accession=="GO:0080093"])
+```
+###g50
+```{r}
+g50 <- as.vector(gamer$db_object_id[gamer$term_accession=="GO:0009853"])
+```
+###g51
+```{r}
+g51 <- c("Zm00001d034887", "Zm00001d025747", "Zm00001d031403", "Zm00001d031402", "Zm00001d031364", "Zm00001d031379", "Zm00001d031349", "Zm00001d014919", "Zm00001d004451", "Zm00001d024906", "Zm00001d005489", "Zm00001d027450", "Zm00001d018790", "Zm00001d008883", "Zm00001d024907", "Zm00001d035737", "Zm00001d019077", "Zm00001d047085", "Zm00001d000064", "Zm00001d015378", "Zm00001d053800", "Zm00001d048974", "Zm00001d007937", "Zm00001d031403", "Zm00001d031402", "Zm00001d031364", "Zm00001d018639", "Zm00001d031379", "Zm00001d031349", "Zm00001d040457", "Zm00001d012247", "Zm00001d007237", "Zm00001d030859", "Zm00001d002554", "Zm00001d042661", "Zm00001d049234", "Zm00001d009738")
+```
+###listall
+```{r}
+PhotosynthesisTermsList <- list(g1,g2,g3,g4,g5,g6,g7,g8,g9,g10,g11,g12,g13,g14,g15,g16,g17,g18,g19,g20,g21,g22,g23,g24,g25,g26,g27,g28,g29,g30,g31,g32,g33,g34,g35,g36,g37,g38,g39,g40,g41,g42,g43,g44,g45,g46,g47,g48,g49,g50,g51)
+```
+```{r}
+saveRDS(PhotosynthesisTermsList, "PhotosynthesisTermsList")
+```
+###combine terms
+```{r}
+lightrxn.kc <- unique(unlist(PhotosynthesisTermsList[c(15:16,18,25,26,28,35,36,37,39,40)]))
+darkrxn.kc <- unique(unlist(PhotosynthesisTermsList[c(42,43,46,47)]))
+lightrxn.PSI.kc <- unique(unlist(PhotosynthesisTermsList[c(15,16)]))
+lightrxn.PSII.kc <- unique(unlist(PhotosynthesisTermsList[c(25,26)]))
+lightrxn.ETC.kc <- unlist(PhotosynthesisTermsList[35])
+lightrxn.b6f.k <- unlist(PhotosynthesisTermsList[37])
+lightrxn.NDH <- df$Gene[grep("NDH", df$Protein)]
+lightrxn.ATPase.k <- unlist(PhotosynthesisTermsList[40])
+darkrxn.C4.c <- unique(unlist(PhotosynthesisTermsList[c(42,43)]))
+darkrxn.Calvin.kc <- unique(unlist(PhotosynthesisTermsList[c(46,47)]))
+darkrxn.Calvin.RubiscoSS <- c("Zm00001d052595", "Zm00001d004894")
+```
+##chloroplast background
+```{r}
+plastidCC <- as.list(GOCCCHILDREN)
+plastidCC <- as.vector(plastidCC$`GO:0009536`)
+plastidCC <- as.vector(gamer$db_object_id[gamer$term_accession%in%plastidCC])
+```
+
+##Plastid-encoded
+```{r}
+#Plastid-encoded proteins
+Pt<-df[grep("v4:Pt", df$Protein),]
+#define list of plastid-encoded photosynthesis-associated genes
+Pt.PS <- Pt$Gene[grep("psb|psa|ndh|rbc|pet|atp|ccs|cem", Pt$Protein)]
+Pt.PS.PSI <- Pt$Gene[grep("psa", Pt$Protein)]
+Pt.PS.PSII <- Pt$Gene[grep("psb", Pt$Protein)]
+Pt.PS.NADH <- Pt$Gene[grep("ndh", Pt$Protein)]
+Pt.PS.b6f <- Pt$Gene[grep("pet", Pt$Protein)]
+Pt.PS.ATP <- Pt$Gene[grep("atp", Pt$Protein)]
+Pt.PS.rubisco <- Pt$Gene[grep("rbc", Pt$Protein)]
+#Plastid encoded ribosomal proteins (EnsemblPlants Annotation)
+#get subset of Pt encoded genes annotated as ribosomal proteins
+Pt.ribo <- Pt$Gene[grep("rps|rpl", Pt$Protein)]
+#Plastid encoded RNA polymerases (EnsemblPlants Annotation)
+Pt.rpo <- Pt$Gene[grep("rpo", Pt$Protein)]
+#Define "other" as everything left
+Pt.other <- Pt$Gene[!(Pt$Gene%in%c(Pt.ribo, Pt.PS, Pt.rpo))]
+Pt <- Pt$Gene
+```
+
+##Nuclear-encoded plastid ribosome
+```{r}
+#Add proteins annotated as "ribosom" and "plastid/chloroplast" to the nuclear-encoded plastid-localized list
+ribosom <- df[(grep("ribosom", df$Protein)),]
+ribosom.pt <- ribosom[(grep("plastid|Plastid|Chloropl|chloropl", ribosom$Protein)),]
+Nuc.PtRibo <- ribosom.pt$Gene
+```
+
+##Eukaryotic ribosome
+```{r}
+#Eukaryotic ribosomal proteins (EnsemblPlants Annotation)
+eukRibo<-df[(grep("40S|60S", df$Protein)),]
+#remove the mitochondrial ones
+eukRibo<- eukRibo$Gene[-(grep("mito|Mito", eukRibo$Protein))]
+```
+##Etyhlene
+```{r}
+MAT <- cornCyc$Gene.Accession[(cornCyc$Enzymatic.activity=="methionine adenosyltransferase")]
+ACS <- cornCyc$Gene.Accession[(cornCyc$Enzymatic.activity=="1-aminocyclopropane-1-carboxylate synthase")]
+ACO <- cornCyc$Gene.Accession[(cornCyc$Enzymatic.activity=="1-aminocyclopropane-1-carboxylate oxidase")]
+EtBio <- c(MAT,ACS,ACO)
+```
+
+##Mitochondria
+Code written by Bridget
+###find mitochondrial encoded genes
+```{r}
+Mt <- unique(df[grep("chromosome:B73_RefGen_v4:Mt:", df$Protein),])
+
+#category 1: ribosomal proteins
+#category 2: aerobic respiration related proteins 
+Mt.ribo <- Mt[grep("rps", Mt$Protein), "Gene"]
+Mt.aerobicResp <- Mt[-grep("rps", Mt$Protein), "Gene"]
+```
+
+###MtGO & nuclear-encoded ribosomal proteins
+```{r}
+MtGO <- SelectSigGOgenes(godataCC, "GO:0005739", df)
+MtGO <- MtGO$Gene
+
+#nuclear-encoded ribosomal proteins in MtGO
+MtGO.ribo <- unique(df[grep("ribosom", df$Protein),])
+MtGO.ribo <- MtGO.ribo$Gene[MtGO.ribo$Gene%in%MtGO]
+```
+
+
+
+##GOI dataframe
+```{r}
+#define highparent
+df.SL.GOI <- df.SL
+df.SL.GOI$highparent <- NA
+df.SL.GOI$highparent[df.SL.GOI$B73.Mo17>1.000] <- "B73"
+df.SL.GOI$highparent[df.SL.GOI$B73.Mo17<1.000] <- "Mo17"
+```
+```{r}
+#define GOI columns - separate columns because some categories overlap
+df.SL.GOI$g1<- F
+df.SL.GOI$g1[(df.SL.GOI$Gene%in%g1)] <- T
+
+df.SL.GOI$g2 <- F
+df.SL.GOI$g2[(df.SL.GOI$Gene%in%g2)] <- T
+
+df.SL.GOI$g3 <- F
+df.SL.GOI$g3[(df.SL.GOI$Gene%in%g3)] <- T
+
+df.SL.GOI$g4 <- F
+df.SL.GOI$g4[(df.SL.GOI$Gene%in%g4)] <- T
+
+df.SL.GOI$g5 <- F
+df.SL.GOI$g5[(df.SL.GOI$Gene%in%g5)] <- T
+
+df.SL.GOI$g6 <- F
+df.SL.GOI$g6[(df.SL.GOI$Gene%in%g6)] <- T
+
+df.SL.GOI$g7 <- F
+df.SL.GOI$g7[(df.SL.GOI$Gene%in%g7)] <- T
+
+df.SL.GOI$g8 <- F
+df.SL.GOI$g8[(df.SL.GOI$Gene%in%g8)] <- T
+
+df.SL.GOI$g9 <- F
+df.SL.GOI$g9[(df.SL.GOI$Gene%in%g9)] <- T
+
+df.SL.GOI$g10 <- F
+df.SL.GOI$g10[(df.SL.GOI$Gene%in%g10)] <- T
+
+df.SL.GOI$g11 <- F
+df.SL.GOI$g11[(df.SL.GOI$Gene%in%g11)] <- T
+
+df.SL.GOI$g12 <- F
+df.SL.GOI$g12[(df.SL.GOI$Gene%in%g12)] <- T
+
+df.SL.GOI$g13 <- F
+df.SL.GOI$g13[(df.SL.GOI$Gene%in%g13)] <- T
+
+df.SL.GOI$g14 <- F
+df.SL.GOI$g14[(df.SL.GOI$Gene%in%g14)] <- T
+
+df.SL.GOI$g15 <- F
+df.SL.GOI$g15[(df.SL.GOI$Gene%in%g15)] <- T
+
+df.SL.GOI$g16 <- F
+df.SL.GOI$g16[(df.SL.GOI$Gene%in%g16)] <- T
+
+df.SL.GOI$g17 <- F
+df.SL.GOI$g17[(df.SL.GOI$Gene%in%g17)] <- T
+
+df.SL.GOI$g18 <- F
+df.SL.GOI$g18[(df.SL.GOI$Gene%in%g18)] <- T
+
+df.SL.GOI$g19 <- F
+df.SL.GOI$g19[(df.SL.GOI$Gene%in%g19)] <- T
+
+df.SL.GOI$g20 <- F
+df.SL.GOI$g20[(df.SL.GOI$Gene%in%g20)] <- T
+
+df.SL.GOI$g21 <- F
+df.SL.GOI$g21[(df.SL.GOI$Gene%in%g21)] <- T
+
+df.SL.GOI$g22 <- F
+df.SL.GOI$g22[(df.SL.GOI$Gene%in%g22)] <- T
+
+df.SL.GOI$g23 <- F
+df.SL.GOI$g23[(df.SL.GOI$Gene%in%g23)] <- T
+
+df.SL.GOI$g24 <- F
+df.SL.GOI$g24[(df.SL.GOI$Gene%in%g24)] <- T
+
+df.SL.GOI$g25 <- F
+df.SL.GOI$g25[(df.SL.GOI$Gene%in%g25)] <- T
+
+df.SL.GOI$g26 <- F
+df.SL.GOI$g26[(df.SL.GOI$Gene%in%g26)] <- T
+
+df.SL.GOI$g27 <- F
+df.SL.GOI$g27[(df.SL.GOI$Gene%in%g27)] <- T
+
+df.SL.GOI$g28 <- F
+df.SL.GOI$g28[(df.SL.GOI$Gene%in%g28)] <- T
+
+df.SL.GOI$g29 <- F
+df.SL.GOI$g29[(df.SL.GOI$Gene%in%g29)] <- T
+
+df.SL.GOI$g30 <- F
+df.SL.GOI$g30[(df.SL.GOI$Gene%in%g30)] <- T
+
+df.SL.GOI$g31 <- F
+df.SL.GOI$g31[(df.SL.GOI$Gene%in%g31)] <- T
+
+df.SL.GOI$g32 <- F
+df.SL.GOI$g32[(df.SL.GOI$Gene%in%g32)] <- T
+
+df.SL.GOI$g33 <- F
+df.SL.GOI$g33[(df.SL.GOI$Gene%in%g33)] <- T
+
+df.SL.GOI$g34 <- F
+df.SL.GOI$g34[(df.SL.GOI$Gene%in%g34)] <- T
+
+df.SL.GOI$g35 <- F
+df.SL.GOI$g35[(df.SL.GOI$Gene%in%g35)] <- T
+
+df.SL.GOI$g36 <- F
+df.SL.GOI$g36[(df.SL.GOI$Gene%in%g36)] <- T
+
+df.SL.GOI$g37 <- F
+df.SL.GOI$g37[(df.SL.GOI$Gene%in%g37)] <- T
+
+df.SL.GOI$g38 <- F
+df.SL.GOI$g38[(df.SL.GOI$Gene%in%g38)] <- T
+
+df.SL.GOI$g39 <- F
+df.SL.GOI$g39[(df.SL.GOI$Gene%in%g39)] <- T
+
+df.SL.GOI$g40 <- F
+df.SL.GOI$g40[(df.SL.GOI$Gene%in%g40)] <- T
+
+df.SL.GOI$g41 <- F
+df.SL.GOI$g41[(df.SL.GOI$Gene%in%g41)] <- T
+
+df.SL.GOI$g42 <- F
+df.SL.GOI$g42[(df.SL.GOI$Gene%in%g42)] <- T
+
+df.SL.GOI$g43 <- F
+df.SL.GOI$g43[(df.SL.GOI$Gene%in%g43)] <- T
+
+df.SL.GOI$g44 <- F
+df.SL.GOI$g44[(df.SL.GOI$Gene%in%g44)] <- T
+
+df.SL.GOI$g45 <- F
+df.SL.GOI$g45[(df.SL.GOI$Gene%in%g45)] <- T
+
+df.SL.GOI$g46 <- F
+df.SL.GOI$g46[(df.SL.GOI$Gene%in%g46)] <- T
+
+df.SL.GOI$g47 <- F
+df.SL.GOI$g47[(df.SL.GOI$Gene%in%g47)] <- T
+
+df.SL.GOI$g48 <- F
+df.SL.GOI$g48[(df.SL.GOI$Gene%in%g48)] <- T
+
+df.SL.GOI$g49 <- F
+df.SL.GOI$g49[(df.SL.GOI$Gene%in%g49)] <- T
+
+df.SL.GOI$g50 <- F
+df.SL.GOI$g50[(df.SL.GOI$Gene%in%g50)] <- T
+
+df.SL.GOI$g51 <- F
+df.SL.GOI$g51[(df.SL.GOI$Gene%in%g51)] <- T
+```
+```{r}
+#re-order
+df.SL.GOI<- df.SL.GOI[order(-df.SL.GOI[,33], -df.SL.GOI[,34], -df.SL.GOI[,35] , -df.SL.GOI[,36], -df.SL.GOI[,37], -df.SL.GOI[,38], -df.SL.GOI[,39], -df.SL.GOI[,40], -df.SL.GOI[,41], -df.SL.GOI[,42], -df.SL.GOI[,43], -df.SL.GOI[,44], -df.SL.GOI[,45], -df.SL.GOI[,46], -df.SL.GOI[,47], -df.SL.GOI[,48], -df.SL.GOI[,49], -df.SL.GOI[,50], -df.SL.GOI[,51], -df.SL.GOI[,52], -df.SL.GOI[,53], -df.SL.GOI[,54], -df.SL.GOI[,55], -df.SL.GOI[,56], -df.SL.GOI[,57], -df.SL.GOI[,58], -df.SL.GOI[,59], -df.SL.GOI[,60], -df.SL.GOI[,61], -df.SL.GOI[,62], -df.SL.GOI[,63], -df.SL.GOI[,64], -df.SL.GOI[,65], -df.SL.GOI[,66], -df.SL.GOI[,67], -df.SL.GOI[,68], -df.SL.GOI[,69], -df.SL.GOI[,70], -df.SL.GOI[,72], -df.SL.GOI[,73], -df.SL.GOI[,74], -df.SL.GOI[,75], -df.SL.GOI[,76], -df.SL.GOI[,77], -df.SL.GOI[,78], -df.SL.GOI[,79], -df.SL.GOI[,80], -df.SL.GOI[,81], -df.SL.GOI[,82], -df.SL.GOI[,83]),]
+```
+```{r}
+write.csv(df.SL.GOI[,c(1:6,19,8,33:83)], "df.SL.GOI.csv")
+
+```
+```{r}
+saveRDS(df.SL.GOI, "df.SL.GOI")
+```
+```{r}
+df.SL.GOI <- readRDS("df.SL.GOI")
+```
+```{r}
+PhotosynthesisTerms <- read.csv("PhotosynthesisTerms.csv", stringsAsFactors = F)
+```
+```{r}
+PhotosynthesisTerms$term <- paste(PhotosynthesisTerms$Number, PhotosynthesisTerms$source, PhotosynthesisTerms$term)
+```
+```{r}
+df.SL.GOI.t <- as.data.frame(t(df.SL.GOI[,33:83]))
+```
+```{r}
+colnames(df.SL.GOI.t)<- df.SL.GOI$Gene
+```
+```{r}
+df.SL.GOI.t$group <- rownames(df.SL.GOI.t)
+```
+```{r}
+df.SL.GOI.t.PhotosynthesisTerms <- merge.data.frame(PhotosynthesisTerms, df.SL.GOI.t, by.x = "Number", by.y = "group")
+```
+```{r}
+write.csv(df.SL.GOI.t.PhotosynthesisTerms, "df.SL.GOI.t.PhotosynthesisTerms.csv")
+```
+#acs
+##Format df
+```{r format df}
+#Subset
+df.acs <- df[,c(1:18,89)]
+#Remove missing genes
+df.acs <- df.acs[!(df.acs$B73.acs.B73.r1==0),]
+#Calculate averages of bio reps
+df.acs$B73avg <- rowMeans(df.acs[,9:13])
+df.acs$ACSavg <- rowMeans(df.acs[,14:18])
+#calculate ratio
+df.acs$ACS.B73 <- df.acs$ACSavg/df.acs$B73avg
+#calculate t-test
+df.acs$Sig <- ttestFun(df.acs, 9:13, 14:18)
+#calculate log2(acs/b73)
+df.acs$l2fc <- log2(df.acs$ACS.B73)
+#Calculate standard deviation
+df.acs$SD <- rowSds(as.matrix(df.acs[,14:18]))
+#subset to 10% significantly above or below mid-parent
+df.acs.amp <- df.acs[(df.acs$Sig<0.05)&(df.acs$ACS.B73>1.1),]
+df.acs.bmp <- df.acs[(df.acs$Sig<0.05)&(df.acs$ACS.B73<0.9),]
+```
+
+##Scatterplot - Pt
+###Make GOI description column
+```{r define categories}
+df.acs.scat.pt <- df.acs
+df.acs.scat.pt$Category <- "Other"
+df.acs.scat.pt$Order <- 1
+df.acs.scat.pt[(df.acs.scat.pt$Gene %in% plastid),"Category"] <- "plastid"
+df.acs.scat.pt[(df.acs.scat.pt$Gene %in% plastid),"Order"] <- 2
+df.acs.scat.pt[(df.acs.scat.pt$Gene %in% Pt),"Category"] <- "Plastid-encoded"
+df.acs.scat.pt[(df.acs.scat.pt$Gene %in% Pt),"Order"] <- 3
+
+#Re-order
+df.acs.scat.pt <- df.acs.scat.pt[(order(df.acs.scat.pt$Order)),]
+```
+
+###Set limits for plot
+```{r}
+df.acs.scat.pt.lims <- df.acs.scat.pt
+
+df.acs.scat.pt.lims$l2fc[df.acs.scat.pt.lims$l2fc > 2.0] = 2.0
+df.acs.scat.pt.lims$l2fc[df.acs.scat.pt.lims$l2fc < -2.0] = -2.0
+
+df.acs.scat.pt.lims$Sig[df.acs.scat.pt.lims$Sig > 2.0] = 2.0
+df.acs.scat.pt.lims$Sig[df.acs.scat.pt.lims$Sig < -2.0] = -2.0
+```
+###Make scatterplot
+```{r}
+df.acs.scat.pt.lims.fig <- ggplot(df.acs.scat.pt.lims, mapping=aes(x=l2fc, y=Sig, color=Category))+
+  geom_point(size=.8)+
+  scale_color_manual(values=c("Other"="grey75","plastid"= "blue", "Plastid-encoded"="red"), name="Protein Category")+
+    theme_classic()+
+    xlim(c(-2,2))+
+    ylim(c(0,1.5))+
+    geom_vline(xintercept=0, linetype="dashed", color = "gray50")+
+    geom_hline(yintercept=0, linetype="dashed", color = "gray50")+
+    #geom_abline(intercept =0 , acsope = 1, linetype="dashed", color="gray50")+
+    theme(axis.text=element_text(size=10),
+              legend.position="bottom", legend.title = element_text(size=10), legend.text = element_text(size=8))+
+    guides(color=guide_legend(nrow=2,byrow=TRUE))+
+    xlab("log2 acs/B73 protein abundance")+
+    ylab("T-test p-value")+
+    coord_fixed(expand = F)
+
+df.acs.scat.pt.lims.fig
+```
+```{r}
+#add density curves
+#add marginal density plots and resave
+    densityplotX<-axis_canvas(df.acs.scat.pt.lims.fig, axis="x")+
+      geom_density(aes(df.acs.scat.pt.lims[,"l2fc"], color=df.acs.scat.pt.lims[,"Category"]), df.acs.scat.pt.lims, size=0.7)+
+      scale_color_manual(values=c("Other"="grey75","plastid"= "blue", "Plastid-encoded"="red"))+
+      geom_vline(xintercept=0, linetype="dashed", color = "gray50")+
+      theme_void()
+    #set up marginal density plot Y axis
+    densityplotY<-axis_canvas(df.acs.scat.pt.lims.fig, axis="y", coord_flip = T)+
+      geom_density(aes(df.acs.scat.pt.lims[,"Sig"], color=df.acs.scat.pt.lims[,"Category"]), df.acs.scat.pt.lims, size=0.7)+
+      scale_color_manual(values=c("Other"="grey75","plastid"= "blue", "Plastid-encoded"="red"))+
+      geom_vline(xintercept=0, linetype="dashed", color = "gray50")+
+      theme_void()+
+      coord_flip()
+    #put two plots together
+    q <- insert_xaxis_grob(df.acs.scat.pt.lims.fig, densityplotX, grid::unit(0.275, "null"), position = "top")
+    q <- insert_yaxis_grob(q, densityplotY, grid::unit(0.275, "null"), position = "right")
+    #save
+  ggsave(plot=q, filename = "df.acs.scat.pt.lims.fig.tiff",
+        device="tiff", dpi=200, width=4.5, height=4.5, compression = "lzw")
+```
+
+
+
+
+##GO term enrichment
+```{r trim gamer}
+#Trim gamer to only those genes detected in our data, to use as background for enrichment
+gamerCutACS <- gamer[(gamer$db_object_id %in% df.acs$Gene),]
+```
+```{r run GoanalysisGodata}
+df.acs.amp_BP_GOdata <- GOanalysisGodata(df.acs.amp, gamerCutACS, "BP", nodesize = 5)
+df.acs.amp_MF_GOdata <- GOanalysisGodata(df.acs.amp, gamerCutACS, "MF", nodesize = 5)
+df.acs.amp_CC_GOdata <- GOanalysisGodata(df.acs.amp, gamerCutACS, "CC", nodesize = 5)
+
+df.acs.bmp_BP_GOdata <- GOanalysisGodata(df.acs.bmp, gamerCutACS, "BP", nodesize = 5)
+df.acs.bmp_MF_GOdata <- GOanalysisGodata(df.acs.bmp, gamerCutACS, "MF", nodesize = 5)
+df.acs.bmp_CC_GOdata <- GOanalysisGodata(df.acs.bmp, gamerCutACS, "CC", nodesize = 5)
+```
+```{r run GoanalysisMap}
+dir.create("GOmaps")
+GOanalysisMap(df.acs.amp_BP_GOdata, "GOmaps/df.acs.amp_BP_GOdata")
+GOanalysisMap(df.acs.amp_MF_GOdata, "GOmaps/df.acs.amp_MF_GOdata")
+GOanalysisMap(df.acs.amp_CC_GOdata, "GOmaps/df.acs.amp_CC_GOdata")
+
+GOanalysisMap(df.acs.bmp_BP_GOdata, "GOmaps/df.acs.bmp_BP_GOdata")
+GOanalysisMap(df.acs.bmp_MF_GOdata, "GOmaps/df.acs.bmp_MF_GOdata")
+GOanalysisMap(df.acs.bmp_CC_GOdata, "GOmaps/df.acs.bmp_CC_GOdata")
+```
+```{r run GoanalysisDF}
+df.acs.amp_BP_GOdata.DF <- GOanalysisDF(df.acs.amp_BP_GOdata)
+df.acs.amp_MF_GOdata.DF <- GOanalysisDF(df.acs.amp_MF_GOdata)
+df.acs.amp_CC_GOdata.DF <- GOanalysisDF(df.acs.amp_CC_GOdata)
+
+df.acs.bmp_BP_GOdata.DF <- GOanalysisDF(df.acs.bmp_BP_GOdata)
+df.acs.bmp_MF_GOdata.DF <- GOanalysisDF(df.acs.bmp_MF_GOdata)
+df.acs.bmp_CC_GOdata.DF <- GOanalysisDF(df.acs.bmp_CC_GOdata)
+```
+
+#Seedling Leaf - B73xMo17
+##Scatterplot - Photosynthesis light rxns
 ###Make GOI description column
 ```{r define categories}
 df.SL.scat1 <- df.SL
 df.SL.scat1$Category <- "Other"
 df.SL.scat1$Order <- 1
-df.SL.scat1[(df.SL.scat1$Gene %in% thylakoid),"Category"] <- "Thylakoid"
-df.SL.scat1[(df.SL.scat1$Gene %in% thylakoid),"Order"] <- 2
-df.SL.scat1[(df.SL.scat1$Gene %in% lightrxn.PSIIassembly),"Category"] <- "Photosystem II assembly"
-df.SL.scat1[(df.SL.scat1$Gene %in% lightrxn.PSIIassembly),"Order"] <- 3
-df.SL.scat1[(df.SL.scat1$Gene %in% CalvinCycle),"Category"] <- "Calvin Cycle"
-df.SL.scat1[(df.SL.scat1$Gene %in% CalvinCycle),"Order"] <- 4
-df.SL.scat1[(df.SL.scat1$Gene %in% lightrxn.lightharvesting),"Category"] <- "Light harvesting"
-df.SL.scat1[(df.SL.scat1$Gene %in% lightrxn.lightharvesting),"Order"] <- 5
-df.SL.scat1[(df.SL.scat1$Gene %in% lightrxn.electrontransport),"Category"] <- "Electron transport"
-df.SL.scat1[(df.SL.scat1$Gene %in% lightrxn.electrontransport),"Order"] <- 6
-df.SL.scat1[(df.SL.scat1$Gene %in% lightrxn.NADPreduction),"Category"] <- "NADP reduction"
-df.SL.scat1[(df.SL.scat1$Gene %in% lightrxn.NADPreduction),"Order"] <- 7
-df.SL.scat1[(df.SL.scat1$Gene %in% lightrxn.phosphorylation),"Category"] <- "Phosphorylation"
-df.SL.scat1[(df.SL.scat1$Gene %in% lightrxn.phosphorylation),"Order"] <- 8
-df.SL.scat1[(df.SL.scat1$Gene %in% lightrxn.PSIassembly),"Category"] <- "Photosystem I assembly"
-df.SL.scat1[(df.SL.scat1$Gene %in% lightrxn.PSIassembly),"Order"] <- 9
-df.SL.scat1[(df.SL.scat1$Gene %in% lightrxn.OxEvolassembly),"Category"] <- "Oxygen Evolving Complex assembly"
-df.SL.scat1[(df.SL.scat1$Gene %in% lightrxn.OxEvolassembly),"Order"] <- 10
-df.SL.scat1[(df.SL.scat1$Gene %in% OxEvolComp),"Category"] <- "Oxygen Evolving Complex"
-df.SL.scat1[(df.SL.scat1$Gene %in% OxEvolComp),"Order"] <- 11
-df.SL.scat1[(df.SL.scat1$Gene %in% Pt.PS),"Category"] <- "Plastid-encoded photosynthesis"
-df.SL.scat1[(df.SL.scat1$Gene %in% Pt.PS),"Order"] <- 12
+df.SL.scat1[(df.SL.scat1$Gene %in% plastidCC),"Category"] <- "Plastid"
+df.SL.scat1[(df.SL.scat1$Gene %in% plastidCC),"Order"] <- 2
+
+df.SL.scat1[(df.SL.scat1$Gene %in% lightrxn.PSII.kc),"Category"] <- "n.PSII"
+df.SL.scat1[(df.SL.scat1$Gene %in% lightrxn.PSII.kc),"Order"] <- 3
+df.SL.scat1[(df.SL.scat1$Gene %in% Pt.PS.PSII),"Category"] <- "p.PSII"
+df.SL.scat1[(df.SL.scat1$Gene %in% Pt.PS.PSII),"Order"] <- 4
+
+df.SL.scat1[(df.SL.scat1$Gene %in% lightrxn.PSI.kc),"Category"] <- "n.PSI"
+df.SL.scat1[(df.SL.scat1$Gene %in% lightrxn.PSI.kc),"Order"] <- 5
+df.SL.scat1[(df.SL.scat1$Gene %in% Pt.PS.PSI),"Category"] <- "p.PSI"
+df.SL.scat1[(df.SL.scat1$Gene %in% Pt.PS.PSI),"Order"] <- 6
+
+
+df.SL.scat1[(df.SL.scat1$Gene %in% lightrxn.b6f.k),"Category"] <- "n.CytB6F"
+df.SL.scat1[(df.SL.scat1$Gene %in% lightrxn.b6f.k),"Order"] <- 7
+df.SL.scat1[(df.SL.scat1$Gene %in% Pt.PS.b6f),"Category"] <- "p.CytB6F"
+df.SL.scat1[(df.SL.scat1$Gene %in% Pt.PS.b6f),"Order"] <- 8
+
+df.SL.scat1[(df.SL.scat1$Gene %in% lightrxn.ATPase.k),"Category"] <- "n.ATP"
+df.SL.scat1[(df.SL.scat1$Gene %in% lightrxn.ATPase.k),"Order"] <- 9
+df.SL.scat1[(df.SL.scat1$Gene %in% Pt.PS.ATP),"Category"] <- "p.ATP"
+df.SL.scat1[(df.SL.scat1$Gene %in% Pt.PS.ATP),"Order"] <- 10
+
+df.SL.scat1[(df.SL.scat1$Gene %in% lightrxn.NDH),"Category"] <- "n.NDH"
+df.SL.scat1[(df.SL.scat1$Gene %in% lightrxn.NDH),"Order"] <- 11
+df.SL.scat1[(df.SL.scat1$Gene %in% Pt.PS.NADH),"Category"] <- "p.NDH"
+df.SL.scat1[(df.SL.scat1$Gene %in% Pt.PS.NADH),"Order"] <- 12
 
 #Re-order
 df.SL.scat1 <- df.SL.scat1[(order(df.SL.scat1$Order)),]
+#factor
+df.SL.scat1$Category <- factor(df.SL.scat1$Category, levels = c("Other", "Plastid", "n.PSII", "p.PSII", "n.PSI", "p.PSI", "n.CytB6F", "p.CytB6F", "n.ATP", "p.ATP", "n.NDH", "p.NDH"))
 ```
+```{r}
+write.csv(df.SL.scat1[order(-df.SL.scat1$Order),], "df.SL.scat1.csv")
+```
+
+
 
 ###Set limits for plot
 ```{r}
@@ -678,9 +1613,9 @@ df.SL.scat1.lims$l2fc.B73.Mo17[df.SL.scat1.lims$l2fc.B73.Mo17 < -1.0] = -1.0
 ```
 ###Make scatterplot
 ```{r}
-fig.photosynthesis.bm <- ggplot(df.SL.scat1.lims, mapping=aes(x=l2fc, y=l2fc.B73.Mo17, color=Category))+
-  geom_point(size=.8)+
-  scale_color_manual(values=c("Other"="grey85","Thylakoid"="grey50", "Light harvesting"="#0bb003", "Electron transport"="#0235de", "NADP reduction"="#f5a800", "Phosphorylation"="#eb0003", "Photosystem I assembly"="#e600f5", "Photosystem II assembly"="brown", "Oxygen Evolving Complex assembly"="black", "Calvin Cycle"="purple", "Oxygen Evolving Complex"="red", "Plastid-encoded photosynthesis"="#1af97c"), name="Protein Category")+
+fig.lightrxn.bm <- ggplot(df.SL.scat1.lims, mapping=aes(x=l2fc, y=l2fc.B73.Mo17, color=Category))+
+  geom_point(size=3, aes(group = seq_along(Category)))+
+  scale_color_manual(values=c("Other"="black","Plastid"="grey20", "n.PSII"="#6dfd58", "p.PSII"="#098c03", "n.PSI"="#7aadff", "p.PSI"="#045be7", "n.CytB6F"="#d590fe", "p.CytB6F"="#a012b5", "n.ATP"="#feac52", "p.ATP"="#c25914", "n.NDH"="#fe6db4", "p.NDH"="#ff1a3f"), name="Protein Category")+
     theme_classic()+
     xlim(c(-1,1))+
     ylim(c(-1,1))+
@@ -688,125 +1623,41 @@ fig.photosynthesis.bm <- ggplot(df.SL.scat1.lims, mapping=aes(x=l2fc, y=l2fc.B73
     geom_hline(yintercept=0, linetype="dashed", color = "gray50")+
     #geom_abline(intercept =0 , slope = 1, linetype="dashed", color="gray50")+
     theme(axis.text=element_text(size=10),
-              legend.position="bottom", legend.title = element_text(size=5), legend.text = element_text(size=5))+
-    guides(color=guide_legend(nrow=5,byrow=TRUE))+
+              legend.position="left", legend.title = element_text(size=12), legend.text = element_text(size=12))+
+    guides(color=guide_legend(ncol=1))+
     xlab("log2 hyb/MP protein abundance")+
     ylab("log2 B73/Mo17 protein abundance")+
-    coord_fixed(expand = F)
-
-fig.photosynthesis.bm
+    coord_fixed(expand = F)+
+    transition_states(Category, state_length = 10, transition_length = 1)+
+    shadow_mark()
 ```
-###Add density curves
 ```{r}
-#add density curves
-#add marginal density plots and resave
-    densityplotX<-axis_canvas(fig.photosynthesis.bm, axis="x")+
-      geom_density(aes(df.SL.scat1.lims[,"l2fc"], color=df.SL.scat1.lims[,"Category"]), df.SL.scat1.lims, size=0.7)+
-      scale_color_manual(values=c("Other"="grey85","Thylakoid"="grey50", "Light harvesting"="#0bb003", "Electron transport"="#0235de", "NADP reduction"="#f5a800", "Phosphorylation"="#eb0003", "Photosystem I assembly"="#e600f5", "Photosystem II assembly"="brown", "Oxygen Evolving Complex assembly"="black", "Calvin Cycle"="purple", "Oxygen Evolving Complex"="red", "Plastid-encoded photosynthesis"="#1af97c"))+
-      geom_vline(xintercept=0, linetype="dashed", color = "gray50")+
-      theme_void()
-    #set up marginal density plot Y axis
-    densityplotY<-axis_canvas(fig.photosynthesis.bm, axis="y", coord_flip = T)+
-      geom_density(aes(df.SL.scat1.lims[,"l2fc.B73.Mo17"], color=df.SL.scat1.lims[,"Category"]), df.SL.scat1.lims, size=0.7)+
-      scale_color_manual(values=c("Other"="grey85","Thylakoid"="grey50", "Light harvesting"="#0bb003", "Electron transport"="#0235de", "NADP reduction"="#f5a800", "Phosphorylation"="#eb0003", "Photosystem I assembly"="#e600f5", "Photosystem II assembly"="brown", "Oxygen Evolving Complex assembly"="black", "Calvin Cycle"="purple", "Oxygen Evolving Complex"="red", "Plastid-encoded photosynthesis"="#1af97c"))+
-      geom_vline(xintercept=0, linetype="dashed", color = "gray50")+
-      theme_void()+
-      coord_flip()
-    #put two plots together
-    q <- insert_xaxis_grob(fig.photosynthesis.bm, densityplotX, grid::unit(0.275, "null"), position = "top")
-    q <- insert_yaxis_grob(q, densityplotY, grid::unit(0.275, "null"), position = "right")
-    #save
-  ggsave(plot=q, filename = "FigPhotosynthesisBM.tiff",
-        device="tiff", dpi=300, width=4.5, height=4.5, compression = "lzw")
+animate(fig.lightrxn.bm, renderer = gifski_renderer("fig.lightrxn.bm.gif"))
 ```
 
-##Scatterplot - Photosynthesis
-###Make GOI description column
-```{r define categories}
-df.SL.scat1b <- df.SL
-df.SL.scat1b$Category <- "Other"
-df.SL.scat1b$Order <- 1
-df.SL.scat1b[(df.SL.scat1b$Gene %in% thylakoid),"Category"] <- "Thylakoid"
-df.SL.scat1b[(df.SL.scat1b$Gene %in% thylakoid),"Order"] <- 2
-df.SL.scat1b[(df.SL.scat1b$Gene %in% lightrxn),"Category"] <- "Light Reaction"
-df.SL.scat1b[(df.SL.scat1b$Gene %in% lightrxn),"Order"] <- 3
-df.SL.scat1b[(df.SL.scat1b$Gene %in% darkrxn),"Category"] <- "Calvin Cycle"
-df.SL.scat1b[(df.SL.scat1b$Gene %in% darkrxn),"Order"] <- 4
-df.SL.scat1b[(df.SL.scat1b$Gene %in% Pt.PS),"Category"] <- "Plastid-encoded photosynthesis"
-df.SL.scat1b[(df.SL.scat1b$Gene %in% Pt.PS),"Order"] <- 5
-
-#Re-order
-df.SL.scat1b <- df.SL.scat1b[(order(df.SL.scat1b$Order)),]
-```
-
-###Set limits for plot
-```{r}
-df.SL.scat1b.lims <- df.SL.scat1b
-
-df.SL.scat1b.lims$l2fc[df.SL.scat1b.lims$l2fc > 1.0] = 1.0
-df.SL.scat1b.lims$l2fc[df.SL.scat1b.lims$l2fc < -1.0] = -1.0
-
-df.SL.scat1b.lims$l2fc.B73.Mo17[df.SL.scat1b.lims$l2fc.B73.Mo17 > 1.0] = 1.0
-df.SL.scat1b.lims$l2fc.B73.Mo17[df.SL.scat1b.lims$l2fc.B73.Mo17 < -1.0] = -1.0
-```
-###Make scatterplot
-```{r}
-fig.photosynthesis.bm.2 <- ggplot(df.SL.scat1b.lims, mapping=aes(x=l2fc, y=l2fc.B73.Mo17, color=Category))+
-  geom_point(size=.8)+
-  scale_color_manual(values=c("Other"="grey85","Thylakoid"="grey30", "Light Reaction"="#0bb003", "Calvin Cycle"="#0235de", "Plastid-encoded photosynthesis"="#eb0003"), name="Protein Category")+
-    theme_classic()+
-    xlim(c(-1,1))+
-    ylim(c(-1,1))+
-    geom_vline(xintercept=0, linetype="dashed", color = "gray50")+
-    geom_hline(yintercept=0, linetype="dashed", color = "gray50")+
-    #geom_abline(intercept =0 , slope = 1, linetype="dashed", color="gray50")+
-    theme(axis.text=element_text(size=10),
-              legend.position="bottom", legend.title = element_text(size=5), legend.text = element_text(size=5))+
-    guides(color=guide_legend(nrow=2,byrow=TRUE))+
-    xlab("log2 hyb/MP protein abundance")+
-    ylab("log2 B73/Mo17 protein abundance")+
-    coord_fixed(expand = F)
-
-fig.photosynthesis.bm.2
-```
-###Add density curves
-```{r}
-#add density curves
-#add marginal density plots and resave
-    densityplotX<-axis_canvas(fig.photosynthesis.bm.2, axis="x")+
-      geom_density(aes(df.SL.scat1b.lims[,"l2fc"], color=df.SL.scat1b.lims[,"Category"]), df.SL.scat1b.lims, size=0.7)+
-      scale_color_manual(values=c("Other"="grey85","Thylakoid"="grey30", "Light Reaction"="#0bb003", "Calvin Cycle"="#0235de", "Plastid-encoded photosynthesis"="#eb0003"))+
-      geom_vline(xintercept=0, linetype="dashed", color = "gray50")+
-      theme_void()
-    #set up marginal density plot Y axis
-    densityplotY<-axis_canvas(fig.photosynthesis.bm.2, axis="y", coord_flip = T)+
-      geom_density(aes(df.SL.scat1b.lims[,"l2fc.B73.Mo17"], color=df.SL.scat1b.lims[,"Category"]), df.SL.scat1b.lims, size=0.7)+
-      scale_color_manual(values=c("Other"="grey85","Thylakoid"="grey30", "Light Reaction"="#0bb003", "Calvin Cycle"="#0235de", "Plastid-encoded photosynthesis"="#eb0003"))+
-      geom_vline(xintercept=0, linetype="dashed", color = "gray50")+
-      theme_void()+
-      coord_flip()
-    #put two plots together
-    q <- insert_xaxis_grob(fig.photosynthesis.bm.2, densityplotX, grid::unit(0.275, "null"), position = "top")
-    q <- insert_yaxis_grob(q, densityplotY, grid::unit(0.275, "null"), position = "right")
-    #save
-  ggsave(plot=q, filename = "FigPhotosynthesisBM2.tiff",
-        device="tiff", dpi=300, width=4.5, height=4.5, compression = "lzw")
-```
-
-##Scatterplot - Ribosome
+##Scatterplot - Photosynthesis dark rxns
 ###Make GOI description column
 ```{r define categories}
 df.SL.scat2 <- df.SL
 df.SL.scat2$Category <- "Other"
 df.SL.scat2$Order <- 1
-df.SL.scat2[(df.SL.scat2$Gene %in% eukRibo),"Category"] <- "Eukaryotic ribsome"
-df.SL.scat2[(df.SL.scat2$Gene %in% eukRibo),"Order"] <- 2
-df.SL.scat2[(df.SL.scat2$Gene %in% Nuc.PtRibo),"Category"] <- "Nuclear-encoded plastid ribosome"
-df.SL.scat2[(df.SL.scat2$Gene %in% Nuc.PtRibo),"Order"] <- 3
-df.SL.scat2[(df.SL.scat2$Gene %in% Pt.ribo),"Category"] <- "Plastid-encoded ribosome"
-df.SL.scat2[(df.SL.scat2$Gene %in% Pt.ribo),"Order"] <- 4
+
+df.SL.scat2[(df.SL.scat2$Gene %in% darkrxn.C4.c),"Category"] <- "n.C4"
+df.SL.scat2[(df.SL.scat2$Gene %in% darkrxn.C4.c),"Order"] <- 2
+
+df.SL.scat2[(df.SL.scat2$Gene %in% darkrxn.Calvin.kc),"Category"] <- "n.CalvinCycle"
+df.SL.scat2[(df.SL.scat2$Gene %in% darkrxn.Calvin.kc),"Order"] <- 3
+
+df.SL.scat2[(df.SL.scat2$Gene %in% darkrxn.Calvin.RubiscoSS),"Category"] <- "n.Rubisco"
+df.SL.scat2[(df.SL.scat2$Gene %in% darkrxn.Calvin.RubiscoSS),"Order"] <- 5
+
+df.SL.scat2[(df.SL.scat2$Gene %in% Pt.PS.rubisco),"Category"] <- "p.Rubisco"
+df.SL.scat2[(df.SL.scat2$Gene %in% Pt.PS.rubisco),"Order"] <- 6
+
 #Re-order
 df.SL.scat2 <- df.SL.scat2[(order(df.SL.scat2$Order)),]
+#factor
+df.SL.scat2$Category <- factor(df.SL.scat2$Category, levels = c("Other", "n.C4", "n.CalvinCycle", "n.Rubisco", "p.Rubisco"))
 ```
 ###Set limits for plot
 ```{r}
@@ -820,9 +1671,9 @@ df.SL.scat2.lims$l2fc.B73.Mo17[df.SL.scat2.lims$l2fc.B73.Mo17 < -1.0] = -1.0
 ```
 ###Make scatterplot
 ```{r}
-fig.ribosome.bm <- ggplot(df.SL.scat2.lims, mapping=aes(x=l2fc, y=l2fc.B73.Mo17, color=Category))+
-  geom_point(size=.8)+
-  scale_color_manual(values=c("Other"="grey85","Eukaryotic ribsome"="red", "Nuclear-encoded plastid ribosome"="#0235de", "Plastid-encoded ribosome"="#0bb003"), name="Protein Category")+
+fig.darkrxn.bm <- ggplot(df.SL.scat2.lims, mapping=aes(x=l2fc, y=l2fc.B73.Mo17, color=Category))+
+  geom_point(size=2, aes(group = seq_along(Category)))+
+  scale_color_manual(values=c("Other"="black","n.C4"="#6dfd58", "n.CalvinCycle"="#7aadff", "n.Rubisco"="#e942fa", "p.Rubisco"="#b70d01"), name="Protein Category")+
     theme_classic()+
     xlim(c(-1,1))+
     ylim(c(-1,1))+
@@ -830,50 +1681,41 @@ fig.ribosome.bm <- ggplot(df.SL.scat2.lims, mapping=aes(x=l2fc, y=l2fc.B73.Mo17,
     geom_hline(yintercept=0, linetype="dashed", color = "gray50")+
     #geom_abline(intercept =0 , slope = 1, linetype="dashed", color="gray50")+
     theme(axis.text=element_text(size=10),
-              legend.position="bottom", legend.title = element_text(size=6), legend.text = element_text(size=8))+
-    guides(color=guide_legend(nrow=2,byrow=TRUE))+
+              legend.position="left", legend.title = element_text(size=12), legend.text = element_text(size=12))+
+    guides(color=guide_legend(ncol=1))+
     xlab("log2 hyb/MP protein abundance")+
     ylab("log2 B73/Mo17 protein abundance")+
-    coord_fixed(expand = F)
-
-fig.ribosome.bm
+    coord_fixed(expand = F)+
+    transition_states(Category, state_length = 10, transition_length = 1)+
+    shadow_mark()
 ```
-###Add density curves
 ```{r}
-#add density curves
-#add marginal density plots and resave
-    densityplotX<-axis_canvas(fig.ribosome.bm, axis="x")+
-      geom_density(aes(df.SL.scat2.lims[,"l2fc"], color=df.SL.scat2.lims[,"Category"]), df.SL.scat2.lims, size=0.7)+
-      scale_color_manual(values=c("Other"="grey85","Eukaryotic ribsome"="red", "Nuclear-encoded plastid ribosome"="#0235de", "Plastid-encoded ribosome"="#0bb003"))+
-      geom_vline(xintercept=0, linetype="dashed", color = "gray50")+
-      theme_void()
-    #set up marginal density plot Y axis
-    densityplotY<-axis_canvas(fig.ribosome.bm, axis="y", coord_flip = T)+
-      geom_density(aes(df.SL.scat2.lims[,"l2fc.B73.Mo17"], color=df.SL.scat2.lims[,"Category"]), df.SL.scat2.lims, size=0.7)+
-      scale_color_manual(values=c("Other"="grey85","Eukaryotic ribsome"="red", "Nuclear-encoded plastid ribosome"="#0235de", "Plastid-encoded ribosome"="#0bb003"))+
-      geom_vline(xintercept=0, linetype="dashed", color = "gray50")+
-      theme_void()+
-      coord_flip()
-    #put two plots together
-    q <- insert_xaxis_grob(fig.ribosome.bm, densityplotX, grid::unit(0.275, "null"), position = "top")
-    q <- insert_yaxis_grob(q, densityplotY, grid::unit(0.275, "null"), position = "right")
-    #save
-  ggsave(plot=q, filename = "FigRibosomeBM.tiff",
-        device="tiff", dpi=300, width=4.5, height=4.5, compression = "lzw")
+animate(fig.darkrxn.bm, renderer = gifski_renderer("fig.darkrxn.bm.gif"))
 ```
-##Scatterplot - Ethylene
+
+
+
+##Scatterplot - Ribosome
 ###Make GOI description column
 ```{r define categories}
 df.SL.scat3 <- df.SL
 df.SL.scat3$Category <- "Other"
 df.SL.scat3$Order <- 1
-df.SL.scat3[(df.SL.scat3$Gene %in% ResponseToEt),"Category"] <- "Response to ethylene"
-df.SL.scat3[(df.SL.scat3$Gene %in% ResponseToEt),"Order"] <- 2
-df.SL.scat3[(df.SL.scat3$Gene %in% EtBio),"Category"] <- "Ethylene biosynthesis"
-df.SL.scat3[(df.SL.scat3$Gene %in% EtBio),"Order"] <- 3
-df.SL.scat3 <- df.SL.scat3[(order(df.SL.scat3$Order)),]
-```
 
+df.SL.scat3[(df.SL.scat3$Gene %in% eukRibo),"Category"] <- "n.EukaryoticRibo"
+df.SL.scat3[(df.SL.scat3$Gene %in% eukRibo),"Order"] <- 2
+
+df.SL.scat3[(df.SL.scat3$Gene %in% Nuc.PtRibo),"Category"] <- "n.PlastidRibo"
+df.SL.scat3[(df.SL.scat3$Gene %in% Nuc.PtRibo),"Order"] <- 3
+
+df.SL.scat3[(df.SL.scat3$Gene %in% Pt.ribo),"Category"] <- "p.PlastidRibo"
+df.SL.scat3[(df.SL.scat3$Gene %in% Pt.ribo),"Order"] <- 4
+
+#Re-order
+df.SL.scat3 <- df.SL.scat3[(order(df.SL.scat3$Order)),]
+#factor
+df.SL.scat3$Category <- factor(df.SL.scat3$Category, levels = c("Other","n.EukaryoticRibo", "n.PlastidRibo", "p.PlastidRibo"))
+```
 ###Set limits for plot
 ```{r}
 df.SL.scat3.lims <- df.SL.scat3
@@ -884,13 +1726,11 @@ df.SL.scat3.lims$l2fc[df.SL.scat3.lims$l2fc < -1.0] = -1.0
 df.SL.scat3.lims$l2fc.B73.Mo17[df.SL.scat3.lims$l2fc.B73.Mo17 > 1.0] = 1.0
 df.SL.scat3.lims$l2fc.B73.Mo17[df.SL.scat3.lims$l2fc.B73.Mo17 < -1.0] = -1.0
 ```
-
-
 ###Make scatterplot
 ```{r}
-fig.ethylene.bm <- ggplot(df.SL.scat3.lims, mapping=aes(x=l2fc, y=l2fc.B73.Mo17, color=Category))+
-  geom_point(size=.8)+
-  scale_color_manual(values=c("Other"="grey85","Response to ethylene"="red", "Ethylene biosynthesis"="blue"), name="Protein Category")+
+fig.ribosome.bm <- ggplot(df.SL.scat3.lims, mapping=aes(x=l2fc, y=l2fc.B73.Mo17, color=Category))+
+  geom_point(size=2, aes(group = seq_along(Category)))+
+  scale_color_manual(values=c("Other"="black","n.EukaryoticRibo"="#6dfd58", "n.PlastidRibo"="#e942fa", "p.PlastidRibo"="#b70d01"), name="Protein Category")+
     theme_classic()+
     xlim(c(-1,1))+
     ylim(c(-1,1))+
@@ -898,38 +1738,26 @@ fig.ethylene.bm <- ggplot(df.SL.scat3.lims, mapping=aes(x=l2fc, y=l2fc.B73.Mo17,
     geom_hline(yintercept=0, linetype="dashed", color = "gray50")+
     #geom_abline(intercept =0 , slope = 1, linetype="dashed", color="gray50")+
     theme(axis.text=element_text(size=10),
-              legend.position="bottom", legend.title = element_text(size=6), legend.text = element_text(size=8))+
-    guides(color=guide_legend(nrow=2,byrow=TRUE))+
+              legend.position="left", legend.title = element_text(size=12), legend.text = element_text(size=12))+
+    guides(color=guide_legend(ncol=1))+
     xlab("log2 hyb/MP protein abundance")+
     ylab("log2 B73/Mo17 protein abundance")+
-    coord_fixed(expand = F)
-
-fig.ethylene.bm
+    coord_fixed(expand = F)+
+    transition_states(Category, state_length = 10, transition_length = 1)+
+    shadow_mark()
 ```
-###Add density curves
 ```{r}
-#add density curves
-#add marginal density plots and resave
-    densityplotX<-axis_canvas(fig.ethylene.bm, axis="x")+
-      geom_density(aes(df.SL.scat3.lims[,"l2fc"], color=df.SL.scat3.lims[,"Category"]), df.SL.scat3.lims, size=0.7)+
-      scale_color_manual(values=c("Other"="grey85","Response to ethylene"="red", "Ethylene biosynthesis"="blue"))+
-      geom_vline(xintercept=0, linetype="dashed", color = "gray50")+
-      theme_void()
-    #set up marginal density plot Y axis
-    densityplotY<-axis_canvas(fig.ethylene.bm, axis="y", coord_flip = T)+
-      geom_density(aes(df.SL.scat3.lims[,"l2fc.B73.Mo17"], color=df.SL.scat3.lims[,"Category"]), df.SL.scat3.lims, size=0.7)+
-      scale_color_manual(values=c("Other"="grey85","Response to ethylene"="red", "Ethylene biosynthesis"="blue"))+
-      geom_vline(xintercept=0, linetype="dashed", color = "gray50")+
-      theme_void()+
-      coord_flip()
-    #put two plots together
-    q <- insert_xaxis_grob(fig.ethylene.bm, densityplotX, grid::unit(0.275, "null"), position = "top")
-    q <- insert_yaxis_grob(q, densityplotY, grid::unit(0.275, "null"), position = "right")
-    #save
-  ggsave(plot=q, filename = "FigEthyleneBM.tiff",
-        device="tiff", dpi=300, width=4.5, height=4.5, compression = "lzw")
+animate(fig.ribosome.bm, renderer = gifski_renderer("fig.ribosome.bm.gif"))
 ```
+
+
+
 #ACS and BxM enrichment overlap
+##Merge acs and Seedling Leaf BxM data
+```{r merge data for scatterplots}
+df.acs.SL <- merge.data.frame(df.acs[,c(1:8,19,24:25)], df.SL[,c(6,c(27,29,31))], by="Accession", all = F, suffixes = c(".acs", ".BM"))
+```
+##Go analysis
 ```{r subset to proteins amp/bmp in both the mutant and hybrid}
 df.SL.acs.amp <- df.SL.amp[(df.SL.amp$Accession%in%df.acs.amp$Accession),]
 df.SL.acs.bmp <- df.SL.bmp[(df.SL.bmp$Accession%in%df.acs.bmp$Accession),]
@@ -970,61 +1798,66 @@ df.SL.acs.bmp_CC_GOdata.DF <- GOanalysisDF(df.SL.acs.bmp_CC_GOdata)
 ```{r view enrichment}
 df.SL.acs.bmp_BP_GOdata.DF
 ```
-##Merge acs and Seedling Leaf BxM data
-```{r merge data for scatterplots}
-df.acs.SL <- merge.data.frame(df.acs[,c(1:8,19,24:25)], df.SL[,c(6,c(27,29))], by="Accession", all = F, suffixes = c(".acs", ".BM"))
-```
 
-##Scatterplot - Photosynthesis - subterms
+
+
+
+
+##Scatterplot - Photosynthesis light rxns
 ###Make GOI description column
 ```{r define categories}
 df.acs.SL.scat1 <- df.acs.SL
 df.acs.SL.scat1$Category <- "Other"
 df.acs.SL.scat1$Order <- 1
-df.acs.SL.scat1[(df.acs.SL.scat1$Gene %in% thylakoid),"Category"] <- "Thylakoid"
-df.acs.SL.scat1[(df.acs.SL.scat1$Gene %in% thylakoid),"Order"] <- 2
-df.acs.SL.scat1[(df.acs.SL.scat1$Gene %in% lightrxn.PSIIassembly),"Category"] <- "Photosystem II assembly"
-df.acs.SL.scat1[(df.acs.SL.scat1$Gene %in% lightrxn.PSIIassembly),"Order"] <- 3
-df.acs.SL.scat1[(df.acs.SL.scat1$Gene %in% CalvinCycle),"Category"] <- "Calvin Cycle"
-df.acs.SL.scat1[(df.acs.SL.scat1$Gene %in% CalvinCycle),"Order"] <- 4
-df.acs.SL.scat1[(df.acs.SL.scat1$Gene %in% lightrxn.lightharvesting),"Category"] <- "Light harvesting"
-df.acs.SL.scat1[(df.acs.SL.scat1$Gene %in% lightrxn.lightharvesting),"Order"] <- 5
-df.acs.SL.scat1[(df.acs.SL.scat1$Gene %in% lightrxn.electrontransport),"Category"] <- "Electron transport"
-df.acs.SL.scat1[(df.acs.SL.scat1$Gene %in% lightrxn.electrontransport),"Order"] <- 6
-df.acs.SL.scat1[(df.acs.SL.scat1$Gene %in% lightrxn.NADPreduction),"Category"] <- "NADP reduction"
-df.acs.SL.scat1[(df.acs.SL.scat1$Gene %in% lightrxn.NADPreduction),"Order"] <- 7
-df.acs.SL.scat1[(df.acs.SL.scat1$Gene %in% lightrxn.phosphorylation),"Category"] <- "Phosphorylation"
-df.acs.SL.scat1[(df.acs.SL.scat1$Gene %in% lightrxn.phosphorylation),"Order"] <- 8
-df.acs.SL.scat1[(df.acs.SL.scat1$Gene %in% lightrxn.PSIassembly),"Category"] <- "Photosystem I assembly"
-df.acs.SL.scat1[(df.acs.SL.scat1$Gene %in% lightrxn.PSIassembly),"Order"] <- 9
-df.acs.SL.scat1[(df.acs.SL.scat1$Gene %in% lightrxn.OxEvolassembly),"Category"] <- "Oxygen Evolving Complex assembly"
-df.acs.SL.scat1[(df.acs.SL.scat1$Gene %in% lightrxn.OxEvolassembly),"Order"] <- 10
-df.acs.SL.scat1[(df.acs.SL.scat1$Gene %in% OxEvolComp),"Category"] <- "Oxygen Evolving Complex"
-df.acs.SL.scat1[(df.acs.SL.scat1$Gene %in% OxEvolComp),"Order"] <- 11
-df.acs.SL.scat1[(df.acs.SL.scat1$Gene %in% Pt.PS),"Category"] <- "Plastid-encoded photosynthesis"
-df.acs.SL.scat1[(df.acs.SL.scat1$Gene %in% Pt.PS),"Order"] <- 12
+df.acs.SL.scat1[(df.acs.SL.scat1$Gene %in% plastidCC),"Category"] <- "Plastid"
+df.acs.SL.scat1[(df.acs.SL.scat1$Gene %in% plastidCC),"Order"] <- 2
 
+df.acs.SL.scat1[(df.acs.SL.scat1$Gene %in% lightrxn.PSII.kc),"Category"] <- "n.PSII"
+df.acs.SL.scat1[(df.acs.SL.scat1$Gene %in% lightrxn.PSII.kc),"Order"] <- 3
+df.acs.SL.scat1[(df.acs.SL.scat1$Gene %in% Pt.PS.PSII),"Category"] <- "p.PSII"
+df.acs.SL.scat1[(df.acs.SL.scat1$Gene %in% Pt.PS.PSII),"Order"] <- 4
+
+df.acs.SL.scat1[(df.acs.SL.scat1$Gene %in% lightrxn.PSI.kc),"Category"] <- "n.PSI"
+df.acs.SL.scat1[(df.acs.SL.scat1$Gene %in% lightrxn.PSI.kc),"Order"] <- 5
+df.acs.SL.scat1[(df.acs.SL.scat1$Gene %in% Pt.PS.PSI),"Category"] <- "p.PSI"
+df.acs.SL.scat1[(df.acs.SL.scat1$Gene %in% Pt.PS.PSI),"Order"] <- 6
+
+
+df.acs.SL.scat1[(df.acs.SL.scat1$Gene %in% lightrxn.b6f.k),"Category"] <- "n.CytB6F"
+df.acs.SL.scat1[(df.acs.SL.scat1$Gene %in% lightrxn.b6f.k),"Order"] <- 7
+df.acs.SL.scat1[(df.acs.SL.scat1$Gene %in% Pt.PS.b6f),"Category"] <- "p.CytB6F"
+df.acs.SL.scat1[(df.acs.SL.scat1$Gene %in% Pt.PS.b6f),"Order"] <- 8
+
+df.acs.SL.scat1[(df.acs.SL.scat1$Gene %in% lightrxn.ATPase.k),"Category"] <- "n.ATP"
+df.acs.SL.scat1[(df.acs.SL.scat1$Gene %in% lightrxn.ATPase.k),"Order"] <- 9
+df.acs.SL.scat1[(df.acs.SL.scat1$Gene %in% Pt.PS.ATP),"Category"] <- "p.ATP"
+df.acs.SL.scat1[(df.acs.SL.scat1$Gene %in% Pt.PS.ATP),"Order"] <- 10
+
+df.acs.SL.scat1[(df.acs.SL.scat1$Gene %in% lightrxn.NDH),"Category"] <- "n.NDH"
+df.acs.SL.scat1[(df.acs.SL.scat1$Gene %in% lightrxn.NDH),"Order"] <- 11
+df.acs.SL.scat1[(df.acs.SL.scat1$Gene %in% Pt.PS.NADH),"Category"] <- "p.NDH"
+df.acs.SL.scat1[(df.acs.SL.scat1$Gene %in% Pt.PS.NADH),"Order"] <- 12
 
 #Re-order
 df.acs.SL.scat1 <- df.acs.SL.scat1[(order(df.acs.SL.scat1$Order)),]
+#factor
+df.acs.SL.scat1$Category <- factor(df.acs.SL.scat1$Category, levels = c("Other", "Plastid", "n.PSII", "p.PSII", "n.PSI", "p.PSI", "n.CytB6F", "p.CytB6F", "n.ATP", "p.ATP", "n.NDH", "p.NDH"))
 ```
-
-
 ###Set limits for plot
 ```{r}
 df.acs.SL.scat1.lims <- df.acs.SL.scat1
 
-df.acs.SL.scat1.lims$l2fc.acs[df.acs.SL.scat1.lims$l2fc.acs > 1.0] = 1.0
-df.acs.SL.scat1.lims$l2fc.acs[df.acs.SL.scat1.lims$l2fc.acs < -1.0] = -1.0
-
 df.acs.SL.scat1.lims$l2fc.BM[df.acs.SL.scat1.lims$l2fc.BM > 1.0] = 1.0
 df.acs.SL.scat1.lims$l2fc.BM[df.acs.SL.scat1.lims$l2fc.BM < -1.0] = -1.0
+
+df.acs.SL.scat1.lims$l2fc.acs[df.acs.SL.scat1.lims$l2fc.acs > 1.0] = 1.0
+df.acs.SL.scat1.lims$l2fc.acs[df.acs.SL.scat1.lims$l2fc.acs < -1.0] = -1.0
 ```
 ###Make scatterplot
 ```{r}
-fig.photosynthesis.acs <- ggplot(df.acs.SL.scat1.lims, mapping=aes(x=l2fc.BM, y=l2fc.acs, color=Category))+
-  geom_point(size=.8)+
-  scale_color_manual(values=c("Other"="grey85","Thylakoid"="grey50", "Light harvesting"="#0bb003", "Electron transport"="#0235de", "NADP reduction"="#f5a800", "Phosphorylation"="#eb0003", "Photosystem I assembly"="#e600f5", "Photosystem II assembly"="brown", "Oxygen Evolving Complex assembly"="black", "Calvin Cycle"="purple", "Oxygen Evolving Complex"="red", "Plastid-encoded photosynthesis"="#1af97c"), name="Protein Category")+
+fig.lightrxn.bm.acs <- ggplot(df.acs.SL.scat1.lims, mapping=aes(x=l2fc.BM, y=l2fc.acs, color=Category))+
+  geom_point(size=2, aes(group = seq_along(Category)))+
+  scale_color_manual(values=c("Other"="black","Plastid"="grey20", "n.PSII"="#6dfd58", "p.PSII"="#098c03", "n.PSI"="#7aadff", "p.PSI"="#045be7", "n.CytB6F"="#d590fe", "p.CytB6F"="#a012b5", "n.ATP"="#feac52", "p.ATP"="#c25914", "n.NDH"="#fe6db4", "p.NDH"="#ff1a3f"), name="Protein Category")+
     theme_classic()+
     xlim(c(-1,1))+
     ylim(c(-1,1))+
@@ -1032,141 +1865,57 @@ fig.photosynthesis.acs <- ggplot(df.acs.SL.scat1.lims, mapping=aes(x=l2fc.BM, y=
     geom_hline(yintercept=0, linetype="dashed", color = "gray50")+
     #geom_abline(intercept =0 , slope = 1, linetype="dashed", color="gray50")+
     theme(axis.text=element_text(size=10),
-              legend.position="bottom", legend.title = element_text(size=6), legend.text = element_text(size=6))+
-    guides(color=guide_legend(nrow=4,byrow=TRUE))+
+              legend.position="left", legend.title = element_text(size=12), legend.text = element_text(size=12))+
+    guides(color=guide_legend(ncol=1))+
     xlab("log2 hyb/MP protein abundance")+
     ylab("log2 acs/B73 protein abundance")+
-    coord_fixed(expand = F)
-
-fig.photosynthesis.acs
+    coord_fixed(expand = F)+
+  transition_states(Category, state_length = 10, transition_length = 1)+
+  shadow_mark()
 ```
-###Add density curves
 ```{r}
-#add density curves
-#add marginal density plots and resave
-    densityplotX<-axis_canvas(fig.photosynthesis.acs, axis="x")+
-      geom_density(aes(df.acs.SL.scat1.lims[,"l2fc.BM"], color=df.acs.SL.scat1.lims[,"Category"]), df.acs.SL.scat1.lims, size=0.7)+
-      scale_color_manual(values=c("Other"="grey85","Thylakoid"="grey50", "Light harvesting"="#0bb003", "Electron transport"="#0235de", "NADP reduction"="#f5a800", "Phosphorylation"="#eb0003", "Photosystem I assembly"="#e600f5", "Photosystem II assembly"="brown", "Oxygen Evolving Complex assembly"="black", "Calvin Cycle"="purple", "Oxygen Evolving Complex"="red", "Plastid-encoded photosynthesis"="#1af97c"))+
-      geom_vline(xintercept=0, linetype="dashed", color = "gray50")+
-      theme_void()
-    #set up marginal density plot Y axis
-    densityplotY<-axis_canvas(fig.photosynthesis.acs, axis="y", coord_flip = T)+
-      geom_density(aes(df.acs.SL.scat1.lims[,"l2fc.acs"], color=df.acs.SL.scat1.lims[,"Category"]), df.acs.SL.scat1.lims, size=0.7)+
-      scale_color_manual(values=c("Other"="grey85","Thylakoid"="grey50", "Light harvesting"="#0bb003", "Electron transport"="#0235de", "NADP reduction"="#f5a800", "Phosphorylation"="#eb0003", "Photosystem I assembly"="#e600f5", "Photosystem II assembly"="brown", "Oxygen Evolving Complex assembly"="black", "Calvin Cycle"="purple", "Oxygen Evolving Complex"="red", "Plastid-encoded photosynthesis"="#1af97c"))+
-      geom_vline(xintercept=0, linetype="dashed", color = "gray50")+
-      theme_void()+
-      coord_flip()
-    #put two plots together
-    q <- insert_xaxis_grob(fig.photosynthesis.acs, densityplotX, grid::unit(0.275, "null"), position = "top")
-    q <- insert_yaxis_grob(q, densityplotY, grid::unit(0.275, "null"), position = "right")
-    #save
-  ggsave(plot=q, filename = "FigPhotosynthesisACS.tiff",
-        device="tiff", dpi=300, width=4.5, height=4.5, compression = "lzw")
+animate(fig.lightrxn.bm.acs, renderer = gifski_renderer("fig.lightrxn.bm.acs.gif"))
 ```
 
-##Scatterplot - Photosynthesis
-###Make GOI description column
-```{r define categories}
-df.acs.SL.scat1b <- df.acs.SL
-df.acs.SL.scat1b$Category <- "Other"
-df.acs.SL.scat1b$Order <- 1
-df.acs.SL.scat1b[(df.acs.SL.scat1b$Gene %in% thylakoid),"Category"] <- "Thylakoid"
-df.acs.SL.scat1b[(df.acs.SL.scat1b$Gene %in% thylakoid),"Order"] <- 2
-df.acs.SL.scat1b[(df.acs.SL.scat1b$Gene %in% lightrxn),"Category"] <- "Light Reaction"
-df.acs.SL.scat1b[(df.acs.SL.scat1b$Gene %in% lightrxn),"Order"] <- 3
-df.acs.SL.scat1b[(df.acs.SL.scat1b$Gene %in% darkrxn),"Category"] <- "Calvin Cycle"
-df.acs.SL.scat1b[(df.acs.SL.scat1b$Gene %in% darkrxn),"Order"] <- 4
-df.acs.SL.scat1b[(df.acs.SL.scat1b$Gene %in% Pt.PS),"Category"] <- "Plastid-encoded photosynthesis"
-df.acs.SL.scat1b[(df.acs.SL.scat1b$Gene %in% Pt.PS),"Order"] <- 5
-
-#Re-order
-df.acs.SL.scat1b <- df.acs.SL.scat1b[(order(df.acs.SL.scat1b$Order)),]
-```
-
-###Set limits for plot
-```{r}
-df.acs.SL.scat1b.lims <- df.acs.SL.scat1b
-
-df.acs.SL.scat1b.lims$l2fc.acs[df.acs.SL.scat1b.lims$l2fc.acs > 1.0] = 1.0
-df.acs.SL.scat1b.lims$l2fc.acs[df.acs.SL.scat1b.lims$l2fc.acs < -1.0] = -1.0
-
-df.acs.SL.scat1b.lims$l2fc.BM[df.acs.SL.scat1b.lims$l2fc.BM > 1.0] = 1.0
-df.acs.SL.scat1b.lims$l2fc.BM[df.acs.SL.scat1b.lims$l2fc.BM < -1.0] = -1.0
-```
-###Make scatterplot
-```{r}
-fig.photosynthesis.acs.2 <- ggplot(df.acs.SL.scat1b.lims, mapping=aes(x=l2fc.BM, y=l2fc.acs, color=Category))+
-  geom_point(size=.8)+
-  scale_color_manual(values=c("Other"="grey85","Thylakoid"="grey30", "Light Reaction"="#0bb003", "Calvin Cycle"="#0235de", "Plastid-encoded photosynthesis"="#eb0003"), name="Protein Category")+
-    theme_classic()+
-    xlim(c(-1,1))+
-    ylim(c(-1,1))+
-    geom_vline(xintercept=0, linetype="dashed", color = "gray50")+
-    geom_hline(yintercept=0, linetype="dashed", color = "gray50")+
-    #geom_abline(intercept =0 , slope = 1, linetype="dashed", color="gray50")+
-    theme(axis.text=element_text(size=10),
-              legend.position="bottom", legend.title = element_text(size=5), legend.text = element_text(size=5))+
-    guides(color=guide_legend(nrow=2,byrow=TRUE))+
-    xlab("log2 BxM/MP protein abundance")+
-    ylab("log2 acs/B73 protein abundance")+
-    coord_fixed(expand = F)
-
-fig.photosynthesis.acs.2
-```
-###Add density curves
-```{r}
-#add density curves
-#add marginal density plots and resave
-    densityplotX<-axis_canvas(fig.photosynthesis.acs.2, axis="x")+
-      geom_density(aes(df.acs.SL.scat1b.lims[,"l2fc.BM"], color=df.acs.SL.scat1b.lims[,"Category"]), df.acs.SL.scat1b.lims, size=0.7)+
-      scale_color_manual(values=c("Other"="grey85","Thylakoid"="grey30", "Light Reaction"="#0bb003", "Calvin Cycle"="#0235de", "Plastid-encoded photosynthesis"="#eb0003"))+
-      geom_vline(xintercept=0, linetype="dashed", color = "gray50")+
-      theme_void()
-    #set up marginal density plot Y axis
-    densityplotY<-axis_canvas(fig.photosynthesis.acs.2, axis="y", coord_flip = T)+
-      geom_density(aes(df.acs.SL.scat1b.lims[,"l2fc.acs"], color=df.acs.SL.scat1b.lims[,"Category"]), df.acs.SL.scat1b.lims, size=0.7)+
-      scale_color_manual(values=c("Other"="grey85","Thylakoid"="grey30", "Light Reaction"="#0bb003", "Calvin Cycle"="#0235de", "Plastid-encoded photosynthesis"="#eb0003"))+
-      geom_vline(xintercept=0, linetype="dashed", color = "gray50")+
-      theme_void()+
-      coord_flip()
-    #put two plots together
-    q <- insert_xaxis_grob(fig.photosynthesis.acs.2, densityplotX, grid::unit(0.275, "null"), position = "top")
-    q <- insert_yaxis_grob(q, densityplotY, grid::unit(0.275, "null"), position = "right")
-    #save
-  ggsave(plot=q, filename = "FigPhotosynthesisACS2.tiff",
-        device="tiff", dpi=300, width=4.5, height=4.5, compression = "lzw")
-```
-
-##Scatterplot - Ribosome
+##Scatterplot - Photosynthesis dark rxns
 ###Make GOI description column
 ```{r define categories}
 df.acs.SL.scat2 <- df.acs.SL
 df.acs.SL.scat2$Category <- "Other"
 df.acs.SL.scat2$Order <- 1
-df.acs.SL.scat2[(df.acs.SL.scat2$Gene %in% eukRibo),"Category"] <- "Eukaryotic ribsome"
-df.acs.SL.scat2[(df.acs.SL.scat2$Gene %in% eukRibo),"Order"] <- 2
-df.acs.SL.scat2[(df.acs.SL.scat2$Gene %in% Nuc.PtRibo),"Category"] <- "Nuclear-encoded plastid ribosome"
-df.acs.SL.scat2[(df.acs.SL.scat2$Gene %in% Nuc.PtRibo),"Order"] <- 3
-df.acs.SL.scat2[(df.acs.SL.scat2$Gene %in% Pt.ribo),"Category"] <- "Plastid-encoded ribosome"
-df.acs.SL.scat2[(df.acs.SL.scat2$Gene %in% Pt.ribo),"Order"] <- 4
+
+df.acs.SL.scat2[(df.acs.SL.scat2$Gene %in% darkrxn.C4.c),"Category"] <- "n.C4"
+df.acs.SL.scat2[(df.acs.SL.scat2$Gene %in% darkrxn.C4.c),"Order"] <- 2
+
+df.acs.SL.scat2[(df.acs.SL.scat2$Gene %in% darkrxn.Calvin.kc),"Category"] <- "n.CalvinCycle"
+df.acs.SL.scat2[(df.acs.SL.scat2$Gene %in% darkrxn.Calvin.kc),"Order"] <- 3
+
+df.acs.SL.scat2[(df.acs.SL.scat2$Gene %in% darkrxn.Calvin.RubiscoSS),"Category"] <- "n.Rubisco"
+df.acs.SL.scat2[(df.acs.SL.scat2$Gene %in% darkrxn.Calvin.RubiscoSS),"Order"] <- 5
+
+df.acs.SL.scat2[(df.acs.SL.scat2$Gene %in% Pt.PS.rubisco),"Category"] <- "p.Rubisco"
+df.acs.SL.scat2[(df.acs.SL.scat2$Gene %in% Pt.PS.rubisco),"Order"] <- 6
+
 #Re-order
 df.acs.SL.scat2 <- df.acs.SL.scat2[(order(df.acs.SL.scat2$Order)),]
+#factor
+df.acs.SL.scat2$Category <- factor(df.acs.SL.scat2$Category, levels = c("Other", "n.C4", "n.CalvinCycle", "n.Rubisco", "p.Rubisco"))
 ```
 ###Set limits for plot
 ```{r}
 df.acs.SL.scat2.lims <- df.acs.SL.scat2
 
-df.acs.SL.scat2.lims$l2fc.acs[df.acs.SL.scat2.lims$l2fc.acs > 1.0] = 1.0
-df.acs.SL.scat2.lims$l2fc.acs[df.acs.SL.scat2.lims$l2fc.acs < -1.0] = -1.0
-
 df.acs.SL.scat2.lims$l2fc.BM[df.acs.SL.scat2.lims$l2fc.BM > 1.0] = 1.0
 df.acs.SL.scat2.lims$l2fc.BM[df.acs.SL.scat2.lims$l2fc.BM < -1.0] = -1.0
+
+df.acs.SL.scat2.lims$l2fc.acs[df.acs.SL.scat2.lims$l2fc.acs > 1.0] = 1.0
+df.acs.SL.scat2.lims$l2fc.acs[df.acs.SL.scat2.lims$l2fc.acs < -1.0] = -1.0
 ```
 ###Make scatterplot
 ```{r}
-fig.ribosome.acs <- ggplot(df.acs.SL.scat2.lims, mapping=aes(x=l2fc.BM, y=l2fc.acs, color=Category))+
-  geom_point(size=.8)+
-  scale_color_manual(values=c("Other"="grey85","Eukaryotic ribsome"="red", "Nuclear-encoded plastid ribosome"="#0235de", "Plastid-encoded ribosome"="#0bb003"), name="Protein Category")+
+fig.darkrxn.bm.acs <- ggplot(df.acs.SL.scat2.lims, mapping=aes(x=l2fc.BM, y=l2fc.acs, color=Category))+
+  geom_point(size=2, aes(group = seq_along(Category)))+
+  scale_color_manual(values=c("Other"="black","n.C4"="#6dfd58", "n.CalvinCycle"="#7aadff", "n.Rubisco"="#e942fa", "p.Rubisco"="#b70d01"), name="Protein Category")+
     theme_classic()+
     xlim(c(-1,1))+
     ylim(c(-1,1))+
@@ -1174,67 +1923,54 @@ fig.ribosome.acs <- ggplot(df.acs.SL.scat2.lims, mapping=aes(x=l2fc.BM, y=l2fc.a
     geom_hline(yintercept=0, linetype="dashed", color = "gray50")+
     #geom_abline(intercept =0 , slope = 1, linetype="dashed", color="gray50")+
     theme(axis.text=element_text(size=10),
-              legend.position="bottom", legend.title = element_text(size=6), legend.text = element_text(size=8))+
-    guides(color=guide_legend(nrow=2,byrow=TRUE))+
+              legend.position="left", legend.title = element_text(size=12), legend.text = element_text(size=12))+
+    guides(color=guide_legend(ncol=1))+
     xlab("log2 hyb/MP protein abundance")+
     ylab("log2 acs/B73 protein abundance")+
-    coord_fixed(expand = F)
-
-fig.ribosome.acs
+    coord_fixed(expand = F)+
+    transition_states(Category, state_length = 10, transition_length = 1)+
+    shadow_mark()
 ```
-###Add density curves
 ```{r}
-#add density curves
-#add marginal density plots and resave
-    densityplotX<-axis_canvas(fig.ribosome.acs, axis="x")+
-      geom_density(aes(df.acs.SL.scat2.lims[,"l2fc.BM"], color=df.acs.SL.scat2.lims[,"Category"]), df.acs.SL.scat2.lims, size=0.7)+
-      scale_color_manual(values=c("Other"="grey85","Eukaryotic ribsome"="red", "Nuclear-encoded plastid ribosome"="#0235de", "Plastid-encoded ribosome"="#0bb003"))+
-      geom_vline(xintercept=0, linetype="dashed", color = "gray50")+
-      theme_void()
-    #set up marginal density plot Y axis
-    densityplotY<-axis_canvas(fig.ribosome.acs, axis="y", coord_flip = T)+
-      geom_density(aes(df.acs.SL.scat2.lims[,"l2fc.acs"], color=df.acs.SL.scat2.lims[,"Category"]), df.acs.SL.scat2.lims, size=0.7)+
-      scale_color_manual(values=c("Other"="grey85","Eukaryotic ribsome"="red", "Nuclear-encoded plastid ribosome"="#0235de", "Plastid-encoded ribosome"="#0bb003"))+
-      geom_vline(xintercept=0, linetype="dashed", color = "gray50")+
-      theme_void()+
-      coord_flip()
-    #put two plots together
-    q <- insert_xaxis_grob(fig.ribosome.acs, densityplotX, grid::unit(0.275, "null"), position = "top")
-    q <- insert_yaxis_grob(q, densityplotY, grid::unit(0.275, "null"), position = "right")
-    #save
-  ggsave(plot=q, filename = "FigRibosomeACS.tiff",
-        device="tiff", dpi=300, width=4.5, height=4.5, compression = "lzw")
+animate(fig.darkrxn.bm.acs, renderer = gifski_renderer("fig.darkrxn.bm.acs.gif"))
 ```
-##Scatterplot - Ethylene
+
+##Scatterplot - Ribosome
 ###Make GOI description column
 ```{r define categories}
 df.acs.SL.scat3 <- df.acs.SL
 df.acs.SL.scat3$Category <- "Other"
 df.acs.SL.scat3$Order <- 1
-df.acs.SL.scat3[(df.acs.SL.scat3$Gene %in% ResponseToEt),"Category"] <- "Response to ethylene"
-df.acs.SL.scat3[(df.acs.SL.scat3$Gene %in% ResponseToEt),"Order"] <- 2
-df.acs.SL.scat3[(df.acs.SL.scat3$Gene %in% EtBio),"Category"] <- "Ethylene biosynthesis"
-df.acs.SL.scat3[(df.acs.SL.scat3$Gene %in% EtBio),"Order"] <- 3
+
+df.acs.SL.scat3[(df.acs.SL.scat3$Gene %in% eukRibo),"Category"] <- "n.EukaryoticRibo"
+df.acs.SL.scat3[(df.acs.SL.scat3$Gene %in% eukRibo),"Order"] <- 2
+
+df.acs.SL.scat3[(df.acs.SL.scat3$Gene %in% Nuc.PtRibo),"Category"] <- "n.PlastidRibo"
+df.acs.SL.scat3[(df.acs.SL.scat3$Gene %in% Nuc.PtRibo),"Order"] <- 3
+
+df.acs.SL.scat3[(df.acs.SL.scat3$Gene %in% Pt.ribo),"Category"] <- "p.PlastidRibo"
+df.acs.SL.scat3[(df.acs.SL.scat3$Gene %in% Pt.ribo),"Order"] <- 4
 
 #Re-order
 df.acs.SL.scat3 <- df.acs.SL.scat3[(order(df.acs.SL.scat3$Order)),]
+#factor
+df.acs.SL.scat3$Category <- factor(df.acs.SL.scat3$Category, levels = c("Other","n.EukaryoticRibo", "n.PlastidRibo", "p.PlastidRibo"))
 ```
-
 ###Set limits for plot
 ```{r}
 df.acs.SL.scat3.lims <- df.acs.SL.scat3
 
-df.acs.SL.scat3.lims$l2fc.acs[df.acs.SL.scat3.lims$l2fc.acs > 1.0] = 1.0
-df.acs.SL.scat3.lims$l2fc.acs[df.acs.SL.scat3.lims$l2fc.acs < -1.0] = -1.0
-
 df.acs.SL.scat3.lims$l2fc.BM[df.acs.SL.scat3.lims$l2fc.BM > 1.0] = 1.0
 df.acs.SL.scat3.lims$l2fc.BM[df.acs.SL.scat3.lims$l2fc.BM < -1.0] = -1.0
+
+df.acs.SL.scat3.lims$l2fc.acs[df.acs.SL.scat3.lims$l2fc.acs > 1.0] = 1.0
+df.acs.SL.scat3.lims$l2fc.acs[df.acs.SL.scat3.lims$l2fc.acs < -1.0] = -1.0
 ```
 ###Make scatterplot
 ```{r}
-fig.ethylene <- ggplot(df.acs.SL.scat3.lims, mapping=aes(x=l2fc.BM, y=l2fc.acs, color=Category))+
-  geom_point(size=.8)+
-  scale_color_manual(values=c("Other"="grey85","Response to ethylene"="red", "Ethylene biosynthesis"="blue"), name="Protein Category")+
+fig.ribosome.bm.acs <- ggplot(df.acs.SL.scat3.lims, mapping=aes(x=l2fc.BM, y=l2fc.acs, color=Category))+
+  geom_point(size=2, aes(group = seq_along(Category)))+
+  scale_color_manual(values=c("Other"="black","n.EukaryoticRibo"="#6dfd58", "n.PlastidRibo"="#e942fa", "p.PlastidRibo"="#b70d01"), name="Protein Category")+
     theme_classic()+
     xlim(c(-1,1))+
     ylim(c(-1,1))+
@@ -1242,45 +1978,156 @@ fig.ethylene <- ggplot(df.acs.SL.scat3.lims, mapping=aes(x=l2fc.BM, y=l2fc.acs, 
     geom_hline(yintercept=0, linetype="dashed", color = "gray50")+
     #geom_abline(intercept =0 , slope = 1, linetype="dashed", color="gray50")+
     theme(axis.text=element_text(size=10),
-              legend.position="bottom", legend.title = element_text(size=6), legend.text = element_text(size=8))+
-    guides(color=guide_legend(nrow=2,byrow=TRUE))+
+              legend.position="left", legend.title = element_text(size=12), legend.text = element_text(size=12))+
+    guides(color=guide_legend(ncol=1))+
     xlab("log2 hyb/MP protein abundance")+
     ylab("log2 acs/B73 protein abundance")+
-    coord_fixed(expand = F)
-
-fig.ethylene
+    coord_fixed(expand = F)+
+    transition_states(Category, state_length = 10, transition_length = 1)+
+    shadow_mark()
 ```
-###Add density curves
 ```{r}
-#add density curves
-#add marginal density plots and resave
-    densityplotX<-axis_canvas(fig.ethylene, axis="x")+
-      geom_density(aes(df.acs.SL.scat3.lims[,"l2fc.BM"], color=df.acs.SL.scat3.lims[,"Category"]), df.acs.SL.scat3.lims, size=0.7)+
-      scale_color_manual(values=c("Other"="grey85","Response to ethylene"="red", "Ethylene biosynthesis"="blue"))+
-      geom_vline(xintercept=0, linetype="dashed", color = "gray50")+
-      theme_void()
-    #set up marginal density plot Y axis
-    densityplotY<-axis_canvas(fig.ethylene, axis="y", coord_flip = T)+
-      geom_density(aes(df.acs.SL.scat3.lims[,"l2fc.acs"], color=df.acs.SL.scat3.lims[,"Category"]), df.acs.SL.scat3.lims, size=0.7)+
-      scale_color_manual(values=c("Other"="grey85","Response to ethylene"="red", "Ethylene biosynthesis"="blue"))+
-      geom_vline(xintercept=0, linetype="dashed", color = "gray50")+
-      theme_void()+
-      coord_flip()
-    #put two plots together
-    q <- insert_xaxis_grob(fig.ethylene, densityplotX, grid::unit(0.275, "null"), position = "top")
-    q <- insert_yaxis_grob(q, densityplotY, grid::unit(0.275, "null"), position = "right")
-    #save
-  ggsave(plot=q, filename = "FigEthyleneACS.tiff",
-        device="tiff", dpi=300, width=4.5, height=4.5, compression = "lzw")
+animate(fig.ribosome.bm.acs, renderer = gifski_renderer("fig.ribosome.bm.acs.gif"))
 ```
 
 
 
 
+##Scatterplot - Ethylene
+###Make GOI description column
+```{r define categories}
+df.acs.SL.scat4 <- df.acs.SL
+df.acs.SL.scat4$Category <- "Other"
+df.acs.SL.scat4$Order <- 1
+
+df.acs.SL.scat4[(df.acs.SL.scat4$Gene %in% MAT),"Category"] <- "MAT"
+df.acs.SL.scat4[(df.acs.SL.scat4$Gene %in% MAT),"Order"] <- 2
+
+df.acs.SL.scat4[(df.acs.SL.scat4$Gene %in% ACS),"Category"] <- "ACS"
+df.acs.SL.scat4[(df.acs.SL.scat4$Gene %in% ACS),"Order"] <- 3
+
+df.acs.SL.scat4[(df.acs.SL.scat4$Gene %in% ACO),"Category"] <- "ACO"
+df.acs.SL.scat4[(df.acs.SL.scat4$Gene %in% ACO),"Order"] <- 4
+
+#Re-order
+df.acs.SL.scat4 <- df.acs.SL.scat4[(order(df.acs.SL.scat4$Order)),]
+#factor
+df.acs.SL.scat4$Category <- factor(df.acs.SL.scat4$Category, levels = c("Other","MAT", "ACS", "ACO"))
+```
+###Set limits for plot
+```{r}
+df.acs.SL.scat4.lims <- df.acs.SL.scat4
+
+df.acs.SL.scat4.lims$l2fc.BM[df.acs.SL.scat4.lims$l2fc.BM > 1.0] = 1.0
+df.acs.SL.scat4.lims$l2fc.BM[df.acs.SL.scat4.lims$l2fc.BM < -1.0] = -1.0
+
+df.acs.SL.scat4.lims$l2fc.acs[df.acs.SL.scat4.lims$l2fc.acs > 1.0] = 1.0
+df.acs.SL.scat4.lims$l2fc.acs[df.acs.SL.scat4.lims$l2fc.acs < -1.0] = -1.0
+```
+###Make scatterplot
+```{r}
+fig.ethylene.bm.acs <- ggplot(df.acs.SL.scat4.lims, mapping=aes(x=l2fc.BM, y=l2fc.acs, color=Category))+
+  geom_point(size=2, aes(group = seq_along(Category)))+
+  scale_color_manual(values=c("Other"="black","MAT"="#6dfd58", "ACS"="blue", "ACO"="red"), name="Protein Category")+
+    theme_classic()+
+    xlim(c(-1,1))+
+    ylim(c(-1,1))+
+    geom_vline(xintercept=0, linetype="dashed", color = "gray50")+
+    geom_hline(yintercept=0, linetype="dashed", color = "gray50")+
+    #geom_abline(intercept =0 , slope = 1, linetype="dashed", color="gray50")+
+    theme(axis.text=element_text(size=10),
+              legend.position="left", legend.title = element_text(size=12), legend.text = element_text(size=12))+
+    guides(color=guide_legend(ncol=1))+
+    xlab("log2 hyb/MP protein abundance")+
+    ylab("log2 acs/B73 protein abundance")+
+    coord_fixed(expand = F)+
+    transition_states(Category, state_length = 10, transition_length = 1)+
+    shadow_mark()
+```
+```{r}
+animate(fig.ethylene.bm.acs, renderer = gifski_renderer("fig.ethylene.bm.acs.gif"))
+```
 
 
 
 
+##KEGG
+```{r}
+df.SL.UID <- merge.data.frame(df.SL, mgdb[,c(1,12)], by.x = "Gene", by.y = "v4_gene_model")
+```
+```{r}
+df.SL.UID <- df.SL.UID[!duplicated(df.SL.UID$Entrez),]
+df.SL.UID <- df.SL.UID[!is.na(as.numeric(df.SL.UID$Entrez)),]
+```
+```{r}
+df.acs.UID <- merge.data.frame(df.acs, mgdb[,c(1,12)], by.x = "Gene", by.y = "v4_gene_model")
+```
+```{r}
+df.acs.UID <- df.acs.UID[!duplicated(df.acs.UID$Entrez),]
+df.acs.UID <- df.acs.UID[!is.na(as.numeric(df.acs.UID$Entrez)),]
+```
+```{r}
+df.SL.UID[df.SL.UID$Gene%in%g25,]
+```
+```{r}
+df.SL.UID.l2[rownames(df.SL.UID.l2)=="100273026",]
+```
 
 
+
+
+```{r subset PrevSL to hyb and acs l2fc DFs for KEGG}
+df.SL.UID.l2 <- df.SL.UID[,c(30,31)]
+rownames(df.SL.UID.l2) <- df.SL.UID$Entrez
+
+df.acs.UID.l2 <- df.acs.UID[,24, drop=F]
+rownames(df.acs.UID.l2) <- df.acs.UID$Entrez
+```
+
+
+```{r}
+pathview(gene.data=df.SL.UID.l2, pathway.id="zma00710", species = "zma", node.sum = "mean", out.suffix = "BM_zma00710")
+pathview(gene.data=df.acs.UID.l2, pathway.id="zma00710", species = "zma", node.sum = "mean", out.suffix = "acs_zma00710")
+```
+```{r}
+pathview(gene.data=df.SL.UID.l2, pathway.id="zma00195", species = "zma", node.sum = "mean",  out.suffix = "BM_zma00195")
+pathview(gene.data=df.acs.UID.l2, pathway.id="zma00195", species = "zma", node.sum = "mean", out.suffix = "acs_zma00195")
+```
+```{r}
+pathview(gene.data=df.SL.UID.l2, pathway.id="zma00190", species = "zma", node.sum = "mean",  out.suffix = "BM_zma00190")
+pathview(gene.data=df.acs.UID.l2, pathway.id="zma00190", species = "zma", node.sum = "mean", out.suffix = "acs_zma00190")
+```
+```{r}
+pathview(gene.data=df.SL.UID.l2, pathway.id="zma00196", species = "zma", node.sum = "mean",  out.suffix = "BM_zma00196")
+pathview(gene.data=df.acs.UID.l2, pathway.id="zma00196", species = "zma", node.sum = "mean", out.suffix = "acs_zma00196")
+```
+
+
+```{r}
+df.SL.UID.l2.parents <- df.SL.UID.l2[,2, drop=F]
+```
+```{r}
+df.SL.UID.l2.parents$l2fc.B73.Mo17 <- abs(df.SL.UID.l2.parents$l2fc.B73.Mo17)
+```
+```{r}
+zma <- kegg.gsets(species = "zma", id.type = "entrez")
+
+keggres <- gage(df.SL.UID.l2.parents, gsets = zma$kg.sets)
+```
+```{r}
+pathview(gene.data=df.SL.UID.l2, pathway.id="zma00250", species = "zma", node.sum = "mean",  out.suffix = "BM_zma00250")
+```
+```{r}
+pathview(gene.data=df.SL.UID.l2, pathway.id="zma00010", species = "zma", node.sum = "mean",  out.suffix = "BM_zma00010")
+```
+
+```{r}
+keggres$greater
+```
+
+
+
+```{r}
+df.SL[df.SL$Gene=="Zm00001d017206",]
+```
 
