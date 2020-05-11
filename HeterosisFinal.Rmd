@@ -1831,6 +1831,10 @@ df.OG.SL.lims1.all.scat <- ggplot(df.OG.SL.lims1.all, mapping=aes(x=l2fc, y=l2fc
 ```
 ####Add density curves
 ```{r}
+df.OG.SL.lims1.all.scat
+```
+
+```{r}
     densityplotX<-axis_canvas(df.OG.SL.lims1.all.scat, axis="x")+
       geom_density(aes(df.OG.SL.lims1.all[,"l2fc"], color=df.OG.SL.lims1.all[,"Category"]), size=1)+
     scale_color_manual(values=c("Other"="#000000", "Cytosolic ribosome"="#CC79A7", "PE plastid ribosome"="#D55E00", "NE plastid ribosome"="#E69F00", "PE digenomic complexes"="#56B4E9", "NE digenomic complexes"="#009E73"), name="Category")+
@@ -2752,7 +2756,7 @@ ggsave("PCA_All4_AllProteins.png")
 ```
 
 
-#Combine all 4
+#Combine all 4 for BioVis
 ```{r}
 df.all4 <- Reduce(function(x,y) merge(x = x, y = y, by = "Accession", all=T), 
        list(df.OG.SL[,c(6,8,26)], df.ril.SL[,c(6,8,26)], df.6h.SL[,c(6,8,26)], df.dn.SL[,c(6,8,26)]))
@@ -2883,3 +2887,179 @@ readr::write_tsv(df.all4.entrez.trim.neg[,c(8,10)], "df.all4.entrez.trim.neg.tsv
 readr::write_tsv(df.all4.entrez.trim.amp[,c(8,10)], "df.all4.entrez.trim.amp.tsv", col_names = F)
 readr::write_tsv(df.all4.entrez.trim.bmp[,c(8,10)], "df.all4.entrez.trim.bmp.tsv", col_names = F)
 ```
+
+
+#RNA
+```{r}
+cpm <- read_tsv("data/cpm.tsv")
+```
+```{r}
+cpm.OG.SL <- as.data.frame(cpm[,c(1,178:186)])
+```
+```{r}
+colnames(cpm.OG.SL) <- c("Gene", "B73.1", "B73.2", "B73.3", "Mo17.1", "Mo17.2", "Mo17.3", "BM.1", "BM.2", "BM.3")
+```
+
+```{r}
+#Remove missing genes
+cpm.OG.SL <- cpm.OG.SL[!(cpm.OG.SL$B73.1==0),]
+cpm.OG.SL <- cpm.OG.SL[!(cpm.OG.SL$Mo17.1==0),]
+cpm.OG.SL <- cpm.OG.SL[!(cpm.OG.SL$BM.1==0),]
+#Calculate averages of bio reps
+cpm.OG.SL$B73avg <- rowMeans(cpm.OG.SL[,2:4])
+cpm.OG.SL$Mo17avg <- rowMeans(cpm.OG.SL[,5:7])
+cpm.OG.SL$HYBavg <- rowMeans(cpm.OG.SL[,8:10])
+cpm.OG.SL$MPavg <- rowMeans(cpm.OG.SL[,c(2:7)])
+cpm.OG.SL$MP.1 <- rowMeans(cpm.OG.SL[,c(2,5)])
+cpm.OG.SL$MP.2 <- rowMeans(cpm.OG.SL[,c(3,6)])
+cpm.OG.SL$MP.3 <- rowMeans(cpm.OG.SL[,c(4,7)])
+#calculate ratio
+cpm.OG.SL$HYB.MP <- cpm.OG.SL$HYBavg/cpm.OG.SL$MPavg
+#calculate log2(hyb/MP)
+cpm.OG.SL$l2fc <- log2(cpm.OG.SL$HYB.MP)
+#Calculate log2(B73/Mo17)
+cpm.OG.SL$B73.Mo17 <- cpm.OG.SL$B73avg/cpm.OG.SL$Mo17avg
+cpm.OG.SL$l2fc.B73.Mo17 <-log2(cpm.OG.SL$B73.Mo17)
+saveRDS(cpm.OG.SL, "cpm.OG.SL")
+```
+
+##Scatterplots
+###Scatterplot - All
+####Set limits
+```{r}
+cpm.OG.SL.lims1 <- cpm.OG.SL
+cpm.OG.SL.lims1[,c(19,21)][cpm.OG.SL.lims1[,c(19,21)] <= -1.0] <- -1.0
+cpm.OG.SL.lims1[,c(19,21)][cpm.OG.SL.lims1[,c(19,21)] >= 1.0] <- 1.0
+
+cpm.OG.SL.lims5 <- cpm.OG.SL
+cpm.OG.SL.lims5[,c(19,21)][cpm.OG.SL.lims5[,c(19,21)] <= -0.5] <- -0.5
+cpm.OG.SL.lims5[,c(19,21)][cpm.OG.SL.lims5[,c(19,21)] >= 0.5] <- 0.5
+```
+####Set GOIs
+```{r}
+cpm.OG.SL.lims1.all <- cpm.OG.SL.lims1
+
+cpm.OG.SL.lims1.all$Category <- "Other"
+cpm.OG.SL.lims1.all$Order <- 1
+
+cpm.OG.SL.lims1.all[(cpm.OG.SL.lims1.all$Gene %in% eukRibo),"Category"] <- "Cytosolic ribosome"
+cpm.OG.SL.lims1.all[(cpm.OG.SL.lims1.all$Gene %in% eukRibo),"Order"] <- 2
+
+cpm.OG.SL.lims1.all[(cpm.OG.SL.lims1.all$Gene %in% Nuc.PtRibo),"Category"] <- "NE plastid ribosome"
+cpm.OG.SL.lims1.all[(cpm.OG.SL.lims1.all$Gene %in% Nuc.PtRibo),"Order"] <- 3
+
+cpm.OG.SL.lims1.all[(cpm.OG.SL.lims1.all$Gene %in% lightrxn.NucComplexes),"Category"] <- "NE digenomic complexes"
+cpm.OG.SL.lims1.all[(cpm.OG.SL.lims1.all$Gene %in% lightrxn.NucComplexes),"Order"] <- 4
+
+#Re-order
+cpm.OG.SL.lims1.all <- cpm.OG.SL.lims1.all[(order(cpm.OG.SL.lims1.all$Order)),]
+#factor
+cpm.OG.SL.lims1.all$Category <- factor(cpm.OG.SL.lims1.all$Category, levels = c("Other", "Cytosolic ribosome", "NE plastid ribosome","NE digenomic complexes"))
+```
+
+####Scatterplot
+```{r}
+cpm.OG.SL.lims1.all.scat <- ggplot(cpm.OG.SL.lims1.all, mapping=aes(x=l2fc, y=l2fc.B73.Mo17, color=Category))+
+    geom_point(aes(color=Category), size=3, alpha=0.8)+
+  scale_color_manual(values=c("Other"="#000000", "Cytosolic ribosome"="#CC79A7", "NE plastid ribosome"="#E69F00", "NE digenomic complexes"="#009E73"), name="Category")+
+    theme_classic()+
+          xlim(c(-1,1))+
+          ylim(c(-1,1))+
+          geom_vline(xintercept=0, linetype="dashed", color = "gray50")+
+          geom_hline(yintercept=0, linetype="dashed", color = "gray50")+
+          theme(axis.text=element_text(size=10), legend.text=element_text(size=10),
+                legend.position="bottom", legend.title = element_blank())+
+          guides(col=guide_legend(nrow=2))+
+    xlab("log2 BxM/MP")+
+    ylab("log2 B73/Mo17")+
+    coord_fixed(expand = F)
+```
+####Add density curves
+```{r}
+    densityplotX<-axis_canvas(cpm.OG.SL.lims1.all.scat, axis="x")+
+      geom_density(aes(cpm.OG.SL.lims1.all[,"l2fc"], color=cpm.OG.SL.lims1.all[,"Category"]), size=1)+
+    scale_color_manual(values=c("Other"="#000000", "Cytosolic ribosome"="#CC79A7", "NE plastid ribosome"="#E69F00","NE digenomic complexes"="#009E73"), name="Category")+
+      geom_vline(xintercept=0, linetype="dashed", color = "gray50")+
+      theme_void()+
+      theme(legend.title = element_blank())
+    #set up marginal density plot Y axis
+    densityplotY<-axis_canvas(cpm.OG.SL.lims1.all.scat, axis="y", coord_flip = T)+
+      geom_density(aes(cpm.OG.SL.lims1.all[,"l2fc.B73.Mo17"], color=cpm.OG.SL.lims1.all[,"Category"]), size=1)+
+      scale_color_manual(values=c("Other"="#000000", "Cytosolic ribosome"="#CC79A7", "NE plastid ribosome"="#E69F00", "NE digenomic complexes"="#009E73"), name="Category")+
+      scale_linetype_manual(values=c("dotted", "solid"))+
+      geom_vline(xintercept=0, linetype="dashed", color = "gray50")+
+      theme_void()+
+      theme(legend.title = element_blank())+
+      coord_flip()
+    #put two plots together
+      q <- insert_xaxis_grob(cpm.OG.SL.lims1.all.scat, densityplotX, grid::unit(0.275, "null"), position = "top")
+      q <- insert_yaxis_grob(q, densityplotY, grid::unit(0.275, "null"), position = "right")
+    #save
+     # ggsave(plot=q, filename = "cpm.OG.SL.lims1.all.scat.png")
+  ggsave(plot=q, filename = "cpm.OG.SL.lims1.all.scat.pdf",  dpi=300, width=4.75, height = 5, scale = 1, units = "in")
+```
+
+
+###Scatterplot - Mitochondria
+####Set GOIs
+```{r}
+cpm.OG.SL.lims1.mito <- cpm.OG.SL.lims1
+
+cpm.OG.SL.lims1.mito$Category <- "Other"
+cpm.OG.SL.lims1.mito$Order <- 1
+
+cpm.OG.SL.lims1.mito[(cpm.OG.SL.lims1.mito$Gene %in% OxPhos),"Category"] <- "NE oxidative phosphorylation"
+cpm.OG.SL.lims1.mito[(cpm.OG.SL.lims1.mito$Gene %in% OxPhos),"Order"] <- 2
+
+cpm.OG.SL.lims1.mito[(cpm.OG.SL.lims1.mito$Gene %in% Nuc.MtRibo),"Category"] <- "NE mitochondrial ribosome"
+cpm.OG.SL.lims1.mito[(cpm.OG.SL.lims1.mito$Gene %in% Nuc.MtRibo),"Order"] <- 3
+
+#Re-order
+cpm.OG.SL.lims1.mito <- cpm.OG.SL.lims1.mito[(order(cpm.OG.SL.lims1.mito$Order)),]
+#factor
+cpm.OG.SL.lims1.mito$Category <- factor(cpm.OG.SL.lims1.mito$Category, levels = c("Other", "NE oxidative phosphorylation", "NE mitochondrial ribosome"))
+```
+####Scatterplot
+```{r}
+cpm.OG.SL.lims1.mito.scat <- ggplot(cpm.OG.SL.lims1.mito, mapping=aes(x=l2fc, y=l2fc.B73.Mo17, color=Category))+
+    geom_point(aes(color=Category), size=3, alpha=0.8)+
+  scale_color_manual(values=c("Other"="#000000", "NE mitochondrial ribosome"="#E69F00", "NE oxidative phosphorylation"="#009E73"), name="Category")+
+    theme_classic()+
+          xlim(c(-1,1))+
+          ylim(c(-1,1))+
+          geom_vline(xintercept=0, linetype="dashed", color = "gray50")+
+          geom_hline(yintercept=0, linetype="dashed", color = "gray50")+
+          theme(axis.text=element_text(size=10), legend.text=element_text(size=10),
+                legend.position="bottom", legend.title = element_blank())+
+          guides(col=guide_legend(nrow = 3))+
+    xlab("log2 BxM/MP")+
+    ylab("log2 B73/Mo17")+
+    coord_fixed(expand = F)
+```
+####Add density curves
+```{r}
+    densityplotX<-axis_canvas(cpm.OG.SL.lims1.mito.scat, axis="x")+
+      geom_density(aes(cpm.OG.SL.lims1.mito[,"l2fc"], color=cpm.OG.SL.lims1.mito[,"Category"]), size=1)+
+    scale_color_manual(values=c("Other"="#000000", "NE mitochondrial ribosome"="#E69F00", "NE oxidative phosphorylation"="#009E73"), name="Category")+
+      geom_vline(xintercept=0, linetype="dashed", color = "gray50")+
+      theme_void()+
+      theme(legend.title = element_blank())
+    #set up marginal density plot Y axis
+    densityplotY<-axis_canvas(cpm.OG.SL.lims1.mito.scat, axis="y", coord_flip = T)+
+      geom_density(aes(cpm.OG.SL.lims1.mito[,"l2fc.B73.Mo17"], color=cpm.OG.SL.lims1.mito[,"Category"]), size=1)+
+      scale_color_manual(values=c("Other"="#000000", "NE mitochondrial ribosome"="#E69F00", "NE oxidative phosphorylation"="#009E73"), name="Category")+
+      scale_linetype_manual(values=c("dotted", "solid"))+
+      geom_vline(xintercept=0, linetype="dashed", color = "gray50")+
+      theme_void()+
+      theme(legend.title = element_blank())+
+      coord_flip()
+    #put two plots together
+      q <- insert_xaxis_grob(cpm.OG.SL.lims1.mito.scat, densityplotX, grid::unit(0.275, "null"), position = "top")
+      q <- insert_yaxis_grob(q, densityplotY, grid::unit(0.275, "null"), position = "right")
+    #save
+    #  ggsave(plot=q, filename = "cpm.OG.SL.lims1.mito.scat.png")
+  ggsave(plot=q, filename = "cpm.OG.SL.lims1.mito.scat.pdf", dpi=300, width=4.75, height = 5, scale = 1, units = "in")
+```
+
+
+
