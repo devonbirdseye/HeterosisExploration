@@ -21,6 +21,7 @@ library(RColorBrewer)
 library(gganimate)
 library(pathview)
 library(GO.db)
+library(tidyr)
 ```
 
 #Import data
@@ -34,13 +35,18 @@ tmt$Gene <- substr(tmt$Accession, start = 1, stop = 14)
 tmt.withPolymorphic <- tmt
 #Remove polymorphic peptides
 tmt <- tmt[-(grep("only", tmt$Accession)),]
-```
-```{r}
+#Convert to numeric
 for(i in 1:170){
-  tmt[,i] <- as.numeric(tmt)
+  tmt[,i] <- as.numeric(tmt[,i])
 }
 ```
-
+##MaizeGDB accession conversion
+```{r}
+mgdb <- read.csv("gene_model_xref_v4.csv", stringsAsFactors = F, header = F)
+colnames(mgdb) <- mgdb[5,]
+mgdb <- mgdb[-c(1:5),]
+```
+##Subset experiments
 ```{r T-test function}
 ttestFun <- function(df, col1, col2){
   result <- NULL
@@ -54,17 +60,6 @@ ttestFun <- function(df, col1, col2){
   result
 }
 ```
-
-##Gamer GO
-```{r read in gamer}
-# Read in Maize GAMER GO dataset, which lists maize V4 accessions with plastid associated GO terms (Wimalanathan et al. 2018) downloaded from https://datacommons.cyverse.org/browse/iplant/home/shared/commons_repo/curated/Carolyn_Lawrence-Dill_maize-GAMER_maize.B73_RefGen_v4_Zm00001d.2_Oct_2017.r1/e.agg_data
-GAMER <- read.delim("maize.B73.AGPv4.aggregate.gaf", sep = "\t", header = FALSE)
-colnames(GAMER) <- c("db", "db_object_id", "db_object_symbol", "qualifier", "term_accession", "db_reference", "evidence_code", "with", "aspect", "db_object_name", "db_object_synonym", "db_object_type", "taxon", "date", "assigned_by", "annotation_extension", "gene_product_form_id")
-gamer <- GAMER[-(1:2),]
-gamer$Term <- Term(as.character(gamer$term_accession))
-```
-
-#Format dfs
 ###original BxM SL
 ```{r format df}
 #Subset
@@ -168,13 +163,6 @@ tmt.ril.SL$B73.Mo17 <- tmt.ril.SL$B73avg/tmt.ril.SL$Mo17avg
 tmt.ril.SL$l2.B73.Mo17 <-log2(tmt.ril.SL$B73.Mo17)
 saveRDS(tmt.ril.SL, "tmt.ril.SL")
 ```
-```{r}
-tmt.OG.SL <- readRDS("tmt.OG.SL")
-tmt.6h.SL <- readRDS("tmt.6h.SL")
-tmt.dn.SL <- readRDS("tmt.dn.SL")
-tmt.ril.SL <- readRDS("tmt.ril.SL")
-```
-
 ###original BxM SL + acs
 ```{r format df}
 #Subset
@@ -294,22 +282,23 @@ tmt.ril.acs.SL$l2.ACS.B73 <- log2(tmt.ril.acs.SL$acs.B73)
 #save
 saveRDS(tmt.ril.acs.SL, "tmt.ril.acs.SL")
 ```
-
+#Resume here after cleared enviornment
+```{r}
+tmt.OG.SL <- readRDS("tmt.OG.SL")
+tmt.6h.SL <- readRDS("tmt.6h.SL")
+tmt.dn.SL <- readRDS("tmt.dn.SL")
+tmt.ril.SL <- readRDS("tmt.ril.SL")
+tmt.OG.acs.SL <- readRDS("tmt.OG.acs.SL")
+tmt.6h.acs.SL <- readRDS("tmt.6h.acs.SL")
+tmt.dn.acs.SL <- readRDS("tmt.dn.acs.SL")
+tmt.ril.acs.SL <- readRDS("tmt.ril.acs.SL")
+```
 #Define GOIs
-##corncyc
-```{r}
-cornCyc <- read.csv("cornCycGeneLists01042020.csv", stringsAsFactors = F)
-```
-##MaizeGDB accession conversion
-```{r}
-mgdb <- read.csv("gene_model_xref_v4.csv", stringsAsFactors = F, header = F)
-colnames(mgdb) <- mgdb[5,]
-mgdb <- mgdb[-c(1:5),]
-```
 ##Photosynthesis
-###g1
+###KEGG - zma00195
 ```{r}
-g1tib <-tibble::tribble(
+#Retrieved from KEGG on 02/26/2020
+KEGG.zma00195.tib <-tibble::tribble(
               ~V1,                                                                                    ~V2,
           845199L,                            "psbA; photosystem II protein D1 [KO:K02703] [EC:1.10.3.9]",
           845200L,                                      "psbB; photosystem II 47 kDa protein [KO:K02704]",
@@ -413,142 +402,50 @@ g1tib <-tibble::tribble(
 
 ```
 ```{r}
-g1entrez <- as.character(g1tib$V1)
+KEGG.zma00195.entrez <- as.character(KEGG.zma00195.tib$V1)
 ```
 ```{r}
-g1 <- mgdb$v4_gene_model[mgdb$Entrez%in%g1entrez]
+KEGG.zma00195.v4 <- mgdb$v4_gene_model[mgdb$Entrez%in%KEGG.zma00195.entrez]
+```
+####KEGG - PSI
+```{r}
+KEGG.zma00195.PSI.entrez <- KEGG.zma00195.entrez[38:57]
 ```
 ```{r}
-g1entrez
+KEGG.zma00195.PSI.v4 <- mgdb$v4_gene_model[mgdb$Entrez%in%KEGG.zma00195.PSI.entrez]
 ```
-
-
-###g2
+####KEGG - PSII
 ```{r}
-g2 <- as.vector(gamer$db_object_id[gamer$term_accession=="GO:0015979"])
-```
-###g3
-```{r}
-g3 <- as.vector(gamer$db_object_id[gamer$term_accession=="GO:1905157"])
-```
-###g4
-```{r}
-g4 <- as.vector(gamer$db_object_id[gamer$term_accession=="GO:0010109"])
-```
-###g5
-```{r}
-g5 <- as.vector(gamer$db_object_id[gamer$term_accession=="GO:0080005"])
-```
-###g6
-```{r}
-g6 <- as.vector(gamer$db_object_id[gamer$term_accession=="GO:0019684"])
-```
-###g7
-```{r}
-g7 <- as.vector(gamer$db_object_id[gamer$term_accession=="GO:0042548"])
-```
-###g8
-```{r}
-g8 <- as.vector(gamer$db_object_id[gamer$term_accession=="GO:0010205"])
-```
-###g9
-```{r}
-g9 <- as.vector(gamer$db_object_id[gamer$term_accession=="GO:0042549"])
-```
-###g10
-```{r}
-g10 <- as.vector(gamer$db_object_id[gamer$term_accession=="GO:0042550"])
-```
-###g11
-```{r}
-g11 <- as.vector(gamer$db_object_id[gamer$term_accession=="GO:0009522"])
-```
-###g12
-```{r}
-g12 <- as.vector(gamer$db_object_id[gamer$term_accession=="GO:0030093"])
-```
-###g13
-```{r}
-g13 <- as.vector(gamer$db_object_id[gamer$term_accession=="GO:0009782"])
-```
-###g14
-```{r}
-g14 <- as.vector(gamer$db_object_id[gamer$term_accession=="GO:0009538"])
-```
-###g15
-```{r}
-g15entrez <- g1entrez[38:57]
+KEGG.zma00195.PSII.entrez <- KEGG.zma00195.entrez[1:37]
 ```
 ```{r}
-g15 <- mgdb$v4_gene_model[mgdb$Entrez%in%g15entrez]
+KEGG.zma00195.PSII.v4 <- mgdb$v4_gene_model[mgdb$Entrez%in%KEGG.zma00195.PSII.entrez]
 ```
-
-
-
-###g16
+####KEGG - Cytochrome b6f
 ```{r}
-CornCycLightRxns <- tibble::tribble(
-                          ~Gene.ID,  ~Gene.Accession,       ~Gene.name,                               ~Reaction.id, ~Reaction.EC,                   ~Enzymatic.activity, ~Evidence,
-                       "GDQC-8387", "Zm00001d010715", "Zm00001d010715",                                 "PSII-RXN",   "1.10.3.9",                      "photosystem II", "EV-COMP",
-                       "GDQC-8546", "Zm00001d020002", "Zm00001d020002",                                 "PSII-RXN",   "1.10.3.9",                      "photosystem II", "EV-COMP",
-                       "GDQC-8747", "Zm00001d000417", "Zm00001d000417",                                 "PSII-RXN",   "1.10.3.9",                      "photosystem II", "EV-COMP",
-                       "GDQC-9170", "Zm00001d039715", "Zm00001d039715",                                 "PSII-RXN",   "1.10.3.9",                      "photosystem II", "EV-COMP",
-                       "GDQC-9254", "Zm00001d011362", "Zm00001d011362",                                 "PSII-RXN",   "1.10.3.9",                      "photosystem II", "EV-COMP",
-                       "GDQC-9445", "Zm00001d008681", "Zm00001d008681",                                 "PSII-RXN",   "1.10.3.9",                      "photosystem II", "EV-COMP",
-                       "GDQC-9899", "Zm00001d043167", "Zm00001d043167",                                 "PSII-RXN",   "1.10.3.9",                      "photosystem II", "EV-COMP",
-                      "GDQC-10138", "Zm00001d008625", "Zm00001d008625",                                 "PSII-RXN",   "1.10.3.9",                      "photosystem II", "EV-COMP",
-                      "GDQC-10311", "Zm00001d041824", "Zm00001d041824",                                 "PSII-RXN",   "1.10.3.9",                      "photosystem II", "EV-COMP",
-                      "GDQC-10950", "Zm00001d022464", "Zm00001d022464",                                 "PSII-RXN",   "1.10.3.9",                      "photosystem II", "EV-COMP",
-                      "GDQC-11782", "Zm00001d044217", "Zm00001d044217",                                 "PSII-RXN",   "1.10.3.9",                      "photosystem II", "EV-COMP",
-                      "GDQC-11860", "Zm00001d030638", "Zm00001d030638",                                 "PSII-RXN",   "1.10.3.9",                      "photosystem II", "EV-COMP",
-                      "GDQC-11887",  "GRMZM5G808939",  "GRMZM5G808939",                                 "PSII-RXN",   "1.10.3.9",                      "photosystem II", "EV-COMP",
-                      "GDQC-11985", "Zm00001d043299", "Zm00001d043299",                                 "PSII-RXN",   "1.10.3.9",                      "photosystem II", "EV-COMP",
-                      "GDQC-11996", "Zm00001d034153", "Zm00001d034153",                                 "PSII-RXN",   "1.10.3.9",                      "photosystem II", "EV-COMP",
-                      "GDQC-12078", "Zm00001d000260", "Zm00001d000260",                                 "PSII-RXN",   "1.10.3.9",                      "photosystem II", "EV-COMP",
-                      "GDQC-13214", "Zm00001d031484", "Zm00001d031484",                                 "PSII-RXN",   "1.10.3.9",                      "photosystem II", "EV-COMP",
-                      "GDQC-14006", "Zm00001d039852", "Zm00001d039852",                                 "PSII-RXN",   "1.10.3.9",                      "photosystem II", "EV-COMP",
-                       "GDQC-8316", "Zm00001d016134", "Zm00001d016134", "PLASTOQUINOL--PLASTOCYANIN-REDUCTASE-RXN",   "1.10.9.1", "plastoquinol-plastocyanin reductase", "EV-COMP",
-                       "GDQC-9168", "Zm00001d018162", "Zm00001d018162", "PLASTOQUINOL--PLASTOCYANIN-REDUCTASE-RXN",   "1.10.9.1", "plastoquinol-plastocyanin reductase", "EV-COMP",
-                      "GDQC-11523", "Zm00001d053432", "Zm00001d053432", "PLASTOQUINOL--PLASTOCYANIN-REDUCTASE-RXN",   "1.10.9.1", "plastoquinol-plastocyanin reductase", "EV-COMP",
-                      "GDQC-13682",  "GRMZM5G800780",  "GRMZM5G800780", "PLASTOQUINOL--PLASTOCYANIN-REDUCTASE-RXN",   "1.10.9.1", "plastoquinol-plastocyanin reductase", "EV-COMP",
-                       "GDQC-8046", "Zm00001d003767", "Zm00001d003767",                                "RXN-15479",  "1.97.1.12",                       "photosystem I", "EV-COMP",
-                       "GDQC-8673", "Zm00001d034283", "Zm00001d034283",                                "RXN-15479",  "1.97.1.12",                       "photosystem I", "EV-COMP",
-                       "GDQC-9216",  "GRMZM5G815553",  "GRMZM5G815553",                                "RXN-15479",  "1.97.1.12",                       "photosystem I", "EV-COMP",
-                      "GDQC-10703", "Zm00001d013146", "Zm00001d013146",                                "RXN-15479",  "1.97.1.12",                       "photosystem I", "EV-COMP",
-                      "GDQC-12161", "Zm00001d000272", "Zm00001d000272",                                "RXN-15479",  "1.97.1.12",                       "photosystem I", "EV-COMP",
-                       "GDQC-7635", "Zm00001d011833", "Zm00001d011833",                             "1.18.1.2-RXN",   "1.18.1.2",           "ferredoxin NADP reductase", "EV-COMP",
-                       "GDQC-7812", "Zm00001d023296", "Zm00001d023296",                             "1.18.1.2-RXN",   "1.18.1.2",           "ferredoxin NADP reductase", "EV-COMP",
-                       "GDQC-8192", "Zm00001d045575", "Zm00001d045575",                             "1.18.1.2-RXN",   "1.18.1.2",           "ferredoxin NADP reductase", "EV-COMP",
-                       "GDQC-8377", "Zm00001d051680", "Zm00001d051680",                             "1.18.1.2-RXN",   "1.18.1.2",           "ferredoxin NADP reductase", "EV-COMP",
-                       "GDQC-8916", "Zm00001d048452", "Zm00001d048452",                             "1.18.1.2-RXN",   "1.18.1.2",           "ferredoxin NADP reductase", "EV-COMP",
-                      "GDQC-10511", "Zm00001d005458", "Zm00001d005458",                             "1.18.1.2-RXN",   "1.18.1.2",           "ferredoxin NADP reductase", "EV-COMP",
-                      "GDQC-10877", "Zm00001d018794", "Zm00001d018794",                             "1.18.1.2-RXN",   "1.18.1.2",           "ferredoxin NADP reductase", "EV-COMP",
-                      "GDQC-10917", "Zm00001d034099", "Zm00001d034099",                             "1.18.1.2-RXN",   "1.18.1.2",           "ferredoxin NADP reductase", "EV-COMP",
-                      "GDQC-11276", "Zm00001d042049", "Zm00001d042049",                             "1.18.1.2-RXN",   "1.18.1.2",           "ferredoxin NADP reductase", "EV-COMP",
-                      "GDQC-11941", "Zm00001d039519", "Zm00001d039519",                             "1.18.1.2-RXN",   "1.18.1.2",           "ferredoxin NADP reductase", "EV-COMP",
-                      "GDQC-11960", "Zm00001d034345", "Zm00001d034345",                             "1.18.1.2-RXN",   "1.18.1.2",           "ferredoxin NADP reductase", "EV-COMP",
-                      "GDQC-12126", "Zm00001d051407", "Zm00001d051407",                             "1.18.1.2-RXN",   "1.18.1.2",           "ferredoxin NADP reductase", "EV-COMP",
-                      "GDQC-12735", "Zm00001d045574", "Zm00001d045574",                             "1.18.1.2-RXN",   "1.18.1.2",           "ferredoxin NADP reductase", "EV-COMP",
-                      "GDQC-13931", "Zm00001d036041", "Zm00001d036041",                             "1.18.1.2-RXN",   "1.18.1.2",           "ferredoxin NADP reductase", "EV-COMP",
-                      "GDQC-14028", "Zm00001d037231", "Zm00001d037231",                             "1.18.1.2-RXN",   "1.18.1.2",           "ferredoxin NADP reductase", "EV-COMP"
-                      )
-
+KEGG.zma00195.b6f.entrez <- KEGG.zma00195.entrez[58:65]
 ```
 ```{r}
-g16 <- CornCycLightRxns$Gene.Accession[CornCycLightRxns$Reaction.EC=="1.97.1.12"]
+KEGG.zma00195.b6f.v4 <- mgdb$v4_gene_model[mgdb$Entrez%in%KEGG.zma00195.b6f.entrez]
+```
+####KEGG - ATPase
+```{r}
+KEGG.zma00195.ATPase.entrez <- KEGG.zma00195.entrez[86:98]
 ```
 ```{r}
-g16 <- substr(g16, start = 1, stop = 14)
+KEGG.zma00195.ATPase.v4 <- mgdb$v4_gene_model[mgdb$Entrez%in%KEGG.zma00195.ATPase.entrez]
 ```
-
-
-###g17
+####KEGG - Electron Transport Chain
 ```{r}
-g17 <- as.vector(gamer$db_object_id[gamer$term_accession=="GO:0009768"])
+KEGG.zma00195.ETC.entrez <- KEGG.zma00195.entrez[66:85]
 ```
-###g18
 ```{r}
-g18tib <- tibble::tribble(
+KEGG.zma00195.ETC.v4 <- mgdb$v4_gene_model[mgdb$Entrez%in%KEGG.zma00195.ETC.entrez]
+```
+###KEGG - zma00196
+```{r}
+#Retrieved from KEGG on 02/26/2020
+KEGG.zma00196.tib <- tibble::tribble(
                    ~V1,                                                                              ~V2,
             100281791L,                                 "chlorophyll a-b binding protein 6A [KO:K08907]",
             100283212L,                                 "chlorophyll a-b binding protein 6A [KO:K08907]",
@@ -583,272 +480,28 @@ g18tib <- tibble::tribble(
 
 ```
 ```{r}
-g18entrez <- as.character(g18tib$V1)
+KEGG.zma00196.entrez <- as.character(KEGG.zma00196.tib$V1)
 ```
 ```{r}
-g18entrez.lhc1 <- g18entrez[1:10]
+KEGG.zma00196.LHCI.entrez <- KEGG.zma00196.entrez[1:10]
 ```
 ```{r}
-g18 <- mgdb$v4_gene_model[mgdb$Entrez%in%g18entrez.lhc1]
-```
-
-
-###g19
-```{r}
-g19 <- as.vector(gamer$db_object_id[gamer$term_accession=="GO:0048564"])
-```
-###g20
-```{r}
-g20 <- as.vector(gamer$db_object_id[gamer$term_accession=="GO:0009523"])
-```
-###g21
-```{r}
-g21 <- as.vector(gamer$db_object_id[gamer$term_accession=="GO:0030095"])
-```
-###g22
-```{r}
-g22 <- as.vector(gamer$db_object_id[gamer$term_accession=="GO:0009783"])
-```
-###g23
-```{r}
-g23 <- as.vector(gamer$db_object_id[gamer$term_accession=="GO:0009654"])
-```
-###g24
-```{r}
-g24 <- as.vector(gamer$db_object_id[gamer$term_accession=="GO:0009539"])
-```
-
-###g25
-```{r}
-g25entrez <- g1entrez[1:37]
+KEGG.zma00196.LHCI.v4 <- mgdb$v4_gene_model[mgdb$Entrez%in%KEGG.zma00196.LHCI.entrez]
 ```
 ```{r}
-g25 <- mgdb$v4_gene_model[mgdb$Entrez%in%g25entrez]
-```
-###g26
-```{r}
-g26 <- CornCycLightRxns$Gene.Accession[CornCycLightRxns$Reaction.EC=="1.10.3.9"]
+KEGG.zma00196.LHCII.entrez <- KEGG.zma00196.entrez[11:29]
 ```
 ```{r}
-g26 <- substr(g26, start = 1, stop = 14)
+KEGG.zma00196.LHCII.v4 <- mgdb$v4_gene_model[mgdb$Entrez%in%KEGG.zma00196.LHCII.entrez]
 ```
 
 
-###g27
-```{r}
-g27 <- as.vector(gamer$db_object_id[gamer$term_accession=="GO:0009769"])
-```
-###g28
-```{r}
-g28entrez.lhc2 <- g18entrez[11:29]
-```
-```{r}
-g28 <- mgdb$v4_gene_model[mgdb$Entrez%in%g28entrez.lhc2]
-```
 
-###g29
-```{r}
-g29 <- as.vector(gamer$db_object_id[gamer$term_accession=="GO:0010206"])
-```
-###g30
-```{r}
-g30 <- as.vector(gamer$db_object_id[gamer$term_accession=="GO:0010207"])
-```
-###g31
-```{r}
-g31 <- as.vector(gamer$db_object_id[gamer$term_accession=="GO:0010270"])
-```
-###g32
-```{r}
-g32 <- as.vector(gamer$db_object_id[gamer$term_accession=="GO:0009767"])
-```
-###g33
-```{r}
-g33 <- as.vector(gamer$db_object_id[gamer$term_accession=="GO:0009773"])
-```
-###g34
-```{r}
-g34 <- as.vector(gamer$db_object_id[gamer$term_accession=="GO:0009772"])
-```
-###g35
-```{r}
-g35entrez <- g1entrez[66:85]
-```
-```{r}
-g35 <- mgdb$v4_gene_model[mgdb$Entrez%in%g35entrez]
-```
-###g36
-```{r}
-g36 <- CornCycLightRxns$Gene.Accession[CornCycLightRxns$Reaction.EC=="1.10.9.1"]
-```
-```{r}
-g36 <- substr(g36, start = 1, stop = 14)
-```
 
-###g37
+###KEGG - zma00710
 ```{r}
-g37entrez <- g1entrez[58:65]
-```
-```{r}
-g37entrez
-```
-
-```{r}
-g37 <- mgdb$v4_gene_model[mgdb$Entrez%in%g37entrez]
-```
-```{r}
-g37
-```
-
-###g38
-```{r}
-g38 <- as.vector(gamer$db_object_id[gamer$term_accession=="GO:0009780"])
-```
-###g39
-```{r}
-g39 <- CornCycLightRxns$Gene.Accession[CornCycLightRxns$Reaction.EC=="1.18.1.2"]
-```
-```{r}
-g39 <- substr(g39, start = 1, stop = 14)
-```
-
-###g40
-```{r}
-g40entrez <- g1entrez[86:98]
-```
-```{r}
-g40 <- mgdb$v4_gene_model[mgdb$Entrez%in%g40entrez]
-```
-###g41
-```{r}
-g41 <- as.vector(gamer$db_object_id[gamer$term_accession=="GO:0019685"])
-```
-###g42
-```{r}
-CornCycC4NADP <- tibble::tribble(
-                        ~Gene.ID,         ~Gene.Accession,         ~Gene.name,                          ~Reaction.id, ~Reaction.EC,                                           ~Enzymatic.activity, ~Evidence,
-                   "GDQC-112543",        "Zm00001d044096",   "Zm00001d044096",                           "RXN0-5224",    "4.2.1.1",                                       "carbonate dehydratase",  "EV-EXP",
-                   "GDQC-113944",        "Zm00001d044099",             "cah1",                           "RXN0-5224",    "4.2.1.1",                                       "carbonate dehydratase",  "EV-EXP",
-                     "GDQC-7639",        "Zm00001d024980",   "Zm00001d024980",                       "PEPCARBOX-RXN",   "4.1.1.31",                             "phosphoenolpyruvate carboxylase", "EV-COMP",
-                     "GDQC-8952",        "Zm00001d016166",   "Zm00001d016166",                       "PEPCARBOX-RXN",   "4.1.1.31",                             "phosphoenolpyruvate carboxylase", "EV-COMP",
-                     "GDQC-9159",        "Zm00001d040129",   "Zm00001d040129",                       "PEPCARBOX-RXN",   "4.1.1.31",                             "phosphoenolpyruvate carboxylase", "EV-COMP",
-                     "GDQC-9830",        "Zm00001d046754",   "Zm00001d046754",                       "PEPCARBOX-RXN",   "4.1.1.31",                             "phosphoenolpyruvate carboxylase", "EV-COMP",
-                    "GDQC-10258",        "Zm00001d020057",   "Zm00001d020057",                       "PEPCARBOX-RXN",   "4.1.1.31",                             "phosphoenolpyruvate carboxylase", "EV-COMP",
-                    "GDQC-11167",        "Zm00001d053453",   "Zm00001d053453",                       "PEPCARBOX-RXN",   "4.1.1.31",                             "phosphoenolpyruvate carboxylase", "EV-COMP",
-                    "GDQC-13992",        "Zm00001d037294",   "Zm00001d037294",                       "PEPCARBOX-RXN",   "4.1.1.31",                             "phosphoenolpyruvate carboxylase", "EV-COMP",
-                    "GDQC-14269",        "Zm00001d012702",   "Zm00001d012702",                       "PEPCARBOX-RXN",   "4.1.1.31",                             "phosphoenolpyruvate carboxylase", "EV-COMP",
-                          "G-41",        "Zm00001d046170",             "pep1",                       "PEPCARBOX-RXN",   "4.1.1.31",                             "phosphoenolpyruvate carboxylase",  "EV-EXP",
-                          "G-61",        "Zm00001d031899",   "Zm00001d031899",      "MALATE-DEHYDROGENASE-NADP+-RXN",   "1.1.1.82",                                   "NADP malate dehydrogenase",  "EV-EXP",
-                           "ME1",        "Zm00001d000316",   "Zm00001d000316",                      "MALIC-NADP-RXN",   "1.1.1.40",                                        "malate dehydrogenase", "EV-COMP",
-                     "GDQC-7940",        "Zm00001d010358",   "Zm00001d010358",                      "MALIC-NADP-RXN",   "1.1.1.40",                                        "malate dehydrogenase", "EV-COMP",
-                     "GDQC-8014",        "Zm00001d037693",   "Zm00001d037693",                      "MALIC-NADP-RXN",   "1.1.1.40",                                        "malate dehydrogenase", "EV-COMP",
-                     "GDQC-9044",        "Zm00001d003090",   "Zm00001d003090",                      "MALIC-NADP-RXN",   "1.1.1.40",                                        "malate dehydrogenase", "EV-COMP",
-                     "GDQC-9094",        "Zm00001d037961",   "Zm00001d037961",                      "MALIC-NADP-RXN",   "1.1.1.40",                                        "malate dehydrogenase", "EV-COMP",
-                     "GDQC-9862",        "Zm00001d011289",   "Zm00001d011289",                      "MALIC-NADP-RXN",   "1.1.1.40",                                        "malate dehydrogenase", "EV-COMP",
-                     "GDQC-9900",        "Zm00001d042392",   "Zm00001d042392",                      "MALIC-NADP-RXN",   "1.1.1.40",                                        "malate dehydrogenase", "EV-COMP",
-                    "GDQC-11405",        "Zm00001d036873",   "Zm00001d036873",                      "MALIC-NADP-RXN",   "1.1.1.40",                                        "malate dehydrogenase", "EV-COMP",
-                    "GDQC-12576",        "Zm00001d043601",   "Zm00001d043601",                      "MALIC-NADP-RXN",   "1.1.1.40",                                        "malate dehydrogenase", "EV-COMP",
-                    "GDQC-12623",        "Zm00001d034292",   "Zm00001d034292",                      "MALIC-NADP-RXN",   "1.1.1.40",                                        "malate dehydrogenase", "EV-COMP",
-                    "GDQC-12650",        "Zm00001d039633",   "Zm00001d039633",                      "MALIC-NADP-RXN",   "1.1.1.40",                                        "malate dehydrogenase", "EV-COMP",
-                    "GDQC-13022",        "Zm00001d004962",   "Zm00001d004962",                      "MALIC-NADP-RXN",   "1.1.1.40",                                        "malate dehydrogenase", "EV-COMP",
-                    "GDQC-14112",        "Zm00001d012764",   "Zm00001d012764",                      "MALIC-NADP-RXN",   "1.1.1.40",                                        "malate dehydrogenase", "EV-COMP",
-                    "GDQC-14700",        "Zm00001d051182",   "Zm00001d051182",                      "MALIC-NADP-RXN",   "1.1.1.40",                                        "malate dehydrogenase", "EV-COMP",
-                   "GDQC-108581",        "Zm00001d037962",              "me2",                      "MALIC-NADP-RXN",   "1.1.1.40", "malate dehydrogenase (oxaloacetate-decarboxylating) (NADP+)",  "EV-EXP",
-                           "me1", "Zm00001d000316_T001.1",              "me3",                      "MALIC-NADP-RXN",   "1.1.1.40",   "malate dehydrogenase NADP+ (oxaloacetate-decarboxylating)",  "EV-EXP",
-                     "GDQC-8439",        "Zm00001d010321",   "Zm00001d010321", "PYRUVATEORTHOPHOSPHATE-DIKINASE-RXN",    "2.7.9.1",                                 "pyruvate phosphate dikinase", "EV-COMP",
-                     "GDQC-9261",        "Zm00001d038161",   "Zm00001d038161", "PYRUVATEORTHOPHOSPHATE-DIKINASE-RXN",    "2.7.9.1",                                 "pyruvate phosphate dikinase", "EV-COMP",
-                   "GDQC-112401",        "Zm00001d038163", "pdk1 chloroplast", "PYRUVATEORTHOPHOSPHATE-DIKINASE-RXN",    "2.7.9.1",                                "pyruvate, phosphate dikinase",  "EV-EXP"
-                   )
-
-```
-```{r}
-g42 <- CornCycC4NADP$Gene.Accession
-```
-```{r}
-g42 <- substr(g42, start = 1, stop = 14)
-```
-
-###g43
-```{r}
-CornCycC4PEPCK <- tibble::tribble(
-                         ~Gene.ID,         ~Gene.Accession,         ~Gene.name,                          ~Reaction.id, ~Reaction.EC,                                           ~Enzymatic.activity, ~Evidence,
-                    "GDQC-112543",        "Zm00001d044096",   "Zm00001d044096",                           "RXN0-5224",    "4.2.1.1",                                       "carbonate dehydratase",  "EV-EXP",
-                    "GDQC-113944",        "Zm00001d044099",             "cah1",                           "RXN0-5224",    "4.2.1.1",                                       "carbonate dehydratase",  "EV-EXP",
-                    "GDQC-108139",        "Zm00001d018429",            "ppck1",                   "PEPCARBOXYKIN-RXN",   "4.1.1.49",                     "phosphoenolpyruvate carboxykinase (ATP)", "EV-COMP",
-                      "GDQC-8305",        "Zm00001d008318",   "Zm00001d008318",                   "PEPCARBOXYKIN-RXN",   "4.1.1.49",                     "phosphoenolpyruvate carboxykinase (ATP)", "EV-COMP",
-                     "GDQC-13994",        "Zm00001d026192",   "Zm00001d026192",                   "PEPCARBOXYKIN-RXN",   "4.1.1.49",                     "phosphoenolpyruvate carboxykinase (ATP)", "EV-COMP",
-                     "GDQC-14364",        "Zm00001d047893",   "Zm00001d047893",                   "PEPCARBOXYKIN-RXN",   "4.1.1.49",                     "phosphoenolpyruvate carboxykinase (ATP)", "EV-COMP",
-                     "GDQC-14687",        "Zm00001d029398",   "Zm00001d029398",                   "PEPCARBOXYKIN-RXN",   "4.1.1.49",                     "phosphoenolpyruvate carboxykinase (ATP)", "EV-COMP",
-                    "GDQC-113518",        "Zm00001d028471",   "Zm00001d028471",                   "PEPCARBOXYKIN-RXN",   "4.1.1.49",                           "phosphoenolpyruvate carboxykinase",  "EV-EXP",
-                      "GDQC-7639",        "Zm00001d024980",   "Zm00001d024980",                       "PEPCARBOX-RXN",   "4.1.1.31",                             "phosphoenolpyruvate carboxylase", "EV-COMP",
-                      "GDQC-8952",        "Zm00001d016166",   "Zm00001d016166",                       "PEPCARBOX-RXN",   "4.1.1.31",                             "phosphoenolpyruvate carboxylase", "EV-COMP",
-                      "GDQC-9159",        "Zm00001d040129",   "Zm00001d040129",                       "PEPCARBOX-RXN",   "4.1.1.31",                             "phosphoenolpyruvate carboxylase", "EV-COMP",
-                      "GDQC-9830",        "Zm00001d046754",   "Zm00001d046754",                       "PEPCARBOX-RXN",   "4.1.1.31",                             "phosphoenolpyruvate carboxylase", "EV-COMP",
-                     "GDQC-10258",        "Zm00001d020057",   "Zm00001d020057",                       "PEPCARBOX-RXN",   "4.1.1.31",                             "phosphoenolpyruvate carboxylase", "EV-COMP",
-                     "GDQC-11167",        "Zm00001d053453",   "Zm00001d053453",                       "PEPCARBOX-RXN",   "4.1.1.31",                             "phosphoenolpyruvate carboxylase", "EV-COMP",
-                     "GDQC-13992",        "Zm00001d037294",   "Zm00001d037294",                       "PEPCARBOX-RXN",   "4.1.1.31",                             "phosphoenolpyruvate carboxylase", "EV-COMP",
-                     "GDQC-14269",        "Zm00001d012702",   "Zm00001d012702",                       "PEPCARBOX-RXN",   "4.1.1.31",                             "phosphoenolpyruvate carboxylase", "EV-COMP",
-                           "G-41",        "Zm00001d046170",             "pep1",                       "PEPCARBOX-RXN",   "4.1.1.31",                             "phosphoenolpyruvate carboxylase",  "EV-EXP",
-                           "G-61",        "Zm00001d031899",   "Zm00001d031899",      "MALATE-DEHYDROGENASE-NADP+-RXN",   "1.1.1.82",                                   "NADP malate dehydrogenase",  "EV-EXP",
-                            "ME1",        "Zm00001d000316",   "Zm00001d000316",                      "MALIC-NADP-RXN",   "1.1.1.40",                                        "malate dehydrogenase", "EV-COMP",
-                      "GDQC-7940",        "Zm00001d010358",   "Zm00001d010358",                      "MALIC-NADP-RXN",   "1.1.1.40",                                        "malate dehydrogenase", "EV-COMP",
-                      "GDQC-8014",        "Zm00001d037693",   "Zm00001d037693",                      "MALIC-NADP-RXN",   "1.1.1.40",                                        "malate dehydrogenase", "EV-COMP",
-                      "GDQC-9044",        "Zm00001d003090",   "Zm00001d003090",                      "MALIC-NADP-RXN",   "1.1.1.40",                                        "malate dehydrogenase", "EV-COMP",
-                      "GDQC-9094",        "Zm00001d037961",   "Zm00001d037961",                      "MALIC-NADP-RXN",   "1.1.1.40",                                        "malate dehydrogenase", "EV-COMP",
-                      "GDQC-9862",        "Zm00001d011289",   "Zm00001d011289",                      "MALIC-NADP-RXN",   "1.1.1.40",                                        "malate dehydrogenase", "EV-COMP",
-                      "GDQC-9900",        "Zm00001d042392",   "Zm00001d042392",                      "MALIC-NADP-RXN",   "1.1.1.40",                                        "malate dehydrogenase", "EV-COMP",
-                     "GDQC-11405",        "Zm00001d036873",   "Zm00001d036873",                      "MALIC-NADP-RXN",   "1.1.1.40",                                        "malate dehydrogenase", "EV-COMP",
-                     "GDQC-12576",        "Zm00001d043601",   "Zm00001d043601",                      "MALIC-NADP-RXN",   "1.1.1.40",                                        "malate dehydrogenase", "EV-COMP",
-                     "GDQC-12623",        "Zm00001d034292",   "Zm00001d034292",                      "MALIC-NADP-RXN",   "1.1.1.40",                                        "malate dehydrogenase", "EV-COMP",
-                     "GDQC-12650",        "Zm00001d039633",   "Zm00001d039633",                      "MALIC-NADP-RXN",   "1.1.1.40",                                        "malate dehydrogenase", "EV-COMP",
-                     "GDQC-13022",        "Zm00001d004962",   "Zm00001d004962",                      "MALIC-NADP-RXN",   "1.1.1.40",                                        "malate dehydrogenase", "EV-COMP",
-                     "GDQC-14112",        "Zm00001d012764",   "Zm00001d012764",                      "MALIC-NADP-RXN",   "1.1.1.40",                                        "malate dehydrogenase", "EV-COMP",
-                     "GDQC-14700",        "Zm00001d051182",   "Zm00001d051182",                      "MALIC-NADP-RXN",   "1.1.1.40",                                        "malate dehydrogenase", "EV-COMP",
-                    "GDQC-108581",        "Zm00001d037962",              "me2",                      "MALIC-NADP-RXN",   "1.1.1.40", "malate dehydrogenase (oxaloacetate-decarboxylating) (NADP+)",  "EV-EXP",
-                            "me1", "Zm00001d000316_T001.1",              "me3",                      "MALIC-NADP-RXN",   "1.1.1.40",   "malate dehydrogenase NADP+ (oxaloacetate-decarboxylating)",  "EV-EXP",
-                      "GDQC-7790",        "Zm00001d003953",   "Zm00001d003953",        "ALANINE-AMINOTRANSFERASE-RXN",    "2.6.1.2",                         "glutamate-pyruvate aminotransferase", "EV-COMP",
-                      "GDQC-7870",        "Zm00001d030557",   "Zm00001d030557",        "ALANINE-AMINOTRANSFERASE-RXN",    "2.6.1.2",                         "glutamate-pyruvate aminotransferase", "EV-COMP",
-                      "GDQC-9203",        "Zm00001d008277",   "Zm00001d008277",        "ALANINE-AMINOTRANSFERASE-RXN",    "2.6.1.2",                         "glutamate-pyruvate aminotransferase", "EV-COMP",
-                      "GDQC-9262",        "Zm00001d006875",   "Zm00001d006875",        "ALANINE-AMINOTRANSFERASE-RXN",    "2.6.1.2",                         "glutamate-pyruvate aminotransferase", "EV-COMP",
-                     "GDQC-10679",        "Zm00001d032984",   "Zm00001d032984",        "ALANINE-AMINOTRANSFERASE-RXN",    "2.6.1.2",                         "glutamate-pyruvate aminotransferase", "EV-COMP",
-                     "GDQC-11731",        "Zm00001d020590",   "Zm00001d020590",        "ALANINE-AMINOTRANSFERASE-RXN",    "2.6.1.2",                         "glutamate-pyruvate aminotransferase", "EV-COMP",
-                     "GDQC-11867",        "Zm00001d022152",   "Zm00001d022152",        "ALANINE-AMINOTRANSFERASE-RXN",    "2.6.1.2",                         "glutamate-pyruvate aminotransferase", "EV-COMP",
-                     "GDQC-12271",        "Zm00001d044135",   "Zm00001d044135",        "ALANINE-AMINOTRANSFERASE-RXN",    "2.6.1.2",                         "glutamate-pyruvate aminotransferase", "EV-COMP",
-                     "GDQC-12767",        "Zm00001d014258",   "Zm00001d014258",        "ALANINE-AMINOTRANSFERASE-RXN",    "2.6.1.2",                         "glutamate-pyruvate aminotransferase", "EV-COMP",
-                     "GDQC-12961",        "Zm00001d018639",   "Zm00001d018639",        "ALANINE-AMINOTRANSFERASE-RXN",    "2.6.1.2",                         "glutamate-pyruvate aminotransferase", "EV-COMP",
-                    "GDQC-104563",        "Zm00001d007937",             "alt8",        "ALANINE-AMINOTRANSFERASE-RXN",    "2.6.1.2",                                        "alanine transaminase",  "EV-EXP",
-                    "GDQC-113394",                      NA,             "alt7",        "ALANINE-AMINOTRANSFERASE-RXN",    "2.6.1.2",                                        "alanine transaminase",  "EV-EXP",
-                    "GDQC-113394",                      NA,             "alt7",                           "RXN-13698",    "2.6.1.2",                                        "alanine transaminase", "EV-COMP",
-                      "GDQC-8439",        "Zm00001d010321",   "Zm00001d010321", "PYRUVATEORTHOPHOSPHATE-DIKINASE-RXN",    "2.7.9.1",                                 "pyruvate phosphate dikinase", "EV-COMP",
-                      "GDQC-9261",        "Zm00001d038161",   "Zm00001d038161", "PYRUVATEORTHOPHOSPHATE-DIKINASE-RXN",    "2.7.9.1",                                 "pyruvate phosphate dikinase", "EV-COMP",
-                    "GDQC-112401",        "Zm00001d038163", "pdk1 chloroplast", "PYRUVATEORTHOPHOSPHATE-DIKINASE-RXN",    "2.7.9.1",                                "pyruvate, phosphate dikinase",  "EV-EXP",
-                    "GDQC-111967",        "Zm00001d038163",     "pdk1 cytosol", "PYRUVATEORTHOPHOSPHATE-DIKINASE-RXN",    "2.7.9.1",                                "pyruvate, phosphate dikinase",  "EV-EXP",
-                      "GDQC-9889",        "Zm00001d010190",   "Zm00001d010190",                   "ASPAMINOTRANS-RXN",    "2.6.1.1",                                      "aspartate transaminase", "EV-COMP",
-                     "GDQC-10379",        "Zm00001d016198",   "Zm00001d016198",                   "ASPAMINOTRANS-RXN",    "2.6.1.1",                                      "aspartate transaminase", "EV-COMP",
-                     "GDQC-10415",        "Zm00001d042685",   "Zm00001d042685",                   "ASPAMINOTRANS-RXN",    "2.6.1.1",                                      "aspartate transaminase", "EV-COMP",
-                     "GDQC-12672",        "Zm00001d043382",   "Zm00001d043382",                   "ASPAMINOTRANS-RXN",    "2.6.1.1",                                      "aspartate transaminase", "EV-COMP",
-                    "GDQC-108527",        "Zm00001d018386",   "Zm00001d018386",                   "ASPAMINOTRANS-RXN",    "2.6.1.1",                                      "aspartate transaminase",  "EV-EXP"
-                    )
-
-```
-```{r}
-g43 <- CornCycC4PEPCK$Gene.Accession
-```
-```{r}
-g43 <- substr(g43, start = 1, stop = 14)
-```
-
-###g44
-```{r}
-g44 <- as.vector(gamer$db_object_id[gamer$term_accession=="GO:0019253"])
-```
-###g45
-```{r}
-g45 <- as.vector(gamer$db_object_id[gamer$term_accession=="GO:0080153"])
-```
-###g46
-```{r}
-g46tib <- tibble::tribble(
+#Retrieved from KEGG on 02/26/2020
+KEGG.zma00710.tib <- tibble::tribble(
                    ~V1,                                                                                                      ~V2,
                845212L,          "rbcL; ribulose-1,5-bisphosphate carboxylase/oxygenase large subunit [KO:K01601] [EC:4.1.1.39]",
                542212L, "ssu1; ribulose bisphosphate carboxylase smplastid chain, chloroplastic precursor [KO:K01602] [EC:4.1.1.39]",
@@ -959,14 +612,197 @@ g46tib <- tibble::tribble(
 
 ```
 ```{r}
-g46entrez <- as.character(g46tib$V1)
+KEGG.zma00710.entrez <- as.character(KEGG.zma00710.tib$V1)
 ```
 ```{r}
-g46 <- mgdb$v4_gene_model[mgdb$Entrez%in%g46entrez]
+KEGG.zma00710.v4 <- mgdb$v4_gene_model[mgdb$Entrez%in%KEGG.zma00710.entrez]
 ```
 
-###g47
+
+
+###CornCyc - Light Reactions
 ```{r}
+#Retrieved from CornCyc on 02/26/2020
+CornCycLightRxns <- tibble::tribble(
+                          ~Gene.ID,  ~Gene.Accession,       ~Gene.name,                               ~Reaction.id, ~Reaction.EC,                   ~Enzymatic.activity, ~Evidence,
+                       "GDQC-8387", "Zm00001d010715", "Zm00001d010715",                                 "PSII-RXN",   "1.10.3.9",                      "photosystem II", "EV-COMP",
+                       "GDQC-8546", "Zm00001d020002", "Zm00001d020002",                                 "PSII-RXN",   "1.10.3.9",                      "photosystem II", "EV-COMP",
+                       "GDQC-8747", "Zm00001d000417", "Zm00001d000417",                                 "PSII-RXN",   "1.10.3.9",                      "photosystem II", "EV-COMP",
+                       "GDQC-9170", "Zm00001d039715", "Zm00001d039715",                                 "PSII-RXN",   "1.10.3.9",                      "photosystem II", "EV-COMP",
+                       "GDQC-9254", "Zm00001d011362", "Zm00001d011362",                                 "PSII-RXN",   "1.10.3.9",                      "photosystem II", "EV-COMP",
+                       "GDQC-9445", "Zm00001d008681", "Zm00001d008681",                                 "PSII-RXN",   "1.10.3.9",                      "photosystem II", "EV-COMP",
+                       "GDQC-9899", "Zm00001d043167", "Zm00001d043167",                                 "PSII-RXN",   "1.10.3.9",                      "photosystem II", "EV-COMP",
+                      "GDQC-10138", "Zm00001d008625", "Zm00001d008625",                                 "PSII-RXN",   "1.10.3.9",                      "photosystem II", "EV-COMP",
+                      "GDQC-10311", "Zm00001d041824", "Zm00001d041824",                                 "PSII-RXN",   "1.10.3.9",                      "photosystem II", "EV-COMP",
+                      "GDQC-10950", "Zm00001d022464", "Zm00001d022464",                                 "PSII-RXN",   "1.10.3.9",                      "photosystem II", "EV-COMP",
+                      "GDQC-11782", "Zm00001d044217", "Zm00001d044217",                                 "PSII-RXN",   "1.10.3.9",                      "photosystem II", "EV-COMP",
+                      "GDQC-11860", "Zm00001d030638", "Zm00001d030638",                                 "PSII-RXN",   "1.10.3.9",                      "photosystem II", "EV-COMP",
+                      "GDQC-11887",  "GRMZM5G808939",  "GRMZM5G808939",                                 "PSII-RXN",   "1.10.3.9",                      "photosystem II", "EV-COMP",
+                      "GDQC-11985", "Zm00001d043299", "Zm00001d043299",                                 "PSII-RXN",   "1.10.3.9",                      "photosystem II", "EV-COMP",
+                      "GDQC-11996", "Zm00001d034153", "Zm00001d034153",                                 "PSII-RXN",   "1.10.3.9",                      "photosystem II", "EV-COMP",
+                      "GDQC-12078", "Zm00001d000260", "Zm00001d000260",                                 "PSII-RXN",   "1.10.3.9",                      "photosystem II", "EV-COMP",
+                      "GDQC-13214", "Zm00001d031484", "Zm00001d031484",                                 "PSII-RXN",   "1.10.3.9",                      "photosystem II", "EV-COMP",
+                      "GDQC-14006", "Zm00001d039852", "Zm00001d039852",                                 "PSII-RXN",   "1.10.3.9",                      "photosystem II", "EV-COMP",
+                       "GDQC-8316", "Zm00001d016134", "Zm00001d016134", "PLASTOQUINOL--PLASTOCYANIN-REDUCTASE-RXN",   "1.10.9.1", "plastoquinol-plastocyanin reductase", "EV-COMP",
+                       "GDQC-9168", "Zm00001d018162", "Zm00001d018162", "PLASTOQUINOL--PLASTOCYANIN-REDUCTASE-RXN",   "1.10.9.1", "plastoquinol-plastocyanin reductase", "EV-COMP",
+                      "GDQC-11523", "Zm00001d053432", "Zm00001d053432", "PLASTOQUINOL--PLASTOCYANIN-REDUCTASE-RXN",   "1.10.9.1", "plastoquinol-plastocyanin reductase", "EV-COMP",
+                      "GDQC-13682",  "GRMZM5G800780",  "GRMZM5G800780", "PLASTOQUINOL--PLASTOCYANIN-REDUCTASE-RXN",   "1.10.9.1", "plastoquinol-plastocyanin reductase", "EV-COMP",
+                       "GDQC-8046", "Zm00001d003767", "Zm00001d003767",                                "RXN-15479",  "1.97.1.12",                       "photosystem I", "EV-COMP",
+                       "GDQC-8673", "Zm00001d034283", "Zm00001d034283",                                "RXN-15479",  "1.97.1.12",                       "photosystem I", "EV-COMP",
+                       "GDQC-9216",  "GRMZM5G815553",  "GRMZM5G815553",                                "RXN-15479",  "1.97.1.12",                       "photosystem I", "EV-COMP",
+                      "GDQC-10703", "Zm00001d013146", "Zm00001d013146",                                "RXN-15479",  "1.97.1.12",                       "photosystem I", "EV-COMP",
+                      "GDQC-12161", "Zm00001d000272", "Zm00001d000272",                                "RXN-15479",  "1.97.1.12",                       "photosystem I", "EV-COMP",
+                       "GDQC-7635", "Zm00001d011833", "Zm00001d011833",                             "1.18.1.2-RXN",   "1.18.1.2",           "ferredoxin NADP reductase", "EV-COMP",
+                       "GDQC-7812", "Zm00001d023296", "Zm00001d023296",                             "1.18.1.2-RXN",   "1.18.1.2",           "ferredoxin NADP reductase", "EV-COMP",
+                       "GDQC-8192", "Zm00001d045575", "Zm00001d045575",                             "1.18.1.2-RXN",   "1.18.1.2",           "ferredoxin NADP reductase", "EV-COMP",
+                       "GDQC-8377", "Zm00001d051680", "Zm00001d051680",                             "1.18.1.2-RXN",   "1.18.1.2",           "ferredoxin NADP reductase", "EV-COMP",
+                       "GDQC-8916", "Zm00001d048452", "Zm00001d048452",                             "1.18.1.2-RXN",   "1.18.1.2",           "ferredoxin NADP reductase", "EV-COMP",
+                      "GDQC-10511", "Zm00001d005458", "Zm00001d005458",                             "1.18.1.2-RXN",   "1.18.1.2",           "ferredoxin NADP reductase", "EV-COMP",
+                      "GDQC-10877", "Zm00001d018794", "Zm00001d018794",                             "1.18.1.2-RXN",   "1.18.1.2",           "ferredoxin NADP reductase", "EV-COMP",
+                      "GDQC-10917", "Zm00001d034099", "Zm00001d034099",                             "1.18.1.2-RXN",   "1.18.1.2",           "ferredoxin NADP reductase", "EV-COMP",
+                      "GDQC-11276", "Zm00001d042049", "Zm00001d042049",                             "1.18.1.2-RXN",   "1.18.1.2",           "ferredoxin NADP reductase", "EV-COMP",
+                      "GDQC-11941", "Zm00001d039519", "Zm00001d039519",                             "1.18.1.2-RXN",   "1.18.1.2",           "ferredoxin NADP reductase", "EV-COMP",
+                      "GDQC-11960", "Zm00001d034345", "Zm00001d034345",                             "1.18.1.2-RXN",   "1.18.1.2",           "ferredoxin NADP reductase", "EV-COMP",
+                      "GDQC-12126", "Zm00001d051407", "Zm00001d051407",                             "1.18.1.2-RXN",   "1.18.1.2",           "ferredoxin NADP reductase", "EV-COMP",
+                      "GDQC-12735", "Zm00001d045574", "Zm00001d045574",                             "1.18.1.2-RXN",   "1.18.1.2",           "ferredoxin NADP reductase", "EV-COMP",
+                      "GDQC-13931", "Zm00001d036041", "Zm00001d036041",                             "1.18.1.2-RXN",   "1.18.1.2",           "ferredoxin NADP reductase", "EV-COMP",
+                      "GDQC-14028", "Zm00001d037231", "Zm00001d037231",                             "1.18.1.2-RXN",   "1.18.1.2",           "ferredoxin NADP reductase", "EV-COMP"
+                      )
+
+```
+```{r}
+CornCycLightRxns.PSI <- CornCycLightRxns$Gene.Accession[CornCycLightRxns$Reaction.EC=="1.97.1.12"]
+
+CornCycLightRxns.PSI <- substr(CornCycLightRxns.PSI, start = 1, stop = 14)
+```
+
+```{r}
+CornCycLightRxns.PSII <- CornCycLightRxns$Gene.Accession[CornCycLightRxns$Reaction.EC=="1.10.3.9"]
+
+CornCycLightRxns.PSII <- substr(CornCycLightRxns.PSII, start = 1, stop = 14)
+```
+
+```{r}
+CornCycLightRxns.ETC <- CornCycLightRxns$Gene.Accession[CornCycLightRxns$Reaction.EC=="1.18.1.2"]
+
+CornCycLightRxns.ETC <- substr(CornCycLightRxns.ETC, start = 1, stop = 14)
+```
+
+
+
+
+###CornCyc - Carbon Reactions
+```{r}
+#Retrieved from CornCyc on 02/26/2020
+CornCycC4NADP <- tibble::tribble(
+                        ~Gene.ID,         ~Gene.Accession,         ~Gene.name,                          ~Reaction.id, ~Reaction.EC,                                           ~Enzymatic.activity, ~Evidence,
+                   "GDQC-112543",        "Zm00001d044096",   "Zm00001d044096",                           "RXN0-5224",    "4.2.1.1",                                       "carbonate dehydratase",  "EV-EXP",
+                   "GDQC-113944",        "Zm00001d044099",             "cah1",                           "RXN0-5224",    "4.2.1.1",                                       "carbonate dehydratase",  "EV-EXP",
+                     "GDQC-7639",        "Zm00001d024980",   "Zm00001d024980",                       "PEPCARBOX-RXN",   "4.1.1.31",                             "phosphoenolpyruvate carboxylase", "EV-COMP",
+                     "GDQC-8952",        "Zm00001d016166",   "Zm00001d016166",                       "PEPCARBOX-RXN",   "4.1.1.31",                             "phosphoenolpyruvate carboxylase", "EV-COMP",
+                     "GDQC-9159",        "Zm00001d040129",   "Zm00001d040129",                       "PEPCARBOX-RXN",   "4.1.1.31",                             "phosphoenolpyruvate carboxylase", "EV-COMP",
+                     "GDQC-9830",        "Zm00001d046754",   "Zm00001d046754",                       "PEPCARBOX-RXN",   "4.1.1.31",                             "phosphoenolpyruvate carboxylase", "EV-COMP",
+                    "GDQC-10258",        "Zm00001d020057",   "Zm00001d020057",                       "PEPCARBOX-RXN",   "4.1.1.31",                             "phosphoenolpyruvate carboxylase", "EV-COMP",
+                    "GDQC-11167",        "Zm00001d053453",   "Zm00001d053453",                       "PEPCARBOX-RXN",   "4.1.1.31",                             "phosphoenolpyruvate carboxylase", "EV-COMP",
+                    "GDQC-13992",        "Zm00001d037294",   "Zm00001d037294",                       "PEPCARBOX-RXN",   "4.1.1.31",                             "phosphoenolpyruvate carboxylase", "EV-COMP",
+                    "GDQC-14269",        "Zm00001d012702",   "Zm00001d012702",                       "PEPCARBOX-RXN",   "4.1.1.31",                             "phosphoenolpyruvate carboxylase", "EV-COMP",
+                          "G-41",        "Zm00001d046170",             "pep1",                       "PEPCARBOX-RXN",   "4.1.1.31",                             "phosphoenolpyruvate carboxylase",  "EV-EXP",
+                          "G-61",        "Zm00001d031899",   "Zm00001d031899",      "MALATE-DEHYDROGENASE-NADP+-RXN",   "1.1.1.82",                                   "NADP malate dehydrogenase",  "EV-EXP",
+                           "ME1",        "Zm00001d000316",   "Zm00001d000316",                      "MALIC-NADP-RXN",   "1.1.1.40",                                        "malate dehydrogenase", "EV-COMP",
+                     "GDQC-7940",        "Zm00001d010358",   "Zm00001d010358",                      "MALIC-NADP-RXN",   "1.1.1.40",                                        "malate dehydrogenase", "EV-COMP",
+                     "GDQC-8014",        "Zm00001d037693",   "Zm00001d037693",                      "MALIC-NADP-RXN",   "1.1.1.40",                                        "malate dehydrogenase", "EV-COMP",
+                     "GDQC-9044",        "Zm00001d003090",   "Zm00001d003090",                      "MALIC-NADP-RXN",   "1.1.1.40",                                        "malate dehydrogenase", "EV-COMP",
+                     "GDQC-9094",        "Zm00001d037961",   "Zm00001d037961",                      "MALIC-NADP-RXN",   "1.1.1.40",                                        "malate dehydrogenase", "EV-COMP",
+                     "GDQC-9862",        "Zm00001d011289",   "Zm00001d011289",                      "MALIC-NADP-RXN",   "1.1.1.40",                                        "malate dehydrogenase", "EV-COMP",
+                     "GDQC-9900",        "Zm00001d042392",   "Zm00001d042392",                      "MALIC-NADP-RXN",   "1.1.1.40",                                        "malate dehydrogenase", "EV-COMP",
+                    "GDQC-11405",        "Zm00001d036873",   "Zm00001d036873",                      "MALIC-NADP-RXN",   "1.1.1.40",                                        "malate dehydrogenase", "EV-COMP",
+                    "GDQC-12576",        "Zm00001d043601",   "Zm00001d043601",                      "MALIC-NADP-RXN",   "1.1.1.40",                                        "malate dehydrogenase", "EV-COMP",
+                    "GDQC-12623",        "Zm00001d034292",   "Zm00001d034292",                      "MALIC-NADP-RXN",   "1.1.1.40",                                        "malate dehydrogenase", "EV-COMP",
+                    "GDQC-12650",        "Zm00001d039633",   "Zm00001d039633",                      "MALIC-NADP-RXN",   "1.1.1.40",                                        "malate dehydrogenase", "EV-COMP",
+                    "GDQC-13022",        "Zm00001d004962",   "Zm00001d004962",                      "MALIC-NADP-RXN",   "1.1.1.40",                                        "malate dehydrogenase", "EV-COMP",
+                    "GDQC-14112",        "Zm00001d012764",   "Zm00001d012764",                      "MALIC-NADP-RXN",   "1.1.1.40",                                        "malate dehydrogenase", "EV-COMP",
+                    "GDQC-14700",        "Zm00001d051182",   "Zm00001d051182",                      "MALIC-NADP-RXN",   "1.1.1.40",                                        "malate dehydrogenase", "EV-COMP",
+                   "GDQC-108581",        "Zm00001d037962",              "me2",                      "MALIC-NADP-RXN",   "1.1.1.40", "malate dehydrogenase (oxaloacetate-decarboxylating) (NADP+)",  "EV-EXP",
+                           "me1", "Zm00001d000316_T001.1",              "me3",                      "MALIC-NADP-RXN",   "1.1.1.40",   "malate dehydrogenase NADP+ (oxaloacetate-decarboxylating)",  "EV-EXP",
+                     "GDQC-8439",        "Zm00001d010321",   "Zm00001d010321", "PYRUVATEORTHOPHOSPHATE-DIKINASE-RXN",    "2.7.9.1",                                 "pyruvate phosphate dikinase", "EV-COMP",
+                     "GDQC-9261",        "Zm00001d038161",   "Zm00001d038161", "PYRUVATEORTHOPHOSPHATE-DIKINASE-RXN",    "2.7.9.1",                                 "pyruvate phosphate dikinase", "EV-COMP",
+                   "GDQC-112401",        "Zm00001d038163", "pdk1 chloroplast", "PYRUVATEORTHOPHOSPHATE-DIKINASE-RXN",    "2.7.9.1",                                "pyruvate, phosphate dikinase",  "EV-EXP"
+                   )
+
+```
+```{r}
+CornCycC4NADP.C4 <- CornCycC4NADP$Gene.Accession
+CornCycC4NADP.C4 <- substr(CornCycC4NADP.C4, start = 1, stop = 14)
+```
+```{r}
+#Retrieved from CornCyc on 02/26/2020
+CornCycC4PEPCK <- tibble::tribble(
+                         ~Gene.ID,         ~Gene.Accession,         ~Gene.name,                          ~Reaction.id, ~Reaction.EC,                                           ~Enzymatic.activity, ~Evidence,
+                    "GDQC-112543",        "Zm00001d044096",   "Zm00001d044096",                           "RXN0-5224",    "4.2.1.1",                                       "carbonate dehydratase",  "EV-EXP",
+                    "GDQC-113944",        "Zm00001d044099",             "cah1",                           "RXN0-5224",    "4.2.1.1",                                       "carbonate dehydratase",  "EV-EXP",
+                    "GDQC-108139",        "Zm00001d018429",            "ppck1",                   "PEPCARBOXYKIN-RXN",   "4.1.1.49",                     "phosphoenolpyruvate carboxykinase (ATP)", "EV-COMP",
+                      "GDQC-8305",        "Zm00001d008318",   "Zm00001d008318",                   "PEPCARBOXYKIN-RXN",   "4.1.1.49",                     "phosphoenolpyruvate carboxykinase (ATP)", "EV-COMP",
+                     "GDQC-13994",        "Zm00001d026192",   "Zm00001d026192",                   "PEPCARBOXYKIN-RXN",   "4.1.1.49",                     "phosphoenolpyruvate carboxykinase (ATP)", "EV-COMP",
+                     "GDQC-14364",        "Zm00001d047893",   "Zm00001d047893",                   "PEPCARBOXYKIN-RXN",   "4.1.1.49",                     "phosphoenolpyruvate carboxykinase (ATP)", "EV-COMP",
+                     "GDQC-14687",        "Zm00001d029398",   "Zm00001d029398",                   "PEPCARBOXYKIN-RXN",   "4.1.1.49",                     "phosphoenolpyruvate carboxykinase (ATP)", "EV-COMP",
+                    "GDQC-113518",        "Zm00001d028471",   "Zm00001d028471",                   "PEPCARBOXYKIN-RXN",   "4.1.1.49",                           "phosphoenolpyruvate carboxykinase",  "EV-EXP",
+                      "GDQC-7639",        "Zm00001d024980",   "Zm00001d024980",                       "PEPCARBOX-RXN",   "4.1.1.31",                             "phosphoenolpyruvate carboxylase", "EV-COMP",
+                      "GDQC-8952",        "Zm00001d016166",   "Zm00001d016166",                       "PEPCARBOX-RXN",   "4.1.1.31",                             "phosphoenolpyruvate carboxylase", "EV-COMP",
+                      "GDQC-9159",        "Zm00001d040129",   "Zm00001d040129",                       "PEPCARBOX-RXN",   "4.1.1.31",                             "phosphoenolpyruvate carboxylase", "EV-COMP",
+                      "GDQC-9830",        "Zm00001d046754",   "Zm00001d046754",                       "PEPCARBOX-RXN",   "4.1.1.31",                             "phosphoenolpyruvate carboxylase", "EV-COMP",
+                     "GDQC-10258",        "Zm00001d020057",   "Zm00001d020057",                       "PEPCARBOX-RXN",   "4.1.1.31",                             "phosphoenolpyruvate carboxylase", "EV-COMP",
+                     "GDQC-11167",        "Zm00001d053453",   "Zm00001d053453",                       "PEPCARBOX-RXN",   "4.1.1.31",                             "phosphoenolpyruvate carboxylase", "EV-COMP",
+                     "GDQC-13992",        "Zm00001d037294",   "Zm00001d037294",                       "PEPCARBOX-RXN",   "4.1.1.31",                             "phosphoenolpyruvate carboxylase", "EV-COMP",
+                     "GDQC-14269",        "Zm00001d012702",   "Zm00001d012702",                       "PEPCARBOX-RXN",   "4.1.1.31",                             "phosphoenolpyruvate carboxylase", "EV-COMP",
+                           "G-41",        "Zm00001d046170",             "pep1",                       "PEPCARBOX-RXN",   "4.1.1.31",                             "phosphoenolpyruvate carboxylase",  "EV-EXP",
+                           "G-61",        "Zm00001d031899",   "Zm00001d031899",      "MALATE-DEHYDROGENASE-NADP+-RXN",   "1.1.1.82",                                   "NADP malate dehydrogenase",  "EV-EXP",
+                            "ME1",        "Zm00001d000316",   "Zm00001d000316",                      "MALIC-NADP-RXN",   "1.1.1.40",                                        "malate dehydrogenase", "EV-COMP",
+                      "GDQC-7940",        "Zm00001d010358",   "Zm00001d010358",                      "MALIC-NADP-RXN",   "1.1.1.40",                                        "malate dehydrogenase", "EV-COMP",
+                      "GDQC-8014",        "Zm00001d037693",   "Zm00001d037693",                      "MALIC-NADP-RXN",   "1.1.1.40",                                        "malate dehydrogenase", "EV-COMP",
+                      "GDQC-9044",        "Zm00001d003090",   "Zm00001d003090",                      "MALIC-NADP-RXN",   "1.1.1.40",                                        "malate dehydrogenase", "EV-COMP",
+                      "GDQC-9094",        "Zm00001d037961",   "Zm00001d037961",                      "MALIC-NADP-RXN",   "1.1.1.40",                                        "malate dehydrogenase", "EV-COMP",
+                      "GDQC-9862",        "Zm00001d011289",   "Zm00001d011289",                      "MALIC-NADP-RXN",   "1.1.1.40",                                        "malate dehydrogenase", "EV-COMP",
+                      "GDQC-9900",        "Zm00001d042392",   "Zm00001d042392",                      "MALIC-NADP-RXN",   "1.1.1.40",                                        "malate dehydrogenase", "EV-COMP",
+                     "GDQC-11405",        "Zm00001d036873",   "Zm00001d036873",                      "MALIC-NADP-RXN",   "1.1.1.40",                                        "malate dehydrogenase", "EV-COMP",
+                     "GDQC-12576",        "Zm00001d043601",   "Zm00001d043601",                      "MALIC-NADP-RXN",   "1.1.1.40",                                        "malate dehydrogenase", "EV-COMP",
+                     "GDQC-12623",        "Zm00001d034292",   "Zm00001d034292",                      "MALIC-NADP-RXN",   "1.1.1.40",                                        "malate dehydrogenase", "EV-COMP",
+                     "GDQC-12650",        "Zm00001d039633",   "Zm00001d039633",                      "MALIC-NADP-RXN",   "1.1.1.40",                                        "malate dehydrogenase", "EV-COMP",
+                     "GDQC-13022",        "Zm00001d004962",   "Zm00001d004962",                      "MALIC-NADP-RXN",   "1.1.1.40",                                        "malate dehydrogenase", "EV-COMP",
+                     "GDQC-14112",        "Zm00001d012764",   "Zm00001d012764",                      "MALIC-NADP-RXN",   "1.1.1.40",                                        "malate dehydrogenase", "EV-COMP",
+                     "GDQC-14700",        "Zm00001d051182",   "Zm00001d051182",                      "MALIC-NADP-RXN",   "1.1.1.40",                                        "malate dehydrogenase", "EV-COMP",
+                    "GDQC-108581",        "Zm00001d037962",              "me2",                      "MALIC-NADP-RXN",   "1.1.1.40", "malate dehydrogenase (oxaloacetate-decarboxylating) (NADP+)",  "EV-EXP",
+                            "me1", "Zm00001d000316_T001.1",              "me3",                      "MALIC-NADP-RXN",   "1.1.1.40",   "malate dehydrogenase NADP+ (oxaloacetate-decarboxylating)",  "EV-EXP",
+                      "GDQC-7790",        "Zm00001d003953",   "Zm00001d003953",        "ALANINE-AMINOTRANSFERASE-RXN",    "2.6.1.2",                         "glutamate-pyruvate aminotransferase", "EV-COMP",
+                      "GDQC-7870",        "Zm00001d030557",   "Zm00001d030557",        "ALANINE-AMINOTRANSFERASE-RXN",    "2.6.1.2",                         "glutamate-pyruvate aminotransferase", "EV-COMP",
+                      "GDQC-9203",        "Zm00001d008277",   "Zm00001d008277",        "ALANINE-AMINOTRANSFERASE-RXN",    "2.6.1.2",                         "glutamate-pyruvate aminotransferase", "EV-COMP",
+                      "GDQC-9262",        "Zm00001d006875",   "Zm00001d006875",        "ALANINE-AMINOTRANSFERASE-RXN",    "2.6.1.2",                         "glutamate-pyruvate aminotransferase", "EV-COMP",
+                     "GDQC-10679",        "Zm00001d032984",   "Zm00001d032984",        "ALANINE-AMINOTRANSFERASE-RXN",    "2.6.1.2",                         "glutamate-pyruvate aminotransferase", "EV-COMP",
+                     "GDQC-11731",        "Zm00001d020590",   "Zm00001d020590",        "ALANINE-AMINOTRANSFERASE-RXN",    "2.6.1.2",                         "glutamate-pyruvate aminotransferase", "EV-COMP",
+                     "GDQC-11867",        "Zm00001d022152",   "Zm00001d022152",        "ALANINE-AMINOTRANSFERASE-RXN",    "2.6.1.2",                         "glutamate-pyruvate aminotransferase", "EV-COMP",
+                     "GDQC-12271",        "Zm00001d044135",   "Zm00001d044135",        "ALANINE-AMINOTRANSFERASE-RXN",    "2.6.1.2",                         "glutamate-pyruvate aminotransferase", "EV-COMP",
+                     "GDQC-12767",        "Zm00001d014258",   "Zm00001d014258",        "ALANINE-AMINOTRANSFERASE-RXN",    "2.6.1.2",                         "glutamate-pyruvate aminotransferase", "EV-COMP",
+                     "GDQC-12961",        "Zm00001d018639",   "Zm00001d018639",        "ALANINE-AMINOTRANSFERASE-RXN",    "2.6.1.2",                         "glutamate-pyruvate aminotransferase", "EV-COMP",
+                    "GDQC-104563",        "Zm00001d007937",             "alt8",        "ALANINE-AMINOTRANSFERASE-RXN",    "2.6.1.2",                                        "alanine transaminase",  "EV-EXP",
+                    "GDQC-113394",                      NA,             "alt7",        "ALANINE-AMINOTRANSFERASE-RXN",    "2.6.1.2",                                        "alanine transaminase",  "EV-EXP",
+                    "GDQC-113394",                      NA,             "alt7",                           "RXN-13698",    "2.6.1.2",                                        "alanine transaminase", "EV-COMP",
+                      "GDQC-8439",        "Zm00001d010321",   "Zm00001d010321", "PYRUVATEORTHOPHOSPHATE-DIKINASE-RXN",    "2.7.9.1",                                 "pyruvate phosphate dikinase", "EV-COMP",
+                      "GDQC-9261",        "Zm00001d038161",   "Zm00001d038161", "PYRUVATEORTHOPHOSPHATE-DIKINASE-RXN",    "2.7.9.1",                                 "pyruvate phosphate dikinase", "EV-COMP",
+                    "GDQC-112401",        "Zm00001d038163", "pdk1 chloroplast", "PYRUVATEORTHOPHOSPHATE-DIKINASE-RXN",    "2.7.9.1",                                "pyruvate, phosphate dikinase",  "EV-EXP",
+                    "GDQC-111967",        "Zm00001d038163",     "pdk1 cytosol", "PYRUVATEORTHOPHOSPHATE-DIKINASE-RXN",    "2.7.9.1",                                "pyruvate, phosphate dikinase",  "EV-EXP",
+                      "GDQC-9889",        "Zm00001d010190",   "Zm00001d010190",                   "ASPAMINOTRANS-RXN",    "2.6.1.1",                                      "aspartate transaminase", "EV-COMP",
+                     "GDQC-10379",        "Zm00001d016198",   "Zm00001d016198",                   "ASPAMINOTRANS-RXN",    "2.6.1.1",                                      "aspartate transaminase", "EV-COMP",
+                     "GDQC-10415",        "Zm00001d042685",   "Zm00001d042685",                   "ASPAMINOTRANS-RXN",    "2.6.1.1",                                      "aspartate transaminase", "EV-COMP",
+                     "GDQC-12672",        "Zm00001d043382",   "Zm00001d043382",                   "ASPAMINOTRANS-RXN",    "2.6.1.1",                                      "aspartate transaminase", "EV-COMP",
+                    "GDQC-108527",        "Zm00001d018386",   "Zm00001d018386",                   "ASPAMINOTRANS-RXN",    "2.6.1.1",                                      "aspartate transaminase",  "EV-EXP"
+                    )
+
+```
+```{r}
+CornCycC4PEPCK.C4 <- CornCycC4PEPCK$Gene.Accession
+CornCycC4PEPCK.C4 <- substr(CornCycC4PEPCK.C4, start = 1, stop = 14)
+```
+```{r}
+#Retrieved from CornCyc on 02/26/2020
 CornCycCalvinCycle <- tibble::tribble(
                             ~Gene.ID,  ~Gene.Accession,       ~Gene.name,                            ~Reaction.id, ~Reaction.EC,                        ~Enzymatic.activity, ~Evidence,
                          "GDQC-7815",  "GRMZM5G815453",  "GRMZM5G815453", "RIBULOSE-BISPHOSPHATE-CARBOXYLASE-RXN",   "4.1.1.39",        "ribulose bisphosphate carboxylase", "EV-COMP",
@@ -1035,78 +871,50 @@ CornCycCalvinCycle <- tibble::tribble(
 
 ```
 ```{r}
-g47 <- CornCycCalvinCycle$Gene.Accession
+CornCycCalvinCycle.CC <- CornCycCalvinCycle$Gene.Accession
+CornCycCalvinCycle.CC <- substr(CornCycCalvinCycle.CC, start = 1, stop = 14)
 ```
-```{r}
-g47 <- substr(g47, start = 1, stop = 14)
-```
-
-###g48
-```{r}
-g48 <- as.vector(gamer$db_object_id[gamer$term_accession=="GO:0009853"])
-```
-###g49
-```{r}
-g49 <- as.vector(gamer$db_object_id[gamer$term_accession=="GO:0080093"])
-```
-###g50
-```{r}
-g50 <- as.vector(gamer$db_object_id[gamer$term_accession=="GO:0009853"])
-```
-###g51
-```{r}
-g51 <- c("Zm00001d034887", "Zm00001d025747", "Zm00001d031403", "Zm00001d031402", "Zm00001d031364", "Zm00001d031379", "Zm00001d031349", "Zm00001d014919", "Zm00001d004451", "Zm00001d024906", "Zm00001d005489", "Zm00001d027450", "Zm00001d018790", "Zm00001d008883", "Zm00001d024907", "Zm00001d035737", "Zm00001d019077", "Zm00001d047085", "Zm00001d000064", "Zm00001d015378", "Zm00001d053800", "Zm00001d048974", "Zm00001d007937", "Zm00001d031403", "Zm00001d031402", "Zm00001d031364", "Zm00001d018639", "Zm00001d031379", "Zm00001d031349", "Zm00001d040457", "Zm00001d012247", "Zm00001d007237", "Zm00001d030859", "Zm00001d002554", "Zm00001d042661", "Zm00001d049234", "Zm00001d009738")
-```
-###listplastid
-```{r}
-PhotosynthesisTermsList <- list(g1,g2,g3,g4,g5,g6,g7,g8,g9,g10,g11,g12,g13,g14,g15,g16,g17,g18,g19,g20,g21,g22,g23,g24,g25,g26,g27,g28,g29,g30,g31,g32,g33,g34,g35,g36,g37,g38,g39,g40,g41,g42,g43,g44,g45,g46,g47,g48,g49,g50,g51)
-```
-```{r}
-saveRDS(PhotosynthesisTermsList, "PhotosynthesisTermsList")
-```
-```{r}
-PhotosynthesisTermsList <- readRDS("PhotosynthesisTermsList")
-```
-
 ###combine terms
 ```{r}
-lightrxn.kc <- unique(unlist(PhotosynthesisTermsList[c(15:16,18,25,26,28,35,36,37,39,40)]))
-darkrxn.kc <- unique(unlist(PhotosynthesisTermsList[c(42,43,46,47)]))
+lightrxn.PSI.kc <- unique(c(KEGG.zma00195.PSI.v4,KEGG.zma00196.LHCI.v4, CornCycLightRxns.PSI))
 
-lightrxn.PSI.kc <- unique(unlist(PhotosynthesisTermsList[c(15,16)]))
+lightrxn.PSII.kc <- unique(c(KEGG.zma00195.PSII.v4,KEGG.zma00196.LHCII.v4, CornCycLightRxns.PSII))
 
-lightrxn.PSII.kc <- unique(unlist(PhotosynthesisTermsList[c(25,26)]))
+lightrxn.ETC.kc <- unique(c(KEGG.zma00195.ETC.v4, CornCycLightRxns.ETC))
 
-lightrxn.ETC.kc <- unlist(PhotosynthesisTermsList[35])
-
-lightrxn.b6f.k <- unlist(PhotosynthesisTermsList[37])
+lightrxn.b6f.k <- KEGG.zma00195.b6f.v4
 
 lightrxn.NDH <- tmt.withPolymorphic[grep("NDH", tmt.withPolymorphic$Protein),]
 lightrxn.NDH <- lightrxn.NDH$Gene[grep("subunit", lightrxn.NDH$Protein)]
 
-lightrxn.ATPase.k <- unlist(PhotosynthesisTermsList[40])
+lightrxn.ATPase.k <- KEGG.zma00195.ATPase.v4
 grepATPsynthase <- tmt.withPolymorphic$Gene[grepl("ATP",tmt.withPolymorphic$Protein)&grepl("synthase",tmt.withPolymorphic$Protein)&grepl("chloropl",tmt.withPolymorphic$Protein)]
 lightrxn.ATPase.k <- unique(c(lightrxn.ATPase.k,grepATPsynthase))
 
 lightrxn.NucComplexes <- unique(c(lightrxn.PSI.kc,lightrxn.PSII.kc,lightrxn.b6f.k,lightrxn.NDH,lightrxn.ATPase.k))
 
-darkrxn.C4.c <- unique(unlist(PhotosynthesisTermsList[c(42,43)]))
-darkrxn.Calvin.kc <- unique(unlist(PhotosynthesisTermsList[c(46,47)]))
+darkrxn.C4.c <- unique(c(CornCycC4NADP.C4, CornCycC4PEPCK.C4))
+
+darkrxn.Calvin.kc <- unique(c(KEGG.zma00710.v4, CornCycCalvinCycle.CC))
+
 darkrxn.Calvin.RubiscoSS <- c("Zm00001d052595", "Zm00001d004894")
 ```
-##chloroplast background
+
+##Plastid background
 ```{r}
-plastidCC <- as.list(GOCCCHILDREN)
-plastidCC <- as.vector(plastidCC$`GO:0009536`)
-plastidCC <- c(plastidCC, "GO:0009536")
-plastidCC <- unique(as.vector(gamer$db_object_id[gamer$term_accession%in%plastidCC]))
+#Import supplemental Table I from Friso et al. 2010
+friso <- read.csv("data/Friso2010_SupTab1.csv", stringsAsFactors = F)
+colnames(friso) <- as.character(friso[1,])
+friso <- friso[-1,]
+friso <- friso[friso$`best gene model (selected)`=="yes",]
+friso$Gene <- substr(friso$Accession, start = 1, stop = 13)
 ```
-##mitochondria background
 ```{r}
-mitoCC <- as.list(GOCCCHILDREN)
-mitoCC <- as.vector(mitoCC$`GO:0005739`)
-mitoCC <- c(mitoCC, "GO:0005739")
-mitoCC <- as.vector(gamer$db_object_id[gamer$term_accession%in%mitoCC])
+#convert to v4 accessions
+friso <- merge.data.frame(friso, mgdb[,c(1,11)], by.x = "Gene", by.y = "v3_gene_model")
+```
+```{r}
+friso.v4 <- friso$v4_gene_model
 ```
 
 ##Plastid-encoded
@@ -1134,9 +942,10 @@ Pt <- Pt$Gene
 
 ##Nuclear-encoded plastid ribosome
 ```{r}
+#Taken from Pulido et al. 2018
 CRASS <- data.frame("At.acc"= c("AT5G51545", "AT3G60370", "AT1G11430", "AT2G44650", "AT3G08920", "AT3G14110", "AT3G08740", "AT5G546000", "AT5G65220", "AT4G24770", "AT2G33800", "AT5G30510", "AT2G33450", "AT5G47190", "AT1G29070", "AT3G25920", "AT5G13510", "AT1G64510", "AT1G48350", "AT3G15190", "AT1G05190", "AT3G52150", "AT2G43030", "AT1G75350", "AT3G54210", "AT5G14320", "AT1G78630", "AT4G01310", "AT4G17560", "AT1G32990", "AT1G35680"), "At.names"= c("LPA2", "FKBPL", "MORF9", "CPN10", "Rhodanese", "FLU", "EF-P", "PRPL24", "PRPL29", "RBP31", "PRPS5", "PRPS1", "PRPL28", "PRPL19", "PRPL34", "PRPL15", "PRPL10", "PRPS6", "PRPL18", "PRPS20", "PRPL6", "PSRP2", "PRPL3", "PRPL31", "PRPL17", "PRPS13", "PRPL13", "PRPL5", "PRPL19", "PRPL11", "PRPL21"))
 
-CRASS <- merge.data.frame(CRASS, mgdb[,c(1,17)], by.x = "At.acc", by.y = "arabidopsis_ortholog", plastid.x = T, plastid.y = F)
+CRASS <- merge.data.frame(CRASS, mgdb[,c(1,17)], by.x = "At.acc", by.y = "arabidopsis_ortholog", all.x = T, all.y = F)
 ```
 ```{r}
 CRASS.prpl.prps <- CRASS$v4_gene_model[grep("PRPL|PRPS", CRASS$At.names)]
@@ -1155,15 +964,58 @@ eukRibo<- eukRibo$Gene[-(grep("mito|Mito", eukRibo$Protein))]
 ```
 ##Etyhlene
 ```{r}
-cornCyc <- read.csv("cornCycGeneLists01042020.csv", stringsAsFactors = F)
-MAT <- cornCyc$Gene.Accession[(cornCyc$Enzymatic.activity=="methionine adenosyltransferase")]
-ACS <- cornCyc$Gene.Accession[(cornCyc$Enzymatic.activity=="1-aminocyclopropane-1-carboxylate synthase")]
-ACO <- cornCyc$Gene.Accession[(cornCyc$Enzymatic.activity=="1-aminocyclopropane-1-carboxylate oxidase")]
+#Retrieved from CornCyc on 05/11/2020
+CornCycEtBio <- tibble::tribble(
+                      ~Gene.ID,  ~Gene.Accession,       ~Gene.name,       ~Reaction.id, ~Reaction.EC,                          ~Enzymatic.activity, ~Evidence,
+                   "GDQC-8129", "Zm00001d024754", "Zm00001d024754", "S-ADENMETSYN-RXN",    "2.5.1.6",             "methionine adenosyltransferase", "EV-COMP",
+                   "GDQC-9315", "Zm00001d009146", "Zm00001d009146", "S-ADENMETSYN-RXN",    "2.5.1.6",             "methionine adenosyltransferase", "EV-COMP",
+                  "GDQC-10512", "Zm00001d008175", "Zm00001d008175", "S-ADENMETSYN-RXN",    "2.5.1.6",             "methionine adenosyltransferase", "EV-COMP",
+                  "GDQC-11102", "Zm00001d010920", "Zm00001d010920", "S-ADENMETSYN-RXN",    "2.5.1.6",             "methionine adenosyltransferase", "EV-COMP",
+                  "GDQC-14097", "Zm00001d018517", "Zm00001d018517", "S-ADENMETSYN-RXN",    "2.5.1.6",             "methionine adenosyltransferase", "EV-COMP",
+                  "GDQC-14756", "Zm00001d040697", "Zm00001d040697", "S-ADENMETSYN-RXN",    "2.5.1.6",             "methionine adenosyltransferase", "EV-COMP",
+                   "GDQC-9936", "Zm00001d026060", "Zm00001d026060",     "4.4.1.14-RXN",   "4.4.1.14", "1-aminocyclopropane-1-carboxylate synthase", "EV-COMP",
+                  "GDQC-10643", "Zm00001d033862", "Zm00001d033862",     "4.4.1.14-RXN",   "4.4.1.14", "1-aminocyclopropane-1-carboxylate synthase", "EV-COMP",
+                  "GDQC-11104", "Zm00001d045479", "Zm00001d045479",     "4.4.1.14-RXN",   "4.4.1.14", "1-aminocyclopropane-1-carboxylate synthase", "EV-COMP",
+                  "GDQC-11257", "Zm00001d039487", "Zm00001d039487",     "4.4.1.14-RXN",   "4.4.1.14", "1-aminocyclopropane-1-carboxylate synthase", "EV-COMP",
+                  "GDQC-12498", "Zm00001d002592", "Zm00001d002592",     "4.4.1.14-RXN",   "4.4.1.14", "1-aminocyclopropane-1-carboxylate synthase", "EV-COMP",
+                   "GDQC-7692", "Zm00001d014572", "Zm00001d014572",        "ETHYL-RXN",  "1.14.17.4",  "1-aminocyclopropane-1-carboxylate oxidase", "EV-COMP",
+                   "GDQC-7977", "Zm00001d024850", "Zm00001d024850",        "ETHYL-RXN",  "1.14.17.4",  "1-aminocyclopropane-1-carboxylate oxidase", "EV-COMP",
+                   "GDQC-8083", "Zm00001d020686", "Zm00001d020686",        "ETHYL-RXN",  "1.14.17.4",  "1-aminocyclopropane-1-carboxylate oxidase", "EV-COMP",
+                   "GDQC-8443", "Zm00001d042996", "Zm00001d042996",        "ETHYL-RXN",  "1.14.17.4",  "1-aminocyclopropane-1-carboxylate oxidase", "EV-COMP",
+                   "GDQC-8648", "Zm00001d015860", "Zm00001d015860",        "ETHYL-RXN",  "1.14.17.4",  "1-aminocyclopropane-1-carboxylate oxidase", "EV-COMP",
+                   "GDQC-9116", "Zm00001d011208", "Zm00001d011208",        "ETHYL-RXN",  "1.14.17.4",  "1-aminocyclopropane-1-carboxylate oxidase", "EV-COMP",
+                   "GDQC-9304", "Zm00001d024853", "Zm00001d024853",        "ETHYL-RXN",  "1.14.17.4",  "1-aminocyclopropane-1-carboxylate oxidase", "EV-COMP",
+                   "GDQC-9498", "Zm00001d024851", "Zm00001d024851",        "ETHYL-RXN",  "1.14.17.4",  "1-aminocyclopropane-1-carboxylate oxidase", "EV-COMP",
+                   "GDQC-9503", "Zm00001d024843", "Zm00001d024843",        "ETHYL-RXN",  "1.14.17.4",  "1-aminocyclopropane-1-carboxylate oxidase", "EV-COMP",
+                   "GDQC-9749", "Zm00001d018211", "Zm00001d018211",        "ETHYL-RXN",  "1.14.17.4",  "1-aminocyclopropane-1-carboxylate oxidase", "EV-COMP",
+                  "GDQC-11380", "Zm00001d004719", "Zm00001d004719",        "ETHYL-RXN",  "1.14.17.4",  "1-aminocyclopropane-1-carboxylate oxidase", "EV-COMP",
+                  "GDQC-12095", "Zm00001d043503", "Zm00001d043503",        "ETHYL-RXN",  "1.14.17.4",  "1-aminocyclopropane-1-carboxylate oxidase", "EV-COMP",
+                  "GDQC-12184", "Zm00001d024865", "Zm00001d024865",        "ETHYL-RXN",  "1.14.17.4",  "1-aminocyclopropane-1-carboxylate oxidase", "EV-COMP",
+                  "GDQC-13009", "Zm00001d005927", "Zm00001d005927",        "ETHYL-RXN",  "1.14.17.4",  "1-aminocyclopropane-1-carboxylate oxidase", "EV-COMP",
+                  "GDQC-13037", "Zm00001d024852", "Zm00001d024852",        "ETHYL-RXN",  "1.14.17.4",  "1-aminocyclopropane-1-carboxylate oxidase", "EV-COMP",
+                  "GDQC-13116", "Zm00001d000163", "Zm00001d000163",        "ETHYL-RXN",  "1.14.17.4",  "1-aminocyclopropane-1-carboxylate oxidase", "EV-COMP",
+                  "GDQC-13242", "Zm00001d052136", "Zm00001d052136",        "ETHYL-RXN",  "1.14.17.4",  "1-aminocyclopropane-1-carboxylate oxidase", "EV-COMP",
+                  "GDQC-13842", "Zm00001d048562", "Zm00001d048562",        "ETHYL-RXN",  "1.14.17.4",  "1-aminocyclopropane-1-carboxylate oxidase", "EV-COMP",
+                  "GDQC-13898", "Zm00001d046848", "Zm00001d046848",        "ETHYL-RXN",  "1.14.17.4",  "1-aminocyclopropane-1-carboxylate oxidase", "EV-COMP",
+                  "GDQC-13947", "Zm00001d036955", "Zm00001d036955",        "ETHYL-RXN",  "1.14.17.4",  "1-aminocyclopropane-1-carboxylate oxidase", "EV-COMP",
+                  "GDQC-14537", "Zm00001d004718", "Zm00001d004718",        "ETHYL-RXN",  "1.14.17.4",  "1-aminocyclopropane-1-carboxylate oxidase", "EV-COMP"
+                  )
+
+```
+```{r}
+MAT <- CornCycEtBio$Gene.Accession[(CornCycEtBio$Enzymatic.activity=="methionine adenosyltransferase")]
+ACS <- CornCycEtBio$Gene.Accession[(CornCycEtBio$Enzymatic.activity=="1-aminocyclopropane-1-carboxylate synthase")]
+ACO <- CornCycEtBio$Gene.Accession[(CornCycEtBio$Enzymatic.activity=="1-aminocyclopropane-1-carboxylate oxidase")]
 EtBio <- c(MAT,ACS,ACO)
 ```
 
+
+
 ##Mitochondria
+###Oxidative Phosphorylation
+####KEGG
 ```{r}
+#Retrieved from KEGG on 02/26/2020
 KEGG.OxPhos.Tib <- tibble::tribble(
                                        ~V1,                                                                                                           ~V2,
                                    845179L,                                                 "ndhA; NADH dehydrogenase subunit 1 [KO:K05572] [EC:7.1.1.2]",
@@ -1334,13 +1186,15 @@ KEGG.OxPhos.Tib <- tibble::tribble(
                                 )
 ```
 ```{r}
-KEGG.OxPhos.Entrez <- as.character(KEGG.OxPhos.Tib$V1)
+KEGG.OxPhos.entrez <- as.character(KEGG.OxPhos.Tib$V1)
 ```
 ```{r}
-KEGG.OxPhos.V4 <- mgdb$v4_gene_model[mgdb$Entrez%in%KEGG.OxPhos.Entrez]
+KEGG.OxPhos.v4 <- mgdb$v4_gene_model[mgdb$Entrez%in%KEGG.OxPhos.entrez]
 ```
+####CornCyc
 ```{r}
-CornCycAerRespI.Tib <- tibble::tribble(
+#Retrieved from KEGG on 02/26/2020
+CornCycAerRespI.tib <- tibble::tribble(
                          ~Gene.ID,  ~Gene.Accession,       ~Gene.name,                             ~Reaction.id, ~Reaction.EC,                                ~Enzymatic.activity, ~Evidence,
                       "GDQC-7770", "Zm00001d005695", "Zm00001d005695", "SUCCINATE-DEHYDROGENASE-UBIQUINONE-RXN",    "1.3.5.1",                 "succinate:quinone oxidoreductase", "EV-COMP",
                       "GDQC-7955", "Zm00001d045520", "Zm00001d045520", "SUCCINATE-DEHYDROGENASE-UBIQUINONE-RXN",    "1.3.5.1",                 "succinate:quinone oxidoreductase", "EV-COMP",
@@ -1454,10 +1308,11 @@ CornCycAerRespI.Tib <- tibble::tribble(
 
 ```
 ```{r}
-CornCycAerRespI <- as.character(CornCycAerRespI.Tib$Gene.Accession)
+CornCycAerRespI <- as.character(CornCycAerRespI.tib$Gene.Accession)
 ```
 ```{r}
-CornCycAerRespIII.Tib <- tibble::tribble(
+#Retrieved from KEGG on 02/26/2020
+CornCycAerRespIII.tib <- tibble::tribble(
                            ~Gene.ID,  ~Gene.Accession,       ~Gene.name,                             ~Reaction.id, ~Reaction.EC,                                ~Enzymatic.activity, ~Evidence,
                         "GDQC-7770", "Zm00001d005695", "Zm00001d005695", "SUCCINATE-DEHYDROGENASE-UBIQUINONE-RXN",    "1.3.5.1",                 "succinate:quinone oxidoreductase", "EV-COMP",
                         "GDQC-7955", "Zm00001d045520", "Zm00001d045520", "SUCCINATE-DEHYDROGENASE-UBIQUINONE-RXN",    "1.3.5.1",                 "succinate:quinone oxidoreductase", "EV-COMP",
@@ -1560,27 +1415,22 @@ CornCycAerRespIII.Tib <- tibble::tribble(
 
 ```
 ```{r}
-CornCycAerRespIII <- as.character(CornCycAerRespIII.Tib$Gene.Accession)
+CornCycAerRespIII <- as.character(CornCycAerRespIII.tib$Gene.Accession)
 ```
+####Combine terms
 ```{r}
-OxPhos <- unique(c(KEGG.OxPhos.V4,CornCycAerRespI,CornCycAerRespIII))
+OxPhos <- unique(c(KEGG.OxPhos.v4,CornCycAerRespI,CornCycAerRespIII))
 ```
+###Ribosome
 ```{r}
 Nuc.MtRibo <- tmt.withPolymorphic$Gene[grepl("ribosom", tmt.withPolymorphic$Protein)&grepl("mito", tmt.withPolymorphic$Protein)]
 ```
-
-
-
+###Mito-encoded
 ```{r}
 tmt.mt <- tmt.withPolymorphic[grep("ZeamMp", tmt.withPolymorphic$Accession),]
-```
-```{r}
+
 Mt.OxPhos <- tmt.mt$Gene[grep("nad|ndh|atp|cob|cox", tmt.mt$Protein)]
-```
-```{r}
 Mt.ribo <- tmt.mt$Gene[grep("rps|rpl", tmt.mt$Protein)]
-```
-```{r}
 Mt.other <- tmt.mt$Gene[!(tmt.mt$Gene%in%c(Mt.OxPhos, Mt.ribo))]
 ```
 
@@ -1642,18 +1492,19 @@ tmt.GOI[(tmt.GOI$Gene %in% OxPhos),"Order"] <- 24
 tmt.GOI[(tmt.GOI$Gene %in% EtBio),"Category"] <- "NE.EtBio.c"
 tmt.GOI[(tmt.GOI$Gene %in% EtBio),"Order"] <- 25
 
-tmt.GOI$Organelle <- NA
-tmt.GOI[(tmt.GOI$Gene %in% plastidCC),"Organelle"] <- "GO:plastid"
-tmt.GOI[(tmt.GOI$Gene %in% mitoCC),"Organelle"] <- "GO:mitochondria"
+tmt.GOI$Plastid <- FALSE
+tmt.GOI[(tmt.GOI$Gene %in% friso.v4),"Plastid (Friso et al 2010)"] <- TRUE
 
 tmt.GOI <- tmt.GOI[order(tmt.GOI$Order),]
 ```
 ```{r}
-cornCycplastid <- readr::read_tsv("plastid_instances_of_Genes_in_Zea_mays_mays (1).txt")
-tmt.GOI <- merge.data.frame(tmt.GOI, cornCycplastid, by.x = "Gene", by.y = "Genes", plastid.x = T)
+#Add column for CornCyc Pathways
+cornCycAll <- readr::read_tsv("All_instances_of_Genes_in_Zea_mays_mays (1).txt")
+tmt.GOI <- merge.data.frame(tmt.GOI, cornCycAll, by.x = "Gene", by.y = "Genes", all.x = T)
 colnames(tmt.GOI)[7] <- "CornCycPathways"
 ```
 ```{r}
+#Add column for KEGG pathways
 kegg <- gage::kegg.gsets(species = "zma")
 kegg.df <- as.data.frame(unlist(kegg$kg.sets))
 colnames(kegg.df) <- "Entrez"
@@ -1662,10 +1513,12 @@ row.names(kegg.df) <- NULL
 kegg.df$Entrez <- as.character(kegg.df$Entrez)
 ```
 ```{r}
-tmt.GOI <- merge.data.frame(tmt.GOI, mgdb[,c(1,12)], by.x = "Gene", by.y = "v4_gene_model", plastid.x = T, plastid.y = F)
+#Add column for Entrez #
+tmt.GOI <- merge.data.frame(tmt.GOI, mgdb[,c(1,12)], by.x = "Gene", by.y = "v4_gene_model", all.x = T, all.y = F)
 tmt.GOI <- distinct(tmt.GOI)
 ```
 ```{r}
+#manually assign Pt- and Mt-encoded entrez IDs
 tmt.GOI$Entrez[tmt.GOI$Accession=="ZemaCp003.1"] <- "845178"
 tmt.GOI$Entrez[tmt.GOI$Accession=="ZemaCp004.1"] <- "845232"
 tmt.GOI$Entrez[tmt.GOI$Accession=="ZemaCp008.1"] <- "845201"
@@ -1746,30 +1599,26 @@ tmt.GOI$Entrez[tmt.GOI$Accession=="ZeamMp179.1"] <- "4056006"
 tmt.GOI$Entrez[tmt.GOI$Accession=="ZeamMp185.1"] <- "4055892"
 ```
 ```{r}
-tmt.GOI <- merge.data.frame(tmt.GOI, kegg.df, by.x = "Entrez", by.y = "Entrez", plastid.x = T, plastid.y = F)
+#Merge KEGG pathways by entrez
+tmt.GOI <- merge.data.frame(tmt.GOI, kegg.df, by.x = "Entrez", by.y = "Entrez", all.x = T, all.y = F)
 colnames(tmt.GOI)[9] <- "KeggPathway"
 ```
 
 ```{r}
+#Convert duplicated rows into multiple columns for each pathway
 tmt.GOI.w <- data.table::dcast(setDT(tmt.GOI), Accession~rowid(Accession, prefix="KeggPathway"), value.var="KeggPathway")
-```
-```{r}
+
 tmt.GOI <- merge.data.frame(tmt.GOI[,1:8], tmt.GOI.w, by.x = "Accession", by.y = "Accession")
 tmt.GOI <- distinct(tmt.GOI)
 ```
 ```{r}
-library(tidyr)
-```
-```{r}
+#re-order
 tmt.GOI <- tmt.GOI[,c(1:9,16:23,10:15)]
-```
-
-```{r}
+#Combine columns of each pathway into single column
 tmt.GOI <- unite(tmt.GOI, "KeggPathway", KeggPathway1:KeggPathway15)
 ```
-
 ```{r}
-write.csv(tmt.GOI[order(tmt.GOI$Order),], "FinplastideafGOIs.csv", row.names = F)
+write.csv(tmt.GOI[order(tmt.GOI$Order),], "FinalLeafGOIs.csv", row.names = F)
 ```
 
 
@@ -1828,12 +1677,9 @@ tmt.OG.SL.lims1.plastid.scat <- ggplot(tmt.OG.SL.lims1.plastid, mapping=aes(x=l2
     xlab("log2 BxM/MP")+
     ylab("log2 B73/Mo17")+
     coord_fixed(expand = F)
-```
-####Add density curves
-```{r}
 tmt.OG.SL.lims1.plastid.scat
 ```
-
+####Add density curves
 ```{r}
     densityplotX<-axis_canvas(tmt.OG.SL.lims1.plastid.scat, axis="x")+
       geom_density(aes(tmt.OG.SL.lims1.plastid[,"l2.BM.MP"], color=tmt.OG.SL.lims1.plastid[,"Category"]), size=1)+
@@ -1855,7 +1701,7 @@ tmt.OG.SL.lims1.plastid.scat
       q <- insert_yaxis_grob(q, densityplotY, grid::unit(0.275, "null"), position = "right")
     #save
      # ggsave(plot=q, filename = "tmt.OG.SL.lims1.plastid.scat.png")
-  ggsave(plot=q, filename = "tmt.OG.SL.lims1.plastid.scat.pdf",  dpi=300, width=4.75, height = 5, scale = 1, units = "in")
+  ggsave(plot=q, filename = "Plots/Plastid/Protein/tmt.OG.SL.lims1.plastid.scat.pdf",  dpi=300, width=4.75, height = 5, scale = 1, units = "in")
 ```
 
 
@@ -1924,7 +1770,7 @@ tmt.OG.SL.lims1.mito.scat <- ggplot(tmt.OG.SL.lims1.mito, mapping=aes(x=l2.BM.MP
       q <- insert_yaxis_grob(q, densityplotY, grid::unit(0.275, "null"), position = "right")
     #save
     #  ggsave(plot=q, filename = "tmt.OG.SL.lims1.mito.scat.png")
-  ggsave(plot=q, filename = "tmt.OG.SL.lims1.mito.scat.pdf", dpi=300, width=4.75, height = 5, scale = 1, units = "in")
+  ggsave(plot=q, filename = "Plots/Mitochondria/Protein/tmt.OG.SL.lims1.mito.scat.pdf", dpi=300, width=4.75, height = 5, scale = 1, units = "in")
 ```
 
 
@@ -1986,6 +1832,7 @@ tmt.OG.acs.SL.lims1.et.scat <- ggplot(tmt.OG.acs.SL.lims1.et, mapping=aes(x=l2.H
     ylab("log2 acs/B73")+
     coord_fixed(expand = F)
 ```
+
 ####Add density curves
 ```{r}
     densityplotX<-axis_canvas(tmt.OG.acs.SL.lims1.et.scat, axis="x")+
@@ -2008,7 +1855,7 @@ tmt.OG.acs.SL.lims1.et.scat <- ggplot(tmt.OG.acs.SL.lims1.et, mapping=aes(x=l2.H
       q <- insert_yaxis_grob(q, densityplotY, grid::unit(0.275, "null"), position = "right")
     #save
      # ggsave(plot=q, filename = "tmt.OG.acs.SL.lims1.et.scat.png")
-  ggsave(plot=q, filename = "tmt.OG.SL.lims1.et.scat.pdf", dpi=300, width=4.75, height = 5, scale = 1, units = "in")
+  ggsave(plot=q, filename = "Plots/Ethylene/tmt.OG.SL.lims1.et.scat.pdf", dpi=300, width=4.75, height = 5, scale = 1, units = "in")
 ```
 
 
@@ -2089,7 +1936,7 @@ tmt.dn.SL.lims1.plastid.scat <- ggplot(tmt.dn.SL.lims1.plastid, mapping=aes(x=l2
       q <- insert_yaxis_grob(q, densityplotY, grid::unit(0.275, "null"), position = "right")
     #save
      # ggsave(plot=q, filename = "tmt.dn.SL.lims1.plastid.scat.png")
-  ggsave(plot=q, filename = "tmt.dn.SL.lims1.plastid.scat.pdf", dpi=300, width=4.75, height = 5, scale = 1, units = "in")
+  ggsave(plot=q, filename = "Plots/Plastid/Protein/tmt.dn.SL.lims1.plastid.scat.pdf", dpi=300, width=4.75, height = 5, scale = 1, units = "in")
 ```
 
 
@@ -2158,7 +2005,7 @@ tmt.dn.SL.lims1.mito.scat <- ggplot(tmt.dn.SL.lims1.mito, mapping=aes(x=l2.BM.MP
       q <- insert_yaxis_grob(q, densityplotY, grid::unit(0.275, "null"), position = "right")
     #save
     #  ggsave(plot=q, filename = "tmt.dn.SL.lims1.mito.scat.png")
-  ggsave(plot=q, filename = "tmt.dn.SL.lims1.mito.scat.pdf", dpi=300, width=4.75, height = 5, scale = 1, units = "in")
+  ggsave(plot=q, filename = "Plots/Mitochondria/Protein/tmt.dn.SL.lims1.mito.scat.pdf", dpi=300, width=4.75, height = 5, scale = 1, units = "in")
 ```
 
 
@@ -2242,7 +2089,7 @@ tmt.dn.acs.SL.lims1.et.scat <- ggplot(tmt.dn.acs.SL.lims1.et, mapping=aes(x=l2.H
       q <- insert_yaxis_grob(q, densityplotY, grid::unit(0.275, "null"), position = "right")
     #save
      # ggsave(plot=q, filename = "tmt.dn.acs.SL.lims1.et.scat.png")
-  ggsave(plot=q, filename = "tmt.dn.SL.lims1.et.scat.pdf", dpi=300, width=4.75, height = 5, scale = 1, units = "in")
+  ggsave(plot=q, filename = "Plots/Ethylene/tmt.dn.SL.lims1.et.scat.pdf", dpi=300, width=4.75, height = 5, scale = 1, units = "in")
 ```
 
 
@@ -2323,7 +2170,7 @@ tmt.6h.SL.lims1.plastid.scat <- ggplot(tmt.6h.SL.lims1.plastid, mapping=aes(x=l2
       q <- insert_yaxis_grob(q, densityplotY, grid::unit(0.275, "null"), position = "right")
     #save
      # ggsave(plot=q, filename = "tmt.6h.SL.lims1.plastid.scat.png")
-  ggsave(plot=q, filename = "tmt.6h.SL.lims1.plastid.scat.pdf", dpi=300, width=4.75, height = 5, scale = 1, units = "in")
+  ggsave(plot=q, filename = "Plots/Plastid/Protein/tmt.6h.SL.lims1.plastid.scat.pdf", dpi=300, width=4.75, height = 5, scale = 1, units = "in")
 ```
 
 
@@ -2392,7 +2239,7 @@ tmt.6h.SL.lims1.mito.scat <- ggplot(tmt.6h.SL.lims1.mito, mapping=aes(x=l2.BM.MP
       q <- insert_yaxis_grob(q, densityplotY, grid::unit(0.275, "null"), position = "right")
     #save
     #  ggsave(plot=q, filename = "tmt.6h.SL.lims1.mito.scat.png")
-  ggsave(plot=q, filename = "tmt.6h.SL.lims1.mito.scat.pdf", dpi=300, width=4.75, height = 5, scale = 1, units = "in")
+  ggsave(plot=q, filename = "Plots/Mitochondria/Protein/tmt.6h.SL.lims1.mito.scat.pdf", dpi=300, width=4.75, height = 5, scale = 1, units = "in")
 ```
 
 
@@ -2476,7 +2323,7 @@ tmt.6h.acs.SL.lims1.et.scat <- ggplot(tmt.6h.acs.SL.lims1.et, mapping=aes(x=l2.H
       q <- insert_yaxis_grob(q, densityplotY, grid::unit(0.275, "null"), position = "right")
     #save
      # ggsave(plot=q, filename = "tmt.6h.acs.SL.lims1.et.scat.png")
-  ggsave(plot=q, filename = "tmt.6h.SL.lims1.et.scat.pdf", dpi=300, width=4.75, height = 5, scale = 1, units = "in")
+  ggsave(plot=q, filename = "Plots/Ethylene/tmt.6h.SL.lims1.et.scat.pdf", dpi=300, width=4.75, height = 5, scale = 1, units = "in")
 ```
 
 
@@ -2557,7 +2404,7 @@ tmt.ril.SL.lims1.plastid.scat <- ggplot(tmt.ril.SL.lims1.plastid, mapping=aes(x=
       q <- insert_yaxis_grob(q, densityplotY, grid::unit(0.275, "null"), position = "right")
     #save
      # ggsave(plot=q, filename = "tmt.ril.SL.lims1.plastid.scat.png")
-  ggsave(plot=q, filename = "tmt.ril.SL.lims1.plastid.scat.pdf",dpi=300, width=4.75, height = 5, scale = 1, units = "in")
+  ggsave(plot=q, filename = "Plots/Plastid/Protein/tmt.ril.SL.lims1.plastid.scat.pdf",dpi=300, width=4.75, height = 5, scale = 1, units = "in")
 ```
 
 
@@ -2626,7 +2473,7 @@ tmt.ril.SL.lims1.mito.scat <- ggplot(tmt.ril.SL.lims1.mito, mapping=aes(x=l2.BM.
       q <- insert_yaxis_grob(q, densityplotY, grid::unit(0.275, "null"), position = "right")
     #save
     #  ggsave(plot=q, filename = "tmt.ril.SL.lims1.mito.scat.png")
-  ggsave(plot=q, filename = "tmt.ril.SL.lims1.mito.scat.pdf", dpi=300, width=4.75, height = 5, scale = 1, units = "in")
+  ggsave(plot=q, filename = "Plots/Mitochondria/Protein/tmt.ril.SL.lims1.mito.scat.pdf", dpi=300, width=4.75, height = 5, scale = 1, units = "in")
 ```
 
 
@@ -2710,7 +2557,7 @@ tmt.ril.acs.SL.lims1.et.scat <- ggplot(tmt.ril.acs.SL.lims1.et, mapping=aes(x=l2
       q <- insert_yaxis_grob(q, densityplotY, grid::unit(0.275, "null"), position = "right")
     #save
      # ggsave(plot=q, filename = "tmt.ril.acs.SL.lims1.et.scat.png")
-  ggsave(plot=q, filename = "tmt.ril.SL.lims1.et.scat.pdf", dpi=300, width=4.75, height = 5, scale = 1, units = "in")
+  ggsave(plot=q, filename = "Plots/Ethylene/tmt.ril.SL.lims1.et.scat.pdf", dpi=300, width=4.75, height = 5, scale = 1, units = "in")
 ```
 
 
@@ -2737,155 +2584,155 @@ tmt.ril.SL.reps$ril.BM.MP.2 <- tmt.ril.SL.reps$BM.3/tmt.ril.SL.reps$MP.2
 tmt.ril.SL.reps$ril.BM.MP.3 <- tmt.ril.SL.reps$BM.4/tmt.ril.SL.reps$MP.3
 ```
 ```{r}
-tmt.plastid4reps <- Reduce(function(x,y) merge(x = x, y = y, by = "Accession"), 
+tmt.all4reps <- Reduce(function(x,y) merge(x = x, y = y, by = "Accession"), 
        list(tmt.ril.SL.reps[,c(6,31:33)], tmt.OG.SL.reps[,c(6,31:33)], tmt.6h.SL.reps[,c(6,31:33)], tmt.dn.SL.reps[,c(6,31:33)]))
 
-rownames(tmt.plastid4reps) <- tmt.plastid4reps$Accession
-tmt.plastid4reps <- tmt.plastid4reps[,-1]
+rownames(tmt.all4reps) <- tmt.all4reps$Accession
+tmt.all4reps <- tmt.all4reps[,-1]
 
-tmt.plastid4reps <- na.omit(tmt.plastid4reps)
+tmt.all4reps <- na.omit(tmt.all4reps)
 
-tmt.plastid4reps.t <- as.data.frame(t(tmt.plastid4reps))
+tmt.all4reps.t <- as.data.frame(t(tmt.all4reps))
 
-tmt.plastid4reps.pca <- prcomp(tmt.plastid4reps.t, center = TRUE,scale. = TRUE)
+tmt.all4reps.pca <- prcomp(tmt.all4reps.t, center = TRUE,scale. = TRUE)
 
-tmt.plastid4reps.groups <- c(rep("RIL",3), rep("OG",3), rep("6H", 3), rep("DN", 3))
+tmt.all4reps.groups <- c(rep("RIL",3), rep("OG",3), rep("6H", 3), rep("DN", 3))
 
-ggbiplot::ggbiplot(tmt.plastid4reps.pca,ellipse=TRUE, circle=TRUE, obs.scale = 1, var.scale = 1,var.axes=FALSE, labels=rownames(tmt.plastid4reps.t), groups=tmt.plastid4reps.groups)
-ggsave("PCA_plastid4_plastidProteins.png")
+ggbiplot::ggbiplot(tmt.all4reps.pca,ellipse=TRUE, circle=TRUE, obs.scale = 1, var.scale = 1,var.axes=FALSE, labels=rownames(tmt.all4reps.t), groups=tmt.all4reps.groups)
+ggsave("PCA_all4_plastidProteins.png")
 ```
 
 
-#Combine plastid 4 for BioVis
+#Combine all 4 for BioVis
 ```{r}
-tmt.plastid4 <- Reduce(function(x,y) merge(x = x, y = y, by = "Accession", plastid=T), 
+tmt.all4 <- Reduce(function(x,y) merge(x = x, y = y, by = "Accession", plastid=T), 
        list(tmt.OG.SL[,c(6,8,26)], tmt.ril.SL[,c(6,8,26)], tmt.6h.SL[,c(6,8,26)], tmt.dn.SL[,c(6,8,26)]))
 
-colnames(tmt.plastid4) <- c("Accession", "OG.Protein", "OG.BM.MP", "RIL.Protein", "RIL.BM.MP", "H6.Protein", "H6.BM.MP", "DN.Protein", "DN.BM.MP")
+colnames(tmt.all4) <- c("Accession", "OG.Protein", "OG.BM.MP", "RIL.Protein", "RIL.BM.MP", "H6.Protein", "H6.BM.MP", "DN.Protein", "DN.BM.MP")
 ```
 ```{r}
-tmt.plastid4$Protein <- dplyr::coalesce(!!!list(tmt.plastid4$RIL.Protein, tmt.plastid4$OG.Protein, tmt.plastid4$H6.Protein, tmt.plastid4$DN.Protein))
+tmt.all4$Protein <- dplyr::coalesce(!!!list(tmt.all4$RIL.Protein, tmt.all4$OG.Protein, tmt.all4$H6.Protein, tmt.all4$DN.Protein))
 ```
 ```{r}
-tmt.plastid4 <- tmt.plastid4[,c(1, 10, 3, 5, 7, 9)]
+tmt.all4 <- tmt.all4[,c(1, 10, 3, 5, 7, 9)]
 ```
 ```{r}
-tmt.plastid4$Gene <- substr(tmt.plastid4$Accession, start = 1, stop = 14)
-tmt.plastid4.entrez <- merge.data.frame(tmt.plastid4, mgdb[,c(1,12)], by.x = "Gene", by.y = "v4_gene_model", plastid.x = T, plastid.y = F)
-tmt.plastid4.entrez <- distinct(tmt.plastid4.entrez)
+tmt.all4$Gene <- substr(tmt.all4$Accession, start = 1, stop = 14)
+tmt.all4.entrez <- merge.data.frame(tmt.all4, mgdb[,c(1,12)], by.x = "Gene", by.y = "v4_gene_model", all.x = T, all.y = F)
+tmt.all4.entrez <- distinct(tmt.all4.entrez)
 ```
 ```{r}
-tmt.plastid4.entrez$Entrez[tmt.plastid4.entrez$Accession=="ZemaCp003.1"] <- "845178"
-tmt.plastid4.entrez$Entrez[tmt.plastid4.entrez$Accession=="ZemaCp004.1"] <- "845232"
-tmt.plastid4.entrez$Entrez[tmt.plastid4.entrez$Accession=="ZemaCp008.1"] <- "845201"
-tmt.plastid4.entrez$Entrez[tmt.plastid4.entrez$Accession=="ZemaCp013.1"] <- "845225"
-tmt.plastid4.entrez$Entrez[tmt.plastid4.entrez$Accession=="ZemaCp014.1"] <- "845226"
-tmt.plastid4.entrez$Entrez[tmt.plastid4.entrez$Accession=="ZemaCp016.1"] <- "845236"
-tmt.plastid4.entrez$Entrez[tmt.plastid4.entrez$Accession=="ZemaCp017.1"] <- "845174"
-tmt.plastid4.entrez$Entrez[tmt.plastid4.entrez$Accession=="ZemaCp018.1"] <- "845173"
-tmt.plastid4.entrez$Entrez[tmt.plastid4.entrez$Accession=="ZemaCp019.1"] <- "845172"
-tmt.plastid4.entrez$Entrez[tmt.plastid4.entrez$Accession=="ZemaCp019.1"] <- "845172"
-tmt.plastid4.entrez$Entrez[tmt.plastid4.entrez$Accession=="ZemaCp021.1"] <- "845229"
-tmt.plastid4.entrez$Entrez[tmt.plastid4.entrez$Accession=="ZemaCp022.1"] <- "845196"
-tmt.plastid4.entrez$Entrez[tmt.plastid4.entrez$Accession=="ZemaCp023.1"] <- "845195"
-tmt.plastid4.entrez$Entrez[tmt.plastid4.entrez$Accession=="ZemaCp024.1"] <- "1466361"
-tmt.plastid4.entrez$Entrez[tmt.plastid4.entrez$Accession=="ZemaCp026.1"] <- "845238"
-tmt.plastid4.entrez$Entrez[tmt.plastid4.entrez$Accession=="ZemaCp027.1"] <- "845189"
-tmt.plastid4.entrez$Entrez[tmt.plastid4.entrez$Accession=="ZemaCp028.1"] <- "845190"
-tmt.plastid4.entrez$Entrez[tmt.plastid4.entrez$Accession=="ZemaCp029.1"] <- "845182"
-tmt.plastid4.entrez$Entrez[tmt.plastid4.entrez$Accession=="ZemaCp030.1"] <- "845171"
-tmt.plastid4.entrez$Entrez[tmt.plastid4.entrez$Accession=="ZemaCp032.1"] <- "845212"
-tmt.plastid4.entrez$Entrez[tmt.plastid4.entrez$Accession=="ZemaCp035.1"] <- "845175"
-tmt.plastid4.entrez$Entrez[tmt.plastid4.entrez$Accession=="ZemaCp036.1"] <- "845191"
-tmt.plastid4.entrez$Entrez[tmt.plastid4.entrez$Accession=="ZemaCp039.1"] <- "845204"
-tmt.plastid4.entrez$Entrez[tmt.plastid4.entrez$Accession=="ZemaCp040.1"] <- "845203"
-tmt.plastid4.entrez$Entrez[tmt.plastid4.entrez$Accession=="ZemaCp043.1"] <- "845198"
-tmt.plastid4.entrez$Entrez[tmt.plastid4.entrez$Accession=="ZemaCp044.1"] <- "845222"
-tmt.plastid4.entrez$Entrez[tmt.plastid4.entrez$Accession=="ZemaCp045.1"] <- "845233"
-tmt.plastid4.entrez$Entrez[tmt.plastid4.entrez$Accession=="ZemaCp046.1"] <- "845217"
-tmt.plastid4.entrez$Entrez[tmt.plastid4.entrez$Accession=="ZemaCp047.1"] <- "845176"
-tmt.plastid4.entrez$Entrez[tmt.plastid4.entrez$Accession=="ZemaCp048.1"] <- "845200"
-tmt.plastid4.entrez$Entrez[tmt.plastid4.entrez$Accession=="ZemaCp050.1"] <- "845211"
-tmt.plastid4.entrez$Entrez[tmt.plastid4.entrez$Accession=="ZemaCp051.1"] <- "845205"
-tmt.plastid4.entrez$Entrez[tmt.plastid4.entrez$Accession=="ZemaCp052.1"] <- "845192"
-tmt.plastid4.entrez$Entrez[tmt.plastid4.entrez$Accession=="ZemaCp053.1"] <- "845193"
-tmt.plastid4.entrez$Entrez[tmt.plastid4.entrez$Accession=="ZemaCp054.1"] <- "845224"
-tmt.plastid4.entrez$Entrez[tmt.plastid4.entrez$Accession=="ZemaCp055.1"] <- "845228"
-tmt.plastid4.entrez$Entrez[tmt.plastid4.entrez$Accession=="ZemaCp056.1"] <- "845223"
-tmt.plastid4.entrez$Entrez[tmt.plastid4.entrez$Accession=="ZemaCp057.1"] <- "845177"
-tmt.plastid4.entrez$Entrez[tmt.plastid4.entrez$Accession=="ZemaCp058.1"] <- "845241"
-tmt.plastid4.entrez$Entrez[tmt.plastid4.entrez$Accession=="ZemaCp059.1"] <- "845213"
-tmt.plastid4.entrez$Entrez[tmt.plastid4.entrez$Accession=="ZemaCp060.1"] <- "845214"
-tmt.plastid4.entrez$Entrez[tmt.plastid4.entrez$Accession=="ZemaCp061.1"] <- "845237"
-tmt.plastid4.entrez$Entrez[tmt.plastid4.entrez$Accession=="ZemaCp062.1"] <- "845218"
-tmt.plastid4.entrez$Entrez[tmt.plastid4.entrez$Accession=="ZemaCp063.1"] <- "845235"
-tmt.plastid4.entrez$Entrez[tmt.plastid4.entrez$Accession=="ZemaCp065.1"] <- "845216"
-tmt.plastid4.entrez$Entrez[tmt.plastid4.entrez$Accession=="ZemaCp067.1"] <- "845220"
-tmt.plastid4.entrez$Entrez[tmt.plastid4.entrez$Accession=="ZemaCp075.1"] <- "845181"
-tmt.plastid4.entrez$Entrez[tmt.plastid4.entrez$Accession=="ZemaCp082.1"] <- "845230"
-tmt.plastid4.entrez$Entrez[tmt.plastid4.entrez$Accession=="ZemaCp083.1"] <- "845185"
-tmt.plastid4.entrez$Entrez[tmt.plastid4.entrez$Accession=="ZemaCp084.1"] <- "845221"
-tmt.plastid4.entrez$Entrez[tmt.plastid4.entrez$Accession=="ZemaCp085.1"] <- "1466378"
-tmt.plastid4.entrez$Entrez[tmt.plastid4.entrez$Accession=="ZemaCp086.1"] <- "845183"
-tmt.plastid4.entrez$Entrez[tmt.plastid4.entrez$Accession=="ZemaCp087.1"] <- "1466379"
-tmt.plastid4.entrez$Entrez[tmt.plastid4.entrez$Accession=="ZemaCp088.1"] <- "845184"
-tmt.plastid4.entrez$Entrez[tmt.plastid4.entrez$Accession=="ZemaCp090.1"] <- "845188"
-tmt.plastid4.entrez$Entrez[tmt.plastid4.entrez$Accession=="ZemaCp091.1"] <- "845179"
-tmt.plastid4.entrez$Entrez[tmt.plastid4.entrez$Accession=="ZemaCp092.1"] <- "845187"
+tmt.all4.entrez$Entrez[tmt.all4.entrez$Accession=="ZemaCp003.1"] <- "845178"
+tmt.all4.entrez$Entrez[tmt.all4.entrez$Accession=="ZemaCp004.1"] <- "845232"
+tmt.all4.entrez$Entrez[tmt.all4.entrez$Accession=="ZemaCp008.1"] <- "845201"
+tmt.all4.entrez$Entrez[tmt.all4.entrez$Accession=="ZemaCp013.1"] <- "845225"
+tmt.all4.entrez$Entrez[tmt.all4.entrez$Accession=="ZemaCp014.1"] <- "845226"
+tmt.all4.entrez$Entrez[tmt.all4.entrez$Accession=="ZemaCp016.1"] <- "845236"
+tmt.all4.entrez$Entrez[tmt.all4.entrez$Accession=="ZemaCp017.1"] <- "845174"
+tmt.all4.entrez$Entrez[tmt.all4.entrez$Accession=="ZemaCp018.1"] <- "845173"
+tmt.all4.entrez$Entrez[tmt.all4.entrez$Accession=="ZemaCp019.1"] <- "845172"
+tmt.all4.entrez$Entrez[tmt.all4.entrez$Accession=="ZemaCp019.1"] <- "845172"
+tmt.all4.entrez$Entrez[tmt.all4.entrez$Accession=="ZemaCp021.1"] <- "845229"
+tmt.all4.entrez$Entrez[tmt.all4.entrez$Accession=="ZemaCp022.1"] <- "845196"
+tmt.all4.entrez$Entrez[tmt.all4.entrez$Accession=="ZemaCp023.1"] <- "845195"
+tmt.all4.entrez$Entrez[tmt.all4.entrez$Accession=="ZemaCp024.1"] <- "1466361"
+tmt.all4.entrez$Entrez[tmt.all4.entrez$Accession=="ZemaCp026.1"] <- "845238"
+tmt.all4.entrez$Entrez[tmt.all4.entrez$Accession=="ZemaCp027.1"] <- "845189"
+tmt.all4.entrez$Entrez[tmt.all4.entrez$Accession=="ZemaCp028.1"] <- "845190"
+tmt.all4.entrez$Entrez[tmt.all4.entrez$Accession=="ZemaCp029.1"] <- "845182"
+tmt.all4.entrez$Entrez[tmt.all4.entrez$Accession=="ZemaCp030.1"] <- "845171"
+tmt.all4.entrez$Entrez[tmt.all4.entrez$Accession=="ZemaCp032.1"] <- "845212"
+tmt.all4.entrez$Entrez[tmt.all4.entrez$Accession=="ZemaCp035.1"] <- "845175"
+tmt.all4.entrez$Entrez[tmt.all4.entrez$Accession=="ZemaCp036.1"] <- "845191"
+tmt.all4.entrez$Entrez[tmt.all4.entrez$Accession=="ZemaCp039.1"] <- "845204"
+tmt.all4.entrez$Entrez[tmt.all4.entrez$Accession=="ZemaCp040.1"] <- "845203"
+tmt.all4.entrez$Entrez[tmt.all4.entrez$Accession=="ZemaCp043.1"] <- "845198"
+tmt.all4.entrez$Entrez[tmt.all4.entrez$Accession=="ZemaCp044.1"] <- "845222"
+tmt.all4.entrez$Entrez[tmt.all4.entrez$Accession=="ZemaCp045.1"] <- "845233"
+tmt.all4.entrez$Entrez[tmt.all4.entrez$Accession=="ZemaCp046.1"] <- "845217"
+tmt.all4.entrez$Entrez[tmt.all4.entrez$Accession=="ZemaCp047.1"] <- "845176"
+tmt.all4.entrez$Entrez[tmt.all4.entrez$Accession=="ZemaCp048.1"] <- "845200"
+tmt.all4.entrez$Entrez[tmt.all4.entrez$Accession=="ZemaCp050.1"] <- "845211"
+tmt.all4.entrez$Entrez[tmt.all4.entrez$Accession=="ZemaCp051.1"] <- "845205"
+tmt.all4.entrez$Entrez[tmt.all4.entrez$Accession=="ZemaCp052.1"] <- "845192"
+tmt.all4.entrez$Entrez[tmt.all4.entrez$Accession=="ZemaCp053.1"] <- "845193"
+tmt.all4.entrez$Entrez[tmt.all4.entrez$Accession=="ZemaCp054.1"] <- "845224"
+tmt.all4.entrez$Entrez[tmt.all4.entrez$Accession=="ZemaCp055.1"] <- "845228"
+tmt.all4.entrez$Entrez[tmt.all4.entrez$Accession=="ZemaCp056.1"] <- "845223"
+tmt.all4.entrez$Entrez[tmt.all4.entrez$Accession=="ZemaCp057.1"] <- "845177"
+tmt.all4.entrez$Entrez[tmt.all4.entrez$Accession=="ZemaCp058.1"] <- "845241"
+tmt.all4.entrez$Entrez[tmt.all4.entrez$Accession=="ZemaCp059.1"] <- "845213"
+tmt.all4.entrez$Entrez[tmt.all4.entrez$Accession=="ZemaCp060.1"] <- "845214"
+tmt.all4.entrez$Entrez[tmt.all4.entrez$Accession=="ZemaCp061.1"] <- "845237"
+tmt.all4.entrez$Entrez[tmt.all4.entrez$Accession=="ZemaCp062.1"] <- "845218"
+tmt.all4.entrez$Entrez[tmt.all4.entrez$Accession=="ZemaCp063.1"] <- "845235"
+tmt.all4.entrez$Entrez[tmt.all4.entrez$Accession=="ZemaCp065.1"] <- "845216"
+tmt.all4.entrez$Entrez[tmt.all4.entrez$Accession=="ZemaCp067.1"] <- "845220"
+tmt.all4.entrez$Entrez[tmt.all4.entrez$Accession=="ZemaCp075.1"] <- "845181"
+tmt.all4.entrez$Entrez[tmt.all4.entrez$Accession=="ZemaCp082.1"] <- "845230"
+tmt.all4.entrez$Entrez[tmt.all4.entrez$Accession=="ZemaCp083.1"] <- "845185"
+tmt.all4.entrez$Entrez[tmt.all4.entrez$Accession=="ZemaCp084.1"] <- "845221"
+tmt.all4.entrez$Entrez[tmt.all4.entrez$Accession=="ZemaCp085.1"] <- "1466378"
+tmt.all4.entrez$Entrez[tmt.all4.entrez$Accession=="ZemaCp086.1"] <- "845183"
+tmt.all4.entrez$Entrez[tmt.all4.entrez$Accession=="ZemaCp087.1"] <- "1466379"
+tmt.all4.entrez$Entrez[tmt.all4.entrez$Accession=="ZemaCp088.1"] <- "845184"
+tmt.all4.entrez$Entrez[tmt.all4.entrez$Accession=="ZemaCp090.1"] <- "845188"
+tmt.all4.entrez$Entrez[tmt.all4.entrez$Accession=="ZemaCp091.1"] <- "845179"
+tmt.all4.entrez$Entrez[tmt.all4.entrez$Accession=="ZemaCp092.1"] <- "845187"
 
-tmt.plastid4.entrez$Entrez[tmt.plastid4.entrez$Accession=="ZeamMp008.1"] <- "4055864"
-tmt.plastid4.entrez$Entrez[tmt.plastid4.entrez$Accession=="ZeamMp024.1"] <- "4055860"
-tmt.plastid4.entrez$Entrez[tmt.plastid4.entrez$Accession=="ZeamMp032.1"] <- "4055888"
-tmt.plastid4.entrez$Entrez[tmt.plastid4.entrez$Accession=="ZeamMp033.1"] <- "4055938"
-tmt.plastid4.entrez$Entrez[tmt.plastid4.entrez$Accession=="ZeamMp036.1"] <- "4055894"
-tmt.plastid4.entrez$Entrez[tmt.plastid4.entrez$Accession=="ZeamMp050.1"] <- "4055956"
-tmt.plastid4.entrez$Entrez[tmt.plastid4.entrez$Accession=="ZeamMp051.1"] <- "4055881"
-tmt.plastid4.entrez$Entrez[tmt.plastid4.entrez$Accession=="ZeamMp057.1"] <- "4055973"
-tmt.plastid4.entrez$Entrez[tmt.plastid4.entrez$Accession=="ZeamMp081.1"] <- "4055890"
-tmt.plastid4.entrez$Entrez[tmt.plastid4.entrez$Accession=="ZeamMp092.1"] <- "4055837"
-tmt.plastid4.entrez$Entrez[tmt.plastid4.entrez$Accession=="ZeamMp097.1"] <- "4055857"
-tmt.plastid4.entrez$Entrez[tmt.plastid4.entrez$Accession=="ZeamMp098.1"] <- "4055896"
-tmt.plastid4.entrez$Entrez[tmt.plastid4.entrez$Accession=="ZeamMp113.1"] <- "4055802"
-tmt.plastid4.entrez$Entrez[tmt.plastid4.entrez$Accession=="ZeamMp119.1"] <- "4055928"
-tmt.plastid4.entrez$Entrez[tmt.plastid4.entrez$Accession=="ZeamMp129.1"] <- "4055878"
-tmt.plastid4.entrez$Entrez[tmt.plastid4.entrez$Accession=="ZeamMp136.1"] <- "4056004"
-tmt.plastid4.entrez$Entrez[tmt.plastid4.entrez$Accession=="ZeamMp159.1"] <- "4055794"
-tmt.plastid4.entrez$Entrez[tmt.plastid4.entrez$Accession=="ZeamMp167.1"] <- "4056007"
-tmt.plastid4.entrez$Entrez[tmt.plastid4.entrez$Accession=="ZeamMp179.1"] <- "4056006"
-tmt.plastid4.entrez$Entrez[tmt.plastid4.entrez$Accession=="ZeamMp185.1"] <- "4055892"
+tmt.all4.entrez$Entrez[tmt.all4.entrez$Accession=="ZeamMp008.1"] <- "4055864"
+tmt.all4.entrez$Entrez[tmt.all4.entrez$Accession=="ZeamMp024.1"] <- "4055860"
+tmt.all4.entrez$Entrez[tmt.all4.entrez$Accession=="ZeamMp032.1"] <- "4055888"
+tmt.all4.entrez$Entrez[tmt.all4.entrez$Accession=="ZeamMp033.1"] <- "4055938"
+tmt.all4.entrez$Entrez[tmt.all4.entrez$Accession=="ZeamMp036.1"] <- "4055894"
+tmt.all4.entrez$Entrez[tmt.all4.entrez$Accession=="ZeamMp050.1"] <- "4055956"
+tmt.all4.entrez$Entrez[tmt.all4.entrez$Accession=="ZeamMp051.1"] <- "4055881"
+tmt.all4.entrez$Entrez[tmt.all4.entrez$Accession=="ZeamMp057.1"] <- "4055973"
+tmt.all4.entrez$Entrez[tmt.all4.entrez$Accession=="ZeamMp081.1"] <- "4055890"
+tmt.all4.entrez$Entrez[tmt.all4.entrez$Accession=="ZeamMp092.1"] <- "4055837"
+tmt.all4.entrez$Entrez[tmt.all4.entrez$Accession=="ZeamMp097.1"] <- "4055857"
+tmt.all4.entrez$Entrez[tmt.all4.entrez$Accession=="ZeamMp098.1"] <- "4055896"
+tmt.all4.entrez$Entrez[tmt.all4.entrez$Accession=="ZeamMp113.1"] <- "4055802"
+tmt.all4.entrez$Entrez[tmt.all4.entrez$Accession=="ZeamMp119.1"] <- "4055928"
+tmt.all4.entrez$Entrez[tmt.all4.entrez$Accession=="ZeamMp129.1"] <- "4055878"
+tmt.all4.entrez$Entrez[tmt.all4.entrez$Accession=="ZeamMp136.1"] <- "4056004"
+tmt.all4.entrez$Entrez[tmt.all4.entrez$Accession=="ZeamMp159.1"] <- "4055794"
+tmt.all4.entrez$Entrez[tmt.all4.entrez$Accession=="ZeamMp167.1"] <- "4056007"
+tmt.all4.entrez$Entrez[tmt.all4.entrez$Accession=="ZeamMp179.1"] <- "4056006"
+tmt.all4.entrez$Entrez[tmt.all4.entrez$Accession=="ZeamMp185.1"] <- "4055892"
 ```
 ```{r}
-saveRDS(tmt.plastid4.entrez, "tmt.plastid4.entrez")
+saveRDS(tmt.all4.entrez, "tmt.all4.entrez")
 ```
 ```{r}
-tmt.plastid4.entrez <- readRDS("tmt.plastid4.entrez")
+tmt.all4.entrez <- readRDS("tmt.all4.entrez")
 ```
 ##amp/bmp
 ```{r}
-tmt.plastid4.entrez.trim <- tmt.plastid4.entrez[!duplicated(tmt.plastid4.entrez$Entrez),]
-tmt.plastid4.entrez.trim <- na.omit(tmt.plastid4.entrez.trim)
-tmt.plastid4.entrez.trim <- tmt.plastid4.entrez.trim[!tmt.plastid4.entrez.trim$Entrez=="",]
+tmt.all4.entrez.trim <- tmt.all4.entrez[!duplicated(tmt.all4.entrez$Entrez),]
+tmt.all4.entrez.trim <- na.omit(tmt.all4.entrez.trim)
+tmt.all4.entrez.trim <- tmt.all4.entrez.trim[!tmt.all4.entrez.trim$Entrez=="",]
 
-tmt.plastid4.entrez.trim$Avg.BM.MP <- rowMeans(tmt.plastid4.entrez.trim[,4:7])
-tmt.plastid4.entrez.trim$l2.Avg.BM.MP <- log2(tmt.plastid4.entrez.trim$Avg.BM.MP)
+tmt.all4.entrez.trim$Avg.BM.MP <- rowMeans(tmt.all4.entrez.trim[,4:7])
+tmt.all4.entrez.trim$l2.Avg.BM.MP <- log2(tmt.all4.entrez.trim$Avg.BM.MP)
 
-tmt.plastid4.entrez.trim.pos <- tmt.plastid4.entrez.trim[(tmt.plastid4.entrez.trim$l2.Avg.BM.MP>0),]
+tmt.all4.entrez.trim.pos <- tmt.all4.entrez.trim[(tmt.all4.entrez.trim$l2.Avg.BM.MP>0),]
 
-tmt.plastid4.entrez.trim.neg <- tmt.plastid4.entrez.trim[(tmt.plastid4.entrez.trim$l2.Avg.BM.MP<0),]
-tmt.plastid4.entrez.trim.neg$l2.Avg.BM.MP <- 0-tmt.plastid4.entrez.trim.neg$l2.Avg.BM.MP
+tmt.all4.entrez.trim.neg <- tmt.all4.entrez.trim[(tmt.all4.entrez.trim$l2.Avg.BM.MP<0),]
+tmt.all4.entrez.trim.neg$l2.Avg.BM.MP <- 0-tmt.all4.entrez.trim.neg$l2.Avg.BM.MP
 
-tmt.plastid4.entrez.trim.amp <- tmt.plastid4.entrez.trim[(tmt.plastid4.entrez.trim$RIL.BM.MP>1.05 & tmt.plastid4.entrez.trim$OG.BM.MP>1.05 & tmt.plastid4.entrez.trim$H6.BM.MP>1.05 & tmt.plastid4.entrez.trim$DN.BM.MP>1.05),]
+tmt.all4.entrez.trim.amp <- tmt.all4.entrez.trim[(tmt.all4.entrez.trim$RIL.BM.MP>1.05 & tmt.all4.entrez.trim$OG.BM.MP>1.05 & tmt.all4.entrez.trim$H6.BM.MP>1.05 & tmt.all4.entrez.trim$DN.BM.MP>1.05),]
 
-tmt.plastid4.entrez.trim.bmp <- tmt.plastid4.entrez.trim[(tmt.plastid4.entrez.trim$RIL.BM.MP<0.95 & tmt.plastid4.entrez.trim$OG.BM.MP<0.95 & tmt.plastid4.entrez.trim$H6.BM.MP<0.95 & tmt.plastid4.entrez.trim$DN.BM.MP<0.95),]
-tmt.plastid4.entrez.trim.bmp$l2.Avg.BM.MP <- 0-tmt.plastid4.entrez.trim.bmp$l2.Avg.BM.MP
+tmt.all4.entrez.trim.bmp <- tmt.all4.entrez.trim[(tmt.all4.entrez.trim$RIL.BM.MP<0.95 & tmt.all4.entrez.trim$OG.BM.MP<0.95 & tmt.all4.entrez.trim$H6.BM.MP<0.95 & tmt.all4.entrez.trim$DN.BM.MP<0.95),]
+tmt.all4.entrez.trim.bmp$l2.Avg.BM.MP <- 0-tmt.all4.entrez.trim.bmp$l2.Avg.BM.MP
 ```
 
 
 ```{r}
-readr::write_tsv(tmt.plastid4.entrez.trim.pos[,c(8,10)], "tmt.plastid4.entrez.trim.pos.tsv", col_names = F)
-readr::write_tsv(tmt.plastid4.entrez.trim.neg[,c(8,10)], "tmt.plastid4.entrez.trim.neg.tsv", col_names = F)
-readr::write_tsv(tmt.plastid4.entrez.trim.amp[,c(8,10)], "tmt.plastid4.entrez.trim.amp.tsv", col_names = F)
-readr::write_tsv(tmt.plastid4.entrez.trim.bmp[,c(8,10)], "tmt.plastid4.entrez.trim.bmp.tsv", col_names = F)
+readr::write_tsv(tmt.all4.entrez.trim.pos[,c(8,10)], "tmt.all4.entrez.trim.pos.tsv", col_names = F)
+readr::write_tsv(tmt.all4.entrez.trim.neg[,c(8,10)], "tmt.all4.entrez.trim.neg.tsv", col_names = F)
+readr::write_tsv(tmt.all4.entrez.trim.amp[,c(8,10)], "tmt.all4.entrez.trim.amp.tsv", col_names = F)
+readr::write_tsv(tmt.all4.entrez.trim.bmp[,c(8,10)], "tmt.all4.entrez.trim.bmp.tsv", col_names = F)
 ```
 
 
@@ -2997,7 +2844,7 @@ cpm.OG.SL.lims1.plastid.scat <- ggplot(cpm.OG.SL.lims1.plastid, mapping=aes(x=l2
       q <- insert_yaxis_grob(q, densityplotY, grid::unit(0.275, "null"), position = "right")
     #save
      # ggsave(plot=q, filename = "cpm.OG.SL.lims1.plastid.scat.png")
-  ggsave(plot=q, filename = "cpm.OG.SL.lims1.plastid.scat.pdf",  dpi=300, width=4.75, height = 5, scale = 1, units = "in")
+  ggsave(plot=q, filename = "Plots/Plastid/RNA/cpm.OG.SL.lims1.plastid.scat.pdf",  dpi=300, width=4.75, height = 5, scale = 1, units = "in")
 ```
 
 
@@ -3059,11 +2906,8 @@ cpm.OG.SL.lims1.mito.scat <- ggplot(cpm.OG.SL.lims1.mito, mapping=aes(x=l2.BM.MP
       q <- insert_yaxis_grob(q, densityplotY, grid::unit(0.275, "null"), position = "right")
     #save
     #  ggsave(plot=q, filename = "cpm.OG.SL.lims1.mito.scat.png")
-  ggsave(plot=q, filename = "cpm.OG.SL.lims1.mito.scat.pdf", dpi=300, width=4.75, height = 5, scale = 1, units = "in")
+  ggsave(plot=q, filename = "Plots/Mitochondria/RNA/cpm.OG.SL.lims1.mito.scat.pdf", dpi=300, width=4.75, height = 5, scale = 1, units = "in")
 ```
-
-
-
 
 ##6H
 ###Setup data
@@ -3100,10 +2944,6 @@ cpm.6h.SL$l2.B73.Mo17 <- log2(cpm.6h.SL$B73/cpm.6h.SL$Mo17)
 ###Scatterplots
 ####Scatterplot - plastid
 #####Set limits
-```{r}
-colnames(cpm.6h.SL)
-```
-
 ```{r}
 cpm.6h.SL.lims1 <- cpm.6h.SL
 cpm.6h.SL.lims1[,c(5:6)][cpm.6h.SL.lims1[,c(5:6)] <= -1.0] <- -1.0
@@ -3174,7 +3014,7 @@ cpm.6h.SL.lims1.plastid.scat <- ggplot(cpm.6h.SL.lims1.plastid, mapping=aes(x=l2
       q <- insert_yaxis_grob(q, densityplotY, grid::unit(0.275, "null"), position = "right")
     #save
      # ggsave(plot=q, filename = "cpm.6h.SL.lims1.plastid.scat.png")
-  ggsave(plot=q, filename = "cpm.6h.SL.lims1.plastid.scat.pdf",  dpi=300, width=4.75, height = 5, scale = 1, units = "in")
+  ggsave(plot=q, filename = "Plots/Plastid/RNA/cpm.6h.SL.lims1.plastid.scat.pdf",  dpi=300, width=4.75, height = 5, scale = 1, units = "in")
 ```
 ####Scatterplot - Mitochondria
 #####Set GOIs
@@ -3234,17 +3074,8 @@ cpm.6h.SL.lims1.mito.scat <- ggplot(cpm.6h.SL.lims1.mito, mapping=aes(x=l2.BM.MP
       q <- insert_yaxis_grob(q, densityplotY, grid::unit(0.275, "null"), position = "right")
     #save
     #  ggsave(plot=q, filename = "cpm.6h.SL.lims1.mito.scat.png")
-  ggsave(plot=q, filename = "cpm.6h.SL.lims1.mito.scat.pdf", dpi=300, width=4.75, height = 5, scale = 1, units = "in")
+  ggsave(plot=q, filename = "Plots/Mitochondria/RNA/cpm.6h.SL.lims1.mito.scat.pdf", dpi=300, width=4.75, height = 5, scale = 1, units = "in")
 ```
-
-
-
-
-
-
-
-
-
 ##RIL
 ###Setup data
 ```{r}
@@ -3311,10 +3142,6 @@ cpm.ril.SL$l2.M0317.Mo17 <- log2(cpm.ril.SL$M0317/cpm.ril.SL$Mo17)
 ###Scatterplots
 ####Scatterplot - plastid
 #####Set limits
-```{r}
-colnames(cpm.ril.SL)
-```
-
 ```{r}
 cpm.ril.SL.lims1 <- cpm.ril.SL
 cpm.ril.SL.lims1[,c(17:34)][cpm.ril.SL.lims1[,c(17:34)] <= -1.0] <- -1.0
@@ -3385,7 +3212,7 @@ cpm.ril.SL.lims1.plastid.scat <- ggplot(cpm.ril.SL.lims1.plastid, mapping=aes(x=
       q <- insert_yaxis_grob(q, densityplotY, grid::unit(0.275, "null"), position = "right")
     #save
      # ggsave(plot=q, filename = "cpm.ril.SL.lims1.plastid.scat.png")
-  ggsave(plot=q, filename = "cpm.ril.SL.lims1.plastid.scat.pdf",  dpi=300, width=4.75, height = 5, scale = 1, units = "in")
+  ggsave(plot=q, filename = "Plots/Plastid/RNA/cpm.ril.SL.lims1.plastid.scat.pdf",  dpi=300, width=4.75, height = 5, scale = 1, units = "in")
 ```
 ####Scatterplot - Mitochondria
 #####Set GOIs
@@ -3445,7 +3272,7 @@ cpm.ril.SL.lims1.mito.scat <- ggplot(cpm.ril.SL.lims1.mito, mapping=aes(x=l2.BM.
       q <- insert_yaxis_grob(q, densityplotY, grid::unit(0.275, "null"), position = "right")
     #save
     #  ggsave(plot=q, filename = "cpm.ril.SL.lims1.mito.scat.png")
-  ggsave(plot=q, filename = "cpm.ril.SL.lims1.mito.scat.pdf", dpi=300, width=4.75, height = 5, scale = 1, units = "in")
+  ggsave(plot=q, filename = "Plots/Mitochondria/RNA/cpm.ril.SL.lims1.mito.scat.pdf", dpi=300, width=4.75, height = 5, scale = 1, units = "in")
 ```
 
 
