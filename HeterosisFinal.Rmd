@@ -9,19 +9,16 @@ set.seed(586)
 ```
 ```{r libraries}
 library(matrixStats)
-library(topGO)
 library(ggplot2)
-library(AnnotationDbi)
 library(cowplot)
 library(dplyr)
-library(gage)
 library(datapasta)
 library(tibble)
-library(RColorBrewer)
-library(gganimate)
-library(pathview)
-library(GO.db)
 library(tidyr)
+library(readr)
+library(gage)
+library(data.table)
+library(grid)
 ```
 
 #Import data
@@ -403,43 +400,31 @@ KEGG.zma00195.tib <-tibble::tribble(
 ```
 ```{r}
 KEGG.zma00195.entrez <- as.character(KEGG.zma00195.tib$V1)
-```
-```{r}
 KEGG.zma00195.v4 <- mgdb$v4_gene_model[mgdb$Entrez%in%KEGG.zma00195.entrez]
 ```
 ####KEGG - PSI
 ```{r}
 KEGG.zma00195.PSI.entrez <- KEGG.zma00195.entrez[38:57]
-```
-```{r}
 KEGG.zma00195.PSI.v4 <- mgdb$v4_gene_model[mgdb$Entrez%in%KEGG.zma00195.PSI.entrez]
 ```
 ####KEGG - PSII
 ```{r}
 KEGG.zma00195.PSII.entrez <- KEGG.zma00195.entrez[1:37]
-```
-```{r}
 KEGG.zma00195.PSII.v4 <- mgdb$v4_gene_model[mgdb$Entrez%in%KEGG.zma00195.PSII.entrez]
 ```
 ####KEGG - Cytochrome b6f
 ```{r}
 KEGG.zma00195.b6f.entrez <- KEGG.zma00195.entrez[58:65]
-```
-```{r}
 KEGG.zma00195.b6f.v4 <- mgdb$v4_gene_model[mgdb$Entrez%in%KEGG.zma00195.b6f.entrez]
 ```
 ####KEGG - ATPase
 ```{r}
 KEGG.zma00195.ATPase.entrez <- KEGG.zma00195.entrez[86:98]
-```
-```{r}
 KEGG.zma00195.ATPase.v4 <- mgdb$v4_gene_model[mgdb$Entrez%in%KEGG.zma00195.ATPase.entrez]
 ```
 ####KEGG - Electron Transport Chain
 ```{r}
 KEGG.zma00195.ETC.entrez <- KEGG.zma00195.entrez[66:85]
-```
-```{r}
 KEGG.zma00195.ETC.v4 <- mgdb$v4_gene_model[mgdb$Entrez%in%KEGG.zma00195.ETC.entrez]
 ```
 ###KEGG - zma00196
@@ -484,14 +469,10 @@ KEGG.zma00196.entrez <- as.character(KEGG.zma00196.tib$V1)
 ```
 ```{r}
 KEGG.zma00196.LHCI.entrez <- KEGG.zma00196.entrez[1:10]
-```
-```{r}
 KEGG.zma00196.LHCI.v4 <- mgdb$v4_gene_model[mgdb$Entrez%in%KEGG.zma00196.LHCI.entrez]
 ```
 ```{r}
 KEGG.zma00196.LHCII.entrez <- KEGG.zma00196.entrez[11:29]
-```
-```{r}
 KEGG.zma00196.LHCII.v4 <- mgdb$v4_gene_model[mgdb$Entrez%in%KEGG.zma00196.LHCII.entrez]
 ```
 
@@ -613,8 +594,6 @@ KEGG.zma00710.tib <- tibble::tribble(
 ```
 ```{r}
 KEGG.zma00710.entrez <- as.character(KEGG.zma00710.tib$V1)
-```
-```{r}
 KEGG.zma00710.v4 <- mgdb$v4_gene_model[mgdb$Entrez%in%KEGG.zma00710.entrez]
 ```
 
@@ -672,19 +651,16 @@ CornCycLightRxns <- tibble::tribble(
 ```
 ```{r}
 CornCycLightRxns.PSI <- CornCycLightRxns$Gene.Accession[CornCycLightRxns$Reaction.EC=="1.97.1.12"]
-
 CornCycLightRxns.PSI <- substr(CornCycLightRxns.PSI, start = 1, stop = 14)
 ```
 
 ```{r}
 CornCycLightRxns.PSII <- CornCycLightRxns$Gene.Accession[CornCycLightRxns$Reaction.EC=="1.10.3.9"]
-
 CornCycLightRxns.PSII <- substr(CornCycLightRxns.PSII, start = 1, stop = 14)
 ```
 
 ```{r}
 CornCycLightRxns.ETC <- CornCycLightRxns$Gene.Accession[CornCycLightRxns$Reaction.EC=="1.18.1.2"]
-
 CornCycLightRxns.ETC <- substr(CornCycLightRxns.ETC, start = 1, stop = 14)
 ```
 
@@ -908,12 +884,8 @@ colnames(friso) <- as.character(friso[1,])
 friso <- friso[-1,]
 friso <- friso[friso$`best gene model (selected)`=="yes",]
 friso$Gene <- substr(friso$Accession, start = 1, stop = 13)
-```
-```{r}
 #convert to v4 accessions
 friso <- merge.data.frame(friso, mgdb[,c(1,11)], by.x = "Gene", by.y = "v3_gene_model")
-```
-```{r}
 friso.v4 <- friso$v4_gene_model
 ```
 
@@ -944,7 +916,7 @@ Pt <- Pt$Gene
 ```{r}
 #Taken from Pulido et al. 2018
 CRASS <- data.frame("At.acc"= c("AT5G51545", "AT3G60370", "AT1G11430", "AT2G44650", "AT3G08920", "AT3G14110", "AT3G08740", "AT5G546000", "AT5G65220", "AT4G24770", "AT2G33800", "AT5G30510", "AT2G33450", "AT5G47190", "AT1G29070", "AT3G25920", "AT5G13510", "AT1G64510", "AT1G48350", "AT3G15190", "AT1G05190", "AT3G52150", "AT2G43030", "AT1G75350", "AT3G54210", "AT5G14320", "AT1G78630", "AT4G01310", "AT4G17560", "AT1G32990", "AT1G35680"), "At.names"= c("LPA2", "FKBPL", "MORF9", "CPN10", "Rhodanese", "FLU", "EF-P", "PRPL24", "PRPL29", "RBP31", "PRPS5", "PRPS1", "PRPL28", "PRPL19", "PRPL34", "PRPL15", "PRPL10", "PRPS6", "PRPL18", "PRPS20", "PRPL6", "PSRP2", "PRPL3", "PRPL31", "PRPL17", "PRPS13", "PRPL13", "PRPL5", "PRPL19", "PRPL11", "PRPL21"))
-
+#Convert to v4
 CRASS <- merge.data.frame(CRASS, mgdb[,c(1,17)], by.x = "At.acc", by.y = "arabidopsis_ortholog", all.x = T, all.y = F)
 ```
 ```{r}
@@ -1187,8 +1159,6 @@ KEGG.OxPhos.Tib <- tibble::tribble(
 ```
 ```{r}
 KEGG.OxPhos.entrez <- as.character(KEGG.OxPhos.Tib$V1)
-```
-```{r}
 KEGG.OxPhos.v4 <- mgdb$v4_gene_model[mgdb$Entrez%in%KEGG.OxPhos.entrez]
 ```
 ####CornCyc
@@ -1499,13 +1469,13 @@ tmt.GOI <- tmt.GOI[order(tmt.GOI$Order),]
 ```
 ```{r}
 #Add column for CornCyc Pathways
-cornCycAll <- readr::read_tsv("All_instances_of_Genes_in_Zea_mays_mays (1).txt")
+cornCycAll <- read_tsv("All_instances_of_Genes_in_Zea_mays_mays (1).txt")
 tmt.GOI <- merge.data.frame(tmt.GOI, cornCycAll, by.x = "Gene", by.y = "Genes", all.x = T)
 colnames(tmt.GOI)[7] <- "CornCycPathways"
 ```
 ```{r}
 #Add column for KEGG pathways
-kegg <- gage::kegg.gsets(species = "zma")
+kegg <- kegg.gsets(species = "zma")
 kegg.df <- as.data.frame(unlist(kegg$kg.sets))
 colnames(kegg.df) <- "Entrez"
 kegg.df$Pathway <- rownames(kegg.df)
@@ -1606,7 +1576,7 @@ colnames(tmt.GOI)[9] <- "KeggPathway"
 
 ```{r}
 #Convert duplicated rows into multiple columns for each pathway
-tmt.GOI.w <- data.table::dcast(setDT(tmt.GOI), Accession~rowid(Accession, prefix="KeggPathway"), value.var="KeggPathway")
+tmt.GOI.w <- dcast(setDT(tmt.GOI), Accession~rowid(Accession, prefix="KeggPathway"), value.var="KeggPathway")
 
 tmt.GOI <- merge.data.frame(tmt.GOI[,1:8], tmt.GOI.w, by.x = "Accession", by.y = "Accession")
 tmt.GOI <- distinct(tmt.GOI)
@@ -1677,7 +1647,6 @@ tmt.OG.SL.lims1.plastid.scat <- ggplot(tmt.OG.SL.lims1.plastid, mapping=aes(x=l2
     xlab("log2 BxM/MP")+
     ylab("log2 B73/Mo17")+
     coord_fixed(expand = F)
-tmt.OG.SL.lims1.plastid.scat
 ```
 ####Add density curves
 ```{r}
@@ -2561,49 +2530,7 @@ tmt.ril.acs.SL.lims1.et.scat <- ggplot(tmt.ril.acs.SL.lims1.et, mapping=aes(x=l2
 ```
 
 
-#PCA
-```{r}
-tmt.OG.SL.reps <- tmt.OG.SL
-tmt.OG.SL.reps$OG.BM.MP.1 <- tmt.OG.SL.reps$SeedlingLeaf.BM.r1/tmt.OG.SL.reps$MP.1
-tmt.OG.SL.reps$OG.BM.MP.2 <- tmt.OG.SL.reps$SeedlingLeaf.BM.r2/tmt.OG.SL.reps$MP.2
-tmt.OG.SL.reps$OG.BM.MP.3 <- tmt.OG.SL.reps$SeedlingLeaf.BM.r3/tmt.OG.SL.reps$MP.3
-
-tmt.6h.SL.reps <- tmt.6h.SL
-tmt.6h.SL.reps$H6.BM.MP.1 <- tmt.6h.SL.reps$X6Hybrid.B73xMo17.r1/tmt.6h.SL.reps$MP.1
-tmt.6h.SL.reps$H6.BM.MP.2 <- tmt.6h.SL.reps$X6Hybrid.B73xMo17.r2/tmt.6h.SL.reps$MP.2
-tmt.6h.SL.reps$H6.BM.MP.3 <- tmt.6h.SL.reps$X6Hybrid.B73xMo17.r3/tmt.6h.SL.reps$MP.3
-
-tmt.dn.SL.reps <- tmt.dn.SL
-tmt.dn.SL.reps$DN.BM.MP.1 <- tmt.dn.SL.reps$Day.BM.r1/tmt.dn.SL.reps$MP.1
-tmt.dn.SL.reps$DN.BM.MP.2 <- tmt.dn.SL.reps$Day.BM.r2/tmt.dn.SL.reps$MP.2
-tmt.dn.SL.reps$DN.BM.MP.3 <- tmt.dn.SL.reps$Day.BM.r3/tmt.dn.SL.reps$MP.3
-
-tmt.ril.SL.reps <- tmt.ril.SL
-tmt.ril.SL.reps$ril.BM.MP.1 <- tmt.ril.SL.reps$BM.1/tmt.ril.SL.reps$MP.1
-tmt.ril.SL.reps$ril.BM.MP.2 <- tmt.ril.SL.reps$BM.3/tmt.ril.SL.reps$MP.2
-tmt.ril.SL.reps$ril.BM.MP.3 <- tmt.ril.SL.reps$BM.4/tmt.ril.SL.reps$MP.3
-```
-```{r}
-tmt.all4reps <- Reduce(function(x,y) merge(x = x, y = y, by = "Accession"), 
-       list(tmt.ril.SL.reps[,c(6,31:33)], tmt.OG.SL.reps[,c(6,31:33)], tmt.6h.SL.reps[,c(6,31:33)], tmt.dn.SL.reps[,c(6,31:33)]))
-
-rownames(tmt.all4reps) <- tmt.all4reps$Accession
-tmt.all4reps <- tmt.all4reps[,-1]
-
-tmt.all4reps <- na.omit(tmt.all4reps)
-
-tmt.all4reps.t <- as.data.frame(t(tmt.all4reps))
-
-tmt.all4reps.pca <- prcomp(tmt.all4reps.t, center = TRUE,scale. = TRUE)
-
-tmt.all4reps.groups <- c(rep("RIL",3), rep("OG",3), rep("6H", 3), rep("DN", 3))
-
-ggbiplot::ggbiplot(tmt.all4reps.pca,ellipse=TRUE, circle=TRUE, obs.scale = 1, var.scale = 1,var.axes=FALSE, labels=rownames(tmt.all4reps.t), groups=tmt.all4reps.groups)
-ggsave("PCA_all4_plastidProteins.png")
-```
-
-
-#Combine all 4 for BioVis
+#AMP/BMP
 ```{r}
 tmt.all4 <- Reduce(function(x,y) merge(x = x, y = y, by = "Accession", plastid=T), 
        list(tmt.OG.SL[,c(6,8,26)], tmt.ril.SL[,c(6,8,26)], tmt.6h.SL[,c(6,8,26)], tmt.dn.SL[,c(6,8,26)]))
@@ -2612,129 +2539,23 @@ colnames(tmt.all4) <- c("Accession", "OG.Protein", "OG.BM.MP", "RIL.Protein", "R
 ```
 ```{r}
 tmt.all4$Protein <- dplyr::coalesce(!!!list(tmt.all4$RIL.Protein, tmt.all4$OG.Protein, tmt.all4$H6.Protein, tmt.all4$DN.Protein))
-```
-```{r}
+
 tmt.all4 <- tmt.all4[,c(1, 10, 3, 5, 7, 9)]
-```
-```{r}
+
 tmt.all4$Gene <- substr(tmt.all4$Accession, start = 1, stop = 14)
-tmt.all4.entrez <- merge.data.frame(tmt.all4, mgdb[,c(1,12)], by.x = "Gene", by.y = "v4_gene_model", all.x = T, all.y = F)
-tmt.all4.entrez <- distinct(tmt.all4.entrez)
 ```
 ```{r}
-tmt.all4.entrez$Entrez[tmt.all4.entrez$Accession=="ZemaCp003.1"] <- "845178"
-tmt.all4.entrez$Entrez[tmt.all4.entrez$Accession=="ZemaCp004.1"] <- "845232"
-tmt.all4.entrez$Entrez[tmt.all4.entrez$Accession=="ZemaCp008.1"] <- "845201"
-tmt.all4.entrez$Entrez[tmt.all4.entrez$Accession=="ZemaCp013.1"] <- "845225"
-tmt.all4.entrez$Entrez[tmt.all4.entrez$Accession=="ZemaCp014.1"] <- "845226"
-tmt.all4.entrez$Entrez[tmt.all4.entrez$Accession=="ZemaCp016.1"] <- "845236"
-tmt.all4.entrez$Entrez[tmt.all4.entrez$Accession=="ZemaCp017.1"] <- "845174"
-tmt.all4.entrez$Entrez[tmt.all4.entrez$Accession=="ZemaCp018.1"] <- "845173"
-tmt.all4.entrez$Entrez[tmt.all4.entrez$Accession=="ZemaCp019.1"] <- "845172"
-tmt.all4.entrez$Entrez[tmt.all4.entrez$Accession=="ZemaCp019.1"] <- "845172"
-tmt.all4.entrez$Entrez[tmt.all4.entrez$Accession=="ZemaCp021.1"] <- "845229"
-tmt.all4.entrez$Entrez[tmt.all4.entrez$Accession=="ZemaCp022.1"] <- "845196"
-tmt.all4.entrez$Entrez[tmt.all4.entrez$Accession=="ZemaCp023.1"] <- "845195"
-tmt.all4.entrez$Entrez[tmt.all4.entrez$Accession=="ZemaCp024.1"] <- "1466361"
-tmt.all4.entrez$Entrez[tmt.all4.entrez$Accession=="ZemaCp026.1"] <- "845238"
-tmt.all4.entrez$Entrez[tmt.all4.entrez$Accession=="ZemaCp027.1"] <- "845189"
-tmt.all4.entrez$Entrez[tmt.all4.entrez$Accession=="ZemaCp028.1"] <- "845190"
-tmt.all4.entrez$Entrez[tmt.all4.entrez$Accession=="ZemaCp029.1"] <- "845182"
-tmt.all4.entrez$Entrez[tmt.all4.entrez$Accession=="ZemaCp030.1"] <- "845171"
-tmt.all4.entrez$Entrez[tmt.all4.entrez$Accession=="ZemaCp032.1"] <- "845212"
-tmt.all4.entrez$Entrez[tmt.all4.entrez$Accession=="ZemaCp035.1"] <- "845175"
-tmt.all4.entrez$Entrez[tmt.all4.entrez$Accession=="ZemaCp036.1"] <- "845191"
-tmt.all4.entrez$Entrez[tmt.all4.entrez$Accession=="ZemaCp039.1"] <- "845204"
-tmt.all4.entrez$Entrez[tmt.all4.entrez$Accession=="ZemaCp040.1"] <- "845203"
-tmt.all4.entrez$Entrez[tmt.all4.entrez$Accession=="ZemaCp043.1"] <- "845198"
-tmt.all4.entrez$Entrez[tmt.all4.entrez$Accession=="ZemaCp044.1"] <- "845222"
-tmt.all4.entrez$Entrez[tmt.all4.entrez$Accession=="ZemaCp045.1"] <- "845233"
-tmt.all4.entrez$Entrez[tmt.all4.entrez$Accession=="ZemaCp046.1"] <- "845217"
-tmt.all4.entrez$Entrez[tmt.all4.entrez$Accession=="ZemaCp047.1"] <- "845176"
-tmt.all4.entrez$Entrez[tmt.all4.entrez$Accession=="ZemaCp048.1"] <- "845200"
-tmt.all4.entrez$Entrez[tmt.all4.entrez$Accession=="ZemaCp050.1"] <- "845211"
-tmt.all4.entrez$Entrez[tmt.all4.entrez$Accession=="ZemaCp051.1"] <- "845205"
-tmt.all4.entrez$Entrez[tmt.all4.entrez$Accession=="ZemaCp052.1"] <- "845192"
-tmt.all4.entrez$Entrez[tmt.all4.entrez$Accession=="ZemaCp053.1"] <- "845193"
-tmt.all4.entrez$Entrez[tmt.all4.entrez$Accession=="ZemaCp054.1"] <- "845224"
-tmt.all4.entrez$Entrez[tmt.all4.entrez$Accession=="ZemaCp055.1"] <- "845228"
-tmt.all4.entrez$Entrez[tmt.all4.entrez$Accession=="ZemaCp056.1"] <- "845223"
-tmt.all4.entrez$Entrez[tmt.all4.entrez$Accession=="ZemaCp057.1"] <- "845177"
-tmt.all4.entrez$Entrez[tmt.all4.entrez$Accession=="ZemaCp058.1"] <- "845241"
-tmt.all4.entrez$Entrez[tmt.all4.entrez$Accession=="ZemaCp059.1"] <- "845213"
-tmt.all4.entrez$Entrez[tmt.all4.entrez$Accession=="ZemaCp060.1"] <- "845214"
-tmt.all4.entrez$Entrez[tmt.all4.entrez$Accession=="ZemaCp061.1"] <- "845237"
-tmt.all4.entrez$Entrez[tmt.all4.entrez$Accession=="ZemaCp062.1"] <- "845218"
-tmt.all4.entrez$Entrez[tmt.all4.entrez$Accession=="ZemaCp063.1"] <- "845235"
-tmt.all4.entrez$Entrez[tmt.all4.entrez$Accession=="ZemaCp065.1"] <- "845216"
-tmt.all4.entrez$Entrez[tmt.all4.entrez$Accession=="ZemaCp067.1"] <- "845220"
-tmt.all4.entrez$Entrez[tmt.all4.entrez$Accession=="ZemaCp075.1"] <- "845181"
-tmt.all4.entrez$Entrez[tmt.all4.entrez$Accession=="ZemaCp082.1"] <- "845230"
-tmt.all4.entrez$Entrez[tmt.all4.entrez$Accession=="ZemaCp083.1"] <- "845185"
-tmt.all4.entrez$Entrez[tmt.all4.entrez$Accession=="ZemaCp084.1"] <- "845221"
-tmt.all4.entrez$Entrez[tmt.all4.entrez$Accession=="ZemaCp085.1"] <- "1466378"
-tmt.all4.entrez$Entrez[tmt.all4.entrez$Accession=="ZemaCp086.1"] <- "845183"
-tmt.all4.entrez$Entrez[tmt.all4.entrez$Accession=="ZemaCp087.1"] <- "1466379"
-tmt.all4.entrez$Entrez[tmt.all4.entrez$Accession=="ZemaCp088.1"] <- "845184"
-tmt.all4.entrez$Entrez[tmt.all4.entrez$Accession=="ZemaCp090.1"] <- "845188"
-tmt.all4.entrez$Entrez[tmt.all4.entrez$Accession=="ZemaCp091.1"] <- "845179"
-tmt.all4.entrez$Entrez[tmt.all4.entrez$Accession=="ZemaCp092.1"] <- "845187"
+tmt.all4$Avg.BM.MP <- rowMeans(tmt.all4[,3:6])
+tmt.all4$l2.Avg.BM.MP <- log2(tmt.all4$Avg.BM.MP)
 
-tmt.all4.entrez$Entrez[tmt.all4.entrez$Accession=="ZeamMp008.1"] <- "4055864"
-tmt.all4.entrez$Entrez[tmt.all4.entrez$Accession=="ZeamMp024.1"] <- "4055860"
-tmt.all4.entrez$Entrez[tmt.all4.entrez$Accession=="ZeamMp032.1"] <- "4055888"
-tmt.all4.entrez$Entrez[tmt.all4.entrez$Accession=="ZeamMp033.1"] <- "4055938"
-tmt.all4.entrez$Entrez[tmt.all4.entrez$Accession=="ZeamMp036.1"] <- "4055894"
-tmt.all4.entrez$Entrez[tmt.all4.entrez$Accession=="ZeamMp050.1"] <- "4055956"
-tmt.all4.entrez$Entrez[tmt.all4.entrez$Accession=="ZeamMp051.1"] <- "4055881"
-tmt.all4.entrez$Entrez[tmt.all4.entrez$Accession=="ZeamMp057.1"] <- "4055973"
-tmt.all4.entrez$Entrez[tmt.all4.entrez$Accession=="ZeamMp081.1"] <- "4055890"
-tmt.all4.entrez$Entrez[tmt.all4.entrez$Accession=="ZeamMp092.1"] <- "4055837"
-tmt.all4.entrez$Entrez[tmt.all4.entrez$Accession=="ZeamMp097.1"] <- "4055857"
-tmt.all4.entrez$Entrez[tmt.all4.entrez$Accession=="ZeamMp098.1"] <- "4055896"
-tmt.all4.entrez$Entrez[tmt.all4.entrez$Accession=="ZeamMp113.1"] <- "4055802"
-tmt.all4.entrez$Entrez[tmt.all4.entrez$Accession=="ZeamMp119.1"] <- "4055928"
-tmt.all4.entrez$Entrez[tmt.all4.entrez$Accession=="ZeamMp129.1"] <- "4055878"
-tmt.all4.entrez$Entrez[tmt.all4.entrez$Accession=="ZeamMp136.1"] <- "4056004"
-tmt.all4.entrez$Entrez[tmt.all4.entrez$Accession=="ZeamMp159.1"] <- "4055794"
-tmt.all4.entrez$Entrez[tmt.all4.entrez$Accession=="ZeamMp167.1"] <- "4056007"
-tmt.all4.entrez$Entrez[tmt.all4.entrez$Accession=="ZeamMp179.1"] <- "4056006"
-tmt.all4.entrez$Entrez[tmt.all4.entrez$Accession=="ZeamMp185.1"] <- "4055892"
+tmt.all4.amp <- tmt.all4[(tmt.all4$RIL.BM.MP>1.05 & tmt.all4$OG.BM.MP>1.05 & tmt.all4$H6.BM.MP>1.05 & tmt.all4$DN.BM.MP>1.05),]
+
+tmt.all4.bmp <- tmt.all4[(tmt.all4$RIL.BM.MP<0.95 & tmt.all4$OG.BM.MP<0.95 & tmt.all4$H6.BM.MP<0.95 & tmt.all4$DN.BM.MP<0.95),]
 ```
 ```{r}
-saveRDS(tmt.all4.entrez, "tmt.all4.entrez")
+write.csv(tmt.all4.amp, "tmt.all4.amp.csv", row.names = F)
+write.csv(tmt.all4.bmp, "tmt.all4.bmp.csv", row.names = F)
 ```
-```{r}
-tmt.all4.entrez <- readRDS("tmt.all4.entrez")
-```
-##amp/bmp
-```{r}
-tmt.all4.entrez.trim <- tmt.all4.entrez[!duplicated(tmt.all4.entrez$Entrez),]
-tmt.all4.entrez.trim <- na.omit(tmt.all4.entrez.trim)
-tmt.all4.entrez.trim <- tmt.all4.entrez.trim[!tmt.all4.entrez.trim$Entrez=="",]
-
-tmt.all4.entrez.trim$Avg.BM.MP <- rowMeans(tmt.all4.entrez.trim[,4:7])
-tmt.all4.entrez.trim$l2.Avg.BM.MP <- log2(tmt.all4.entrez.trim$Avg.BM.MP)
-
-tmt.all4.entrez.trim.pos <- tmt.all4.entrez.trim[(tmt.all4.entrez.trim$l2.Avg.BM.MP>0),]
-
-tmt.all4.entrez.trim.neg <- tmt.all4.entrez.trim[(tmt.all4.entrez.trim$l2.Avg.BM.MP<0),]
-tmt.all4.entrez.trim.neg$l2.Avg.BM.MP <- 0-tmt.all4.entrez.trim.neg$l2.Avg.BM.MP
-
-tmt.all4.entrez.trim.amp <- tmt.all4.entrez.trim[(tmt.all4.entrez.trim$RIL.BM.MP>1.05 & tmt.all4.entrez.trim$OG.BM.MP>1.05 & tmt.all4.entrez.trim$H6.BM.MP>1.05 & tmt.all4.entrez.trim$DN.BM.MP>1.05),]
-
-tmt.all4.entrez.trim.bmp <- tmt.all4.entrez.trim[(tmt.all4.entrez.trim$RIL.BM.MP<0.95 & tmt.all4.entrez.trim$OG.BM.MP<0.95 & tmt.all4.entrez.trim$H6.BM.MP<0.95 & tmt.all4.entrez.trim$DN.BM.MP<0.95),]
-tmt.all4.entrez.trim.bmp$l2.Avg.BM.MP <- 0-tmt.all4.entrez.trim.bmp$l2.Avg.BM.MP
-```
-
-
-```{r}
-readr::write_tsv(tmt.all4.entrez.trim.pos[,c(8,10)], "tmt.all4.entrez.trim.pos.tsv", col_names = F)
-readr::write_tsv(tmt.all4.entrez.trim.neg[,c(8,10)], "tmt.all4.entrez.trim.neg.tsv", col_names = F)
-readr::write_tsv(tmt.all4.entrez.trim.amp[,c(8,10)], "tmt.all4.entrez.trim.amp.tsv", col_names = F)
-readr::write_tsv(tmt.all4.entrez.trim.bmp[,c(8,10)], "tmt.all4.entrez.trim.bmp.tsv", col_names = F)
-```
-
 
 #RNA
 ##OG
