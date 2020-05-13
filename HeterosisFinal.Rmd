@@ -1619,13 +1619,10 @@ colnames(kegg.df) <- "Entrez"
 kegg.df$Pathway <- rownames(kegg.df)
 row.names(kegg.df) <- NULL
 kegg.df$Entrez <- as.character(kegg.df$Entrez)
-```
-```{r}
+
 #Add column for Entrez #
 tmt.GOI <- merge.data.frame(tmt.GOI, mgdb[,c(1,12)], by.x = "Gene", by.y = "v4_gene_model", all.x = T, all.y = F)
 tmt.GOI <- distinct(tmt.GOI)
-```
-```{r}
 #manually assign Pt- and Mt-encoded entrez IDs
 tmt.GOI$Entrez[tmt.GOI$Accession=="ZemaCp003.1"] <- "845178"
 tmt.GOI$Entrez[tmt.GOI$Accession=="ZemaCp004.1"] <- "845232"
@@ -1705,28 +1702,73 @@ tmt.GOI$Entrez[tmt.GOI$Accession=="ZeamMp159.1"] <- "4055794"
 tmt.GOI$Entrez[tmt.GOI$Accession=="ZeamMp167.1"] <- "4056007"
 tmt.GOI$Entrez[tmt.GOI$Accession=="ZeamMp179.1"] <- "4056006"
 tmt.GOI$Entrez[tmt.GOI$Accession=="ZeamMp185.1"] <- "4055892"
-```
-```{r}
+
 #Merge KEGG pathways by entrez
 tmt.GOI <- merge.data.frame(tmt.GOI, kegg.df, by.x = "Entrez", by.y = "Entrez", all.x = T, all.y = F)
 colnames(tmt.GOI)[9] <- "KeggPathway"
-```
-```{r}
+
 #Convert duplicated rows into multiple columns for each pathway
 tmt.GOI.w <- dcast(setDT(tmt.GOI), Accession~rowid(Accession, prefix="KeggPathway"), value.var="KeggPathway")
 
 tmt.GOI <- merge.data.frame(tmt.GOI[,1:8], tmt.GOI.w, by.x = "Accession", by.y = "Accession")
 tmt.GOI <- distinct(tmt.GOI)
-```
-```{r}
+
 #re-order
 tmt.GOI <- tmt.GOI[,c(1:9,16:23,10:15)]
 #Combine columns of each pathway into single column
-tmt.GOI <- unite(tmt.GOI, "KeggPathway", KeggPathway1:KeggPathway15)
+tmt.GOI <- unite(tmt.GOI, "KeggPathway", KeggPathway1:KeggPathway15, sep = " // ")
+```
+
+```{r read in gamer}
+# Read in Maize GAMER GO dataset, which lists maize V4 accessions with all associated GO terms (Wimalanathan et al. 2018) downloaded from https://datacommons.cyverse.org/browse/iplant/home/shared/commons_repo/curated/Carolyn_Lawrence-Dill_maize-GAMER_maize.B73_RefGen_v4_Zm00001d.2_Oct_2017.r1/e.agg_data
+GAMER <- read.delim("maize.B73.AGPv4.aggregate.gaf", sep = "\t", header = FALSE)
+colnames(GAMER) <- c("db", "db_object_id", "db_object_symbol", "qualifier", "term_accession", "db_reference", "evidence_code", "with", "aspect", "db_object_name", "db_object_synonym", "db_object_type", "taxon", "date", "assigned_by", "annotation_extension", "gene_product_form_id")
+gamer <- GAMER[-(1:2),]
+gamer$GOterm <- AnnotationDbi::Term(as.character(gamer$term_accession))
 ```
 ```{r}
-write.csv(tmt.GOI[order(tmt.GOI$Order),], "FinalLeafGOIs.csv", row.names = F)
+#merge gamer GO terms
+tmt.GOI <- merge.data.frame(tmt.GOI, gamer[,c(2,18)], by.x = "Gene", by.y = "db_object_id", all.x = T, all.y = F)
+
+#Convert duplicated rows into multiple columns for each GO term
+tmt.GOI.w <- dcast(setDT(tmt.GOI), Accession~rowid(Accession, prefix="GOterm"), value.var="GOterm")
+
+tmt.GOI <- merge.data.frame(tmt.GOI[,1:9], tmt.GOI.w, by.x = "Accession", by.y = "Accession")
+tmt.GOI <- distinct(tmt.GOI)
+
+#reorder
+tmt.GOI <- tmt.GOI[,c(1:10,21,32,43,54,65,76,79,80,11:20,22:31,33:42,44:53,55:64,66:75,77:78)]
+#Combine columns of each pathway into single column
+tmt.GOI <- unite(tmt.GOI, "GOterm", GOterm1:GOterm71, sep = " // ")
 ```
+```{r}
+tmt.GOI <- tmt.GOI[order(tmt.GOI$Order),]
+```
+```{r}
+#Remove extra NAs
+tmt.GOI$KeggPathway <- gsub(tmt.GOI$KeggPathway, pattern = " // NA", replacement = "")
+tmt.GOI$GOterm <- gsub(tmt.GOI$GOterm, pattern = " // NA", replacement = "")
+```
+```{r}
+#Add column for mitochondria proteins from Wang et al. 2018, supplemental table 4; https://onlinelibrary.wiley.com/doi/10.1111/ppl.12725
+wang <- read.csv("data/Wang2018_SupTab4.csv", stringsAsFactors = F)
+wang$Gene <- substr(wang$Accession.NO., start = 1, stop = 13)
+wang <- merge.data.frame(wang, mgdb[,c(1,11)], by.x = "Gene", by.y = "v3_gene_model", all.x = T, all.y = F)
+wangv4 <- na.omit(wang$v4_gene_model)
+
+tmt.GOI$`Mitochondria (Wang et al 2018)` <- FALSE
+tmt.GOI[(tmt.GOI$Gene %in% wangv4),"Mitochondria (Wang et al 2018)"] <- TRUE
+```
+```{r}
+#reorder
+tmt.GOI <- tmt.GOI[,c(1:7,11,8:10)]
+```
+```{r}
+write.csv(tmt.GOI, "FinalLeafGOIs.csv", row.names = F)
+```
+
+
+
 
 
 #Resume here after cleared enviornment
@@ -1825,25 +1867,30 @@ df.lims.mito <- df.lims
 df.lims.mito$Category <- "Other"
 df.lims.mito$Order <- 1
 
+df.lims.mito[(df.lims.mito$Gene %in% wangv4),"Category"] <- "Mitochondria"
+df.lims.mito[(df.lims.mito$Gene %in% wangv4),"Order"] <- 2
+
 df.lims.mito[(df.lims.mito$Gene %in% GOIs$OxPhos),"Category"] <- "NE oxidative phosphorylation"
-df.lims.mito[(df.lims.mito$Gene %in% GOIs$OxPhos),"Order"] <- 2
+df.lims.mito[(df.lims.mito$Gene %in% GOIs$OxPhos),"Order"] <- 3
 
 df.lims.mito[(df.lims.mito$Gene %in% GOIs$Mt.OxPhos),"Category"] <- "ME oxidative phosphorylation"
-df.lims.mito[(df.lims.mito$Gene %in% GOIs$Mt.OxPhos),"Order"] <- 3
+df.lims.mito[(df.lims.mito$Gene %in% GOIs$Mt.OxPhos),"Order"] <- 4
 
 df.lims.mito[(df.lims.mito$Gene %in% GOIs$Nuc.MtRibo),"Category"] <- "NE mitochondrial ribosome"
-df.lims.mito[(df.lims.mito$Gene %in% GOIs$Nuc.MtRibo),"Order"] <- 4
+df.lims.mito[(df.lims.mito$Gene %in% GOIs$Nuc.MtRibo),"Order"] <- 5
 
 df.lims.mito[(df.lims.mito$Gene %in% GOIs$Mt.ribo),"Category"] <- "ME ribosome"
-df.lims.mito[(df.lims.mito$Gene %in% GOIs$Mt.ribo),"Order"] <- 5
+df.lims.mito[(df.lims.mito$Gene %in% GOIs$Mt.ribo),"Order"] <- 6
 ###Re-order
 df.lims.mito <- df.lims.mito[(order(df.lims.mito$Order)),]
+###remove "other"
+df.lims.mito <- df.lims.mito[!df.lims.mito$Category=="Other",]
 ###factor
-df.lims.mito$Category <- factor(df.lims.mito$Category, levels = c("Other", "NE oxidative phosphorylation", "ME oxidative phosphorylation", "NE mitochondrial ribosome", "ME ribosome"))
+df.lims.mito$Category <- factor(df.lims.mito$Category, levels = c("Mitochondria", "NE oxidative phosphorylation", "ME oxidative phosphorylation", "NE mitochondrial ribosome", "ME ribosome"))
 ###Scatterplot
 df.lims.mito.scat <- ggplot(df.lims.mito, mapping=aes(x=l2.BM.MP, y=l2.B73.Mo17, color=Category))+
     geom_point(aes(color=Category), size=3, alpha=0.8)+
-  scale_color_manual(values=c("Other"="#000000", "ME ribosome"="#009E73", "NE mitochondrial ribosome"="#56B4E9", "ME oxidative phosphorylation"="#CC79A7", "NE oxidative phosphorylation"="#E69F00"), name="Category")+
+  scale_color_manual(values=c("Mitochondria"="#000000", "ME ribosome"="#009E73", "NE mitochondrial ribosome"="#56B4E9", "ME oxidative phosphorylation"="#CC79A7", "NE oxidative phosphorylation"="#E69F00"), name="Category")+
     theme_classic()+
           xlim(c(-lims,lims))+
           ylim(c(-lims,lims))+
@@ -1858,14 +1905,14 @@ df.lims.mito.scat <- ggplot(df.lims.mito, mapping=aes(x=l2.BM.MP, y=l2.B73.Mo17,
 ###Add density curves
     densityplotX<-axis_canvas(df.lims.mito.scat, axis="x")+
       geom_density(aes(df.lims.mito[,"l2.BM.MP"], color=df.lims.mito[,"Category"]), size=1)+
-    scale_color_manual(values=c("Other"="#000000", "ME ribosome"="#009E73", "NE mitochondrial ribosome"="#56B4E9", "ME oxidative phosphorylation"="#CC79A7", "NE oxidative phosphorylation"="#E69F00"), name="Category")+
+    scale_color_manual(values=c("Mitochondria"="#000000", "ME ribosome"="#009E73", "NE mitochondrial ribosome"="#56B4E9", "ME oxidative phosphorylation"="#CC79A7", "NE oxidative phosphorylation"="#E69F00"), name="Category")+
       geom_vline(xintercept=0, linetype="dashed", color = "gray50")+
       theme_void()+
       theme(legend.title = element_blank())
     #set up marginal density plot Y axis
     densityplotY<-axis_canvas(df.lims.mito.scat, axis="y", coord_flip = T)+
       geom_density(aes(df.lims.mito[,"l2.B73.Mo17"], color=df.lims.mito[,"Category"]), size=1)+
-      scale_color_manual(values=c("Other"="#000000", "ME ribosome"="#009E73", "NE mitochondrial ribosome"="#56B4E9", "ME oxidative phosphorylation"="#CC79A7", "NE oxidative phosphorylation"="#E69F00"), name="Category")+
+      scale_color_manual(values=c("Mitochondria"="#000000", "ME ribosome"="#009E73", "NE mitochondrial ribosome"="#56B4E9", "ME oxidative phosphorylation"="#CC79A7", "NE oxidative phosphorylation"="#E69F00"), name="Category")+
       scale_linetype_manual(values=c("dotted", "solid"))+
       geom_vline(xintercept=0, linetype="dashed", color = "gray50")+
       theme_void()+
@@ -2062,4 +2109,6 @@ tmt.all4.bmp <- tmt.all4[(tmt.all4$RIL.BM.MP<0.95 & tmt.all4$OG.BM.MP<0.95 & tmt
 write.csv(tmt.all4.amp, "tmt.all4.amp.csv", row.names = F)
 write.csv(tmt.all4.bmp, "tmt.all4.bmp.csv", row.names = F)
 ```
+
+
 
