@@ -2430,37 +2430,28 @@ PlotEthylenePanelFun(panel.acs.tmt, RNAorProtein = "Protein", limX = 0.75, limY 
 
 
 #AMP/BMP
-```{r}
-colnames(tmt.OG.SL)
-```
 
 ```{r}
 tmt.all4 <- Reduce(function(x,y) merge(x = x, y = y, by = "Accession", plastid=T), 
-       list(tmt.OG.SL[,c(6,8,26)], tmt.ril.SL[,c(6,8,26)], tmt.6h.SL[,c(6,8,26)], tmt.dn.SL[,c(6,8,26)]))
+       list(tmt.OG.SL[,c(6,8,26,27)], tmt.ril.SL[,c(6,8,26,27)], tmt.6h.SL[,c(6,8,26,27)], tmt.dn.SL[,c(6,8,26,27)]))
 
-colnames(tmt.all4) <- c("Accession", "OG.Protein", "OG.BM.MP", "RIL.Protein", "RIL.BM.MP", "H6.Protein", "H6.BM.MP", "DN.Protein", "DN.BM.MP")
+colnames(tmt.all4) <- c("Accession", "OG.Protein", "OG.BM.MP", "OG.ttest", "RIL.Protein", "RIL.BM.MP", "RIL.ttest", "H6.Protein", "H6.BM.MP", "H6.ttest", "DN.Protein", "DN.BM.MP", "DN.ttest")
 ```
 ```{r}
 tmt.all4$Protein <- dplyr::coalesce(!!!list(tmt.all4$RIL.Protein, tmt.all4$OG.Protein, tmt.all4$H6.Protein, tmt.all4$DN.Protein))
-
-tmt.all4 <- tmt.all4[,c(1, 10, 3, 5, 7, 9)]
-
-tmt.all4$Gene <- substr(tmt.all4$Accession, start = 1, stop = 14)
 ```
 ```{r}
-tmt.all4$Avg.BM.MP <- rowMeans(tmt.all4[,3:6])
-tmt.all4$l2.Avg.BM.MP <- log2(tmt.all4$Avg.BM.MP)
+tmt.all4$Gene <- substr(tmt.all4$Accession, start = 1, stop = 14)
+tmt.all4 <- tmt.all4[,c(1, 15, 14, 3, 4, 6, 7, 9, 10, 12, 13)]
 ```
 ```{r}
 tmt.all4 <- merge.data.frame(tmt.all4, tmt.GOI[,c(1,3,5:11)], by.x = "Accession", by.y = "Accession", all.x = T, all.y = F)
 ```
 ```{r}
-tmt.all4.amp <- tmt.all4[(tmt.all4$RIL.BM.MP>1.05 & tmt.all4$OG.BM.MP>1.05 & tmt.all4$H6.BM.MP>1.05 & tmt.all4$DN.BM.MP>1.05),]
+tmt.all4.amp <- tmt.all4[(tmt.all4$RIL.BM.MP>1.05 & tmt.all4$OG.BM.MP>1.05 & tmt.all4$H6.BM.MP>1.05 & tmt.all4$DN.BM.MP>1.05 & tmt.all4$OG.ttest<0.05 & tmt.all4$RIL.ttest<0.05 & tmt.all4$H6.ttest<0.05 & tmt.all4$DN.ttest<0.05),]
 
-tmt.all4.bmp <- tmt.all4[(tmt.all4$RIL.BM.MP<0.95 & tmt.all4$OG.BM.MP<0.95 & tmt.all4$H6.BM.MP<0.95 & tmt.all4$DN.BM.MP<0.95),]
+tmt.all4.bmp <- tmt.all4[(tmt.all4$RIL.BM.MP<0.95 & tmt.all4$OG.BM.MP<0.95 & tmt.all4$H6.BM.MP<0.95 & tmt.all4$DN.BM.MP<0.95 & tmt.all4$OG.ttest<0.05 & tmt.all4$RIL.ttest<0.05 & tmt.all4$H6.ttest<0.05 & tmt.all4$DN.ttest<0.05),]
 ```
-
-
 ```{r}
 write.csv(tmt.all4.amp[order(tmt.all4.amp$Order),], "tmt.all4.amp.csv", row.names = F)
 write.csv(tmt.all4.bmp[order(tmt.all4.bmp$Order),], "tmt.all4.bmp.csv", row.names = F)
