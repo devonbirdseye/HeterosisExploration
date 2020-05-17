@@ -994,6 +994,11 @@ darkrxn.Calvin.RubiscoSS <- c("Zm00001d052595", "Zm00001d004894")
 
 NE.PtComplexes <- unique(c(lightrxn.PSI.kc,lightrxn.PSII.kc,lightrxn.b6f.k,lightrxn.NDH,lightrxn.ATPase.k, darkrxn.Calvin.RubiscoSS))
 ```
+```{r}
+#add missing oxygen-evolving proteins to PSII
+OxyEvol <- tmt.GOI$Gene[grepl("oxygen|Oxygen", tmt.GOI$Protein) & grepl("evolving|Evolving", tmt.GOI$Protein)]
+lightrxn.PSII.kc <- unique(c(lightrxn.PSII.kc, OxyEvol))
+```
 
 ##Plastid background
 ```{r}
@@ -1538,8 +1543,8 @@ wangv4 <- na.omit(wang$v4_gene_model)
 
 ##GOI list
 ```{r}
-GOIs <- list(lightrxn.PSI.kc, lightrxn.PSII.kc, lightrxn.ATPase.k, lightrxn.NDH, lightrxn.ETC.kc, darkrxn.C4.c, darkrxn.Calvin.kc, darkrxn.Calvin.RubiscoSS, Pt.PS.PSI, Pt.PS.PSII, Pt.PS.ATP, Pt.PS.NADH, Pt.PS.b6f, Pt.PS.rubisco, Pt.rpo, Pt.other, Pt.ribo, Nuc.PtRibo, Mt.ribo, Mt.OxPhos, Mt.other, OxPhos, EtBio, NE.PtComplexes, Pt.Complexes, friso.v4, Nuc.MtRibo)
-names(GOIs) <- c("lightrxn.PSI.kc", "lightrxn.PSII.kc", "lightrxn.ATPase.k", "lightrxn.NDH", "lightrxn.ETC.kc", "darkrxn.C4.c", "darkrxn.Calvin.kc", "darkrxn.Calvin.RubiscoSS", "Pt.PS.PSI", "Pt.PS.PSII", "Pt.PS.ATP", "Pt.PS.NADH", "Pt.PS.b6f", "Pt.PS.rubisco", "Pt.rpo", "Pt.other", "Pt.ribo", "Nuc.PtRibo", "Mt.ribo", "Mt.OxPhos", "Mt.other", "OxPhos", "EtBio", "NE.PtComplexes", "Pt.Complexes", "friso.v4", "Nuc.MtRibo")
+GOIs <- list(lightrxn.PSI.kc, lightrxn.PSII.kc, lightrxn.ATPase.k, lightrxn.NDH, lightrxn.ETC.kc, darkrxn.C4.c, darkrxn.Calvin.kc, darkrxn.Calvin.RubiscoSS, Pt.PS.PSI, Pt.PS.PSII, Pt.PS.ATP, Pt.PS.NADH, Pt.PS.b6f, Pt.PS.rubisco, Pt.rpo, Pt.other, Pt.ribo, Nuc.PtRibo, Mt.ribo, Mt.OxPhos, Mt.other, OxPhos, EtBio, NE.PtComplexes, Pt.Complexes, friso.v4, Nuc.MtRibo, OxyEvol)
+names(GOIs) <- c("lightrxn.PSI.kc", "lightrxn.PSII.kc", "lightrxn.ATPase.k", "lightrxn.NDH", "lightrxn.ETC.kc", "darkrxn.C4.c", "darkrxn.Calvin.kc", "darkrxn.Calvin.RubiscoSS", "Pt.PS.PSI", "Pt.PS.PSII", "Pt.PS.ATP", "Pt.PS.NADH", "Pt.PS.b6f", "Pt.PS.rubisco", "Pt.rpo", "Pt.other", "Pt.ribo", "Nuc.PtRibo", "Mt.ribo", "Mt.OxPhos", "Mt.other", "OxPhos", "EtBio", "NE.PtComplexes", "Pt.Complexes", "friso.v4", "Nuc.MtRibo", "OxyEvol")
 saveRDS(GOIs, "GOIs")
 ```
 
