@@ -25,6 +25,7 @@ library(grid)
 ```{r read csv}
 tmt <- read.csv("data/Leaf Paper Data 050520-processed.csv", stringsAsFactors = F)
 #re-define protein column to shortened name
+tmt <- tmt[,1:184]
 tmt <- tmt[,-182]
 colnames(tmt)[182] <- "Protein"
 #make new column for gene accession without transcript id
@@ -214,6 +215,99 @@ tmt.ril.SL$B73.Mo17 <- tmt.ril.SL$B73avg/tmt.ril.SL$Mo17avg
 tmt.ril.SL$l2.B73.Mo17 <-log2(tmt.ril.SL$B73.Mo17)
 saveRDS(tmt.ril.SL, "tmt.ril.SL")
 ```
+###RIL all
+```{r}
+#subset
+tmt.ril <- na.omit(tmt[,c(171:176,181:183,81:170)])
+```
+
+```{r}
+#Calculate averages
+tmt.ril$BM.B73 <- rowMeans(tmt.ril[,10:12])
+tmt.ril$BM.Mo17 <- rowMeans(tmt.ril[,13:15])
+tmt.ril$BM.BM <- rowMeans(tmt.ril[,16:19])
+
+tmt.ril$X14.B73 <- rowMeans(tmt.ril[,20:23])
+tmt.ril$X14.Mo17<- rowMeans(tmt.ril[,24:27])
+tmt.ril$X14.14 <- rowMeans(tmt.ril[,28:31])
+tmt.ril$X14.14B <- rowMeans(tmt.ril[,32:35])
+tmt.ril$X14.14M <- rowMeans(tmt.ril[,36:39])
+
+tmt.ril$X16.B73 <- rowMeans(tmt.ril[,40:43])
+tmt.ril$X16.Mo17<- rowMeans(tmt.ril[,44:47])
+tmt.ril$X16.16 <- rowMeans(tmt.ril[,48:51])
+tmt.ril$X16.16B <- rowMeans(tmt.ril[,52:55])
+tmt.ril$X16.16M <- rowMeans(tmt.ril[,56:59])
+
+tmt.ril$X21.B73 <- rowMeans(tmt.ril[,60:63])
+tmt.ril$X21.Mo17<- rowMeans(tmt.ril[,64:67])
+tmt.ril$X21.21 <- rowMeans(tmt.ril[,68:71])
+tmt.ril$X21.21B <- rowMeans(tmt.ril[,72:75])
+tmt.ril$X21.21M <- rowMeans(tmt.ril[,76:79])
+
+tmt.ril$X317.B73 <- rowMeans(tmt.ril[,80:83])
+tmt.ril$X317.Mo17<- rowMeans(tmt.ril[,84:87])
+tmt.ril$X317.317 <- rowMeans(tmt.ril[,88:91])
+tmt.ril$X317.317B <- rowMeans(tmt.ril[,92:95])
+tmt.ril$X317.317M <- rowMeans(tmt.ril[,96:99])
+```
+
+```{r}
+#Calculate hyb/mp ratios
+tmt.ril$BM.BM.MP <- tmt.ril$BM.BM/rowMeans(tmt.ril[,100:101])
+
+tmt.ril$X14.14B.MP <- tmt.ril$X14.14B/rowMeans(tmt.ril[,c(103,105)])
+tmt.ril$X14.14M.MP <- tmt.ril$X14.14M/rowMeans(tmt.ril[,c(104,105)])
+
+tmt.ril$X16.16B.MP <- tmt.ril$X16.16B/rowMeans(tmt.ril[,c(108,110)])
+tmt.ril$X16.16M.MP <- tmt.ril$X16.16M/rowMeans(tmt.ril[,c(109,110)])
+
+tmt.ril$X21.21B.MP <- tmt.ril$X21.21B/rowMeans(tmt.ril[,c(113,115)])
+tmt.ril$X21.21M.MP <- tmt.ril$X21.21M/rowMeans(tmt.ril[,c(114,115)])
+
+tmt.ril$X317.317B.MP <- tmt.ril$X317.317B/rowMeans(tmt.ril[,c(118,120)])
+tmt.ril$X317.317M.MP <- tmt.ril$X317.317M/rowMeans(tmt.ril[,c(119,120)])
+```
+```{r}
+#Calculate parent/parent ratios
+tmt.ril$BM.B73.Mo17 <- tmt.ril$BM.B73/tmt.ril$BM.Mo17
+
+tmt.ril$X14.14.B73 <- tmt.ril$X14.14/tmt.ril$X14.B73
+tmt.ril$X14.14.Mo17 <- tmt.ril$X14.14/tmt.ril$X14.Mo17
+
+tmt.ril$X16.16.B73 <- tmt.ril$X16.16/tmt.ril$X16.B73
+tmt.ril$X16.16.Mo17 <- tmt.ril$X16.16/tmt.ril$X16.Mo17
+
+tmt.ril$X21.21.B73 <- tmt.ril$X21.21/tmt.ril$X21.B73
+tmt.ril$X21.21.Mo17 <- tmt.ril$X21.21/tmt.ril$X21.Mo17
+
+tmt.ril$X317.317.B73 <- tmt.ril$X317.317/tmt.ril$X317.B73
+tmt.ril$X317.317.Mo17 <- tmt.ril$X317.317/tmt.ril$X317.Mo17
+```
+```{r}
+#Calculate log2 of all ratios
+tmt.ril$l2.BM.BM.MP <- log2(tmt.ril$BM.BM.MP)
+tmt.ril$l2.X14.14B.MP <- log2(tmt.ril$X14.14B.MP)
+tmt.ril$l2.X14.14M.MP <- log2(tmt.ril$X14.14M.MP)
+tmt.ril$l2.X16.16B.MP <- log2(tmt.ril$X16.16B.MP)
+tmt.ril$l2.X16.16M.MP <- log2(tmt.ril$X16.16M.MP)
+tmt.ril$l2.X21.21B.MP <- log2(tmt.ril$X21.21B.MP)
+tmt.ril$l2.X21.21M.MP <- log2(tmt.ril$X21.21M.MP)
+tmt.ril$l2.X317.317B.MP <- log2(tmt.ril$X317.317B.MP)
+tmt.ril$l2.X317.317M.MP <- log2(tmt.ril$X317.317M.MP)
+
+tmt.ril$l2.BM.B73.Mo17 <- log2(tmt.ril$BM.B73.Mo17)
+tmt.ril$l2.X14.14.B73 <- log2(tmt.ril$X14.14.B73)
+tmt.ril$l2.X14.14.Mo17  <- log2(tmt.ril$X14.14.Mo17)
+tmt.ril$l2.X16.16.B73 <- log2(tmt.ril$X16.16.B73)
+tmt.ril$l2.X16.16.Mo17  <- log2(tmt.ril$X16.16.Mo17)
+tmt.ril$l2.X21.21.B73 <- log2(tmt.ril$X21.21.B73)
+tmt.ril$l2.X21.21.Mo17  <- log2(tmt.ril$X21.21.Mo17)
+tmt.ril$l2.X317.317.B73 <- log2(tmt.ril$X317.317.B73)
+tmt.ril$l2.X317.317.Mo17  <- log2(tmt.ril$X317.317.Mo17)
+```
+
+
 ###original BxM SL + acs
 ```{r format df}
 #Subset
@@ -2548,16 +2642,18 @@ write.csv(tmt.all4.parentdiff[order(tmt.all4.parentdiff$OG.B73.Mo17),], "tmt.all
 #Correlation
 ##Define function
 ```{r}
-colnames(tmt.6h.ratios)
+colnames(tmt.ril)
 ```
 
+```{r}
+tmt.ril.ratios <- na.omit(tmt.ril[,c(8,9,1:7,141:158)])
+tmt.ril.ratios[,19:27] <- abs(tmt.ril.ratios[,19:27])
+tmt.ril.ratios <- rbind(tmt.ril.ratios, c("PlantHeightRatio", "PlantHeightRatio", NA, NA, NA, NA, NA, "PlantHeightRatio", NA, 1.16937355,	1.106888361,	1.23880597,	1.220902613,	1.144278607,	1.148837209,	1.206812652,	1.219626168,	1.256723716, 1.16937355,	1.106888361,	1.23880597,	1.220902613,	1.144278607,	1.148837209,	1.206812652,	1.219626168,	1.256723716))
+```
 ```{r}
 tmt.6h.ratios <- na.omit(tmt.6h[,c(38,39,6,37,1:5,62:73)])
 tmt.6h.ratios[,16:21] <- abs(tmt.6h.ratios[,16:21])
-```
-
-```{r}
-tmt.6h.ratios <- rbind(tmt.6h.ratios, c("PlantHeightRatio", NA, NA, NA, NA, NA, NA, NA, NA, 1.284798189,	1.355714825,	1.235963879,	1.362015504,	1.403358063,	1.220447284, 1.284798189,	1.355714825,	1.235963879,	1.362015504,	1.403358063,	1.220447284))
+tmt.6h.ratios <- rbind(tmt.6h.ratios, c("PlantHeightRatio", "PlantHeightRatio", "PlantHeightRatio", NA, NA, NA, NA, NA, NA, 1.284798189,	1.355714825,	1.235963879,	1.362015504,	1.403358063,	1.220447284, 1.284798189,	1.355714825,	1.235963879,	1.362015504,	1.403358063,	1.220447284))
 ```
 ```{r}
 CorFun <- function(x, xrows, y){
@@ -2570,27 +2666,64 @@ CorFun <- function(x, xrows, y){
 }
 ```
 ```{r}
-PlantHeights.RIL.MP <- c(1.284798189,	1.355714825,	1.235963879,	1.362015504,	1.403358063,	1.220447284)
+PlantHeights.ril.MP <- c(1.16937355,	1.106888361,	1.23880597,	1.220902613,	1.144278607,	1.148837209,	1.206812652,	1.219626168,	1.256723716)
+PlantHeights.6h.MP <- c(1.284798189,	1.355714825,	1.235963879,	1.362015504,	1.403358063,	1.220447284)
 ```
 
+```{r}
+#RIL Hyb/MP cor
+tmt.ril.ratios.hyb2mp.cor <- CorFun(tmt.ril.ratios, 10:18, PlantHeights.ril.MP)
+tmt.ril.ratios.hyb2mp.cor <- merge.data.frame(tmt.ril.ratios.hyb2mp.cor, tmt.GOI[,c(1,3,5:11)], by.x = "Accession", by.y = "Accession", all.x = T, all.y = F)
+tmt.ril.ratios.hyb2mp.cor <- tmt.ril.ratios.hyb2mp.cor[order(-tmt.ril.ratios.hyb2mp.cor$cor),]
+write.csv(tmt.ril.ratios.hyb2mp.cor, "tmt.ril.ratios.hyb2mp.cor.csv", row.names = F)
+```
+```{r}
+#RIL parent/parent cor
+tmt.ril.ratios.parent2parent.cor <- CorFun(tmt.ril.ratios, 19:27, PlantHeights.ril.MP)
+tmt.ril.ratios.parent2parent.cor <- merge.data.frame(tmt.ril.ratios.parent2parent.cor, tmt.GOI[,c(1,3,5:11)], by.x = "Accession", by.y = "Accession", all.x = T, all.y = F)
+tmt.ril.ratios.parent2parent.cor <- tmt.ril.ratios.parent2parent.cor[order(-tmt.ril.ratios.parent2parent.cor$cor),]
+write.csv(tmt.ril.ratios.parent2parent.cor, "tmt.ril.ratios.parent2parent.cor.csv", row.names = F)
+```
 
 ```{r}
-tmt.6h.ratios.hyb2mp.cor <- CorFun(tmt.6h.ratios, 10:15, PlantHeights.RIL.MP)
-
-tmt.6h.ratios.hyb2mp.cor <- merge.data.frame(tmt.6h.ratios.hyb2mp.cor, tmt.GOI[,c(1,3,5:11)], by.x = "Accession", bby.y = "Accession", all.x = T, all.y = F)
-
+#6 hybrid hyb/MP cor
+tmt.6h.ratios.hyb2mp.cor <- CorFun(tmt.6h.ratios, 10:15, PlantHeights.6h.MP)
+tmt.6h.ratios.hyb2mp.cor <- merge.data.frame(tmt.6h.ratios.hyb2mp.cor, tmt.GOI[,c(1,3,5:11)], by.x = "Accession", by.y = "Accession", all.x = T, all.y = F)
 tmt.6h.ratios.hyb2mp.cor <- tmt.6h.ratios.hyb2mp.cor[order(-tmt.6h.ratios.hyb2mp.cor$cor),]
-
 write.csv(tmt.6h.ratios.hyb2mp.cor, "tmt.6h.ratios.hyb2mp.cor.csv", row.names = F)
 ```
-
 ```{r}
-tmt.6h.ratios.parent2parent.cor <- CorFun(tmt.6h.ratios, 16:21, PlantHeights.RIL.MP)
-
-tmt.6h.ratios.parent2parent.cor <- merge.data.frame(tmt.6h.ratios.parent2parent.cor, tmt.GOI[,c(1,3,5:11)], by.x = "Accession", bby.y = "Accession", all.x = T, all.y = F)
-
+#6 hybrid parent/parent cor
+tmt.6h.ratios.parent2parent.cor <- CorFun(tmt.6h.ratios, 16:21, PlantHeights.6h.MP)
+tmt.6h.ratios.parent2parent.cor <- merge.data.frame(tmt.6h.ratios.parent2parent.cor, tmt.GOI[,c(1,3,5:11)], by.x = "Accession", by.y = "Accession", all.x = T, all.y = F)
 tmt.6h.ratios.parent2parent.cor <- tmt.6h.ratios.parent2parent.cor[order(-tmt.6h.ratios.parent2parent.cor$cor),]
-
 write.csv(tmt.6h.ratios.parent2parent.cor, "tmt.6h.ratios.parent2parent.cor.csv", row.names = F)
 ```
+```{r}
+#Overlap RIL and 6-hybrid Hyb/MP cor
+tmt.ril.ratios.hyb2mp.cor.pos <- tmt.ril.ratios.hyb2mp.cor[tmt.ril.ratios.hyb2mp.cor$cor > 0.5,c(1,2,28:36)]
+
+tmt.6h.ratios.hyb2mp.cor.pos <- tmt.6h.ratios.hyb2mp.cor[tmt.6h.ratios.hyb2mp.cor$cor > 0.5,c(1,2,22:30)]
+
+cor.pos.hyb2mp.ril.6h <- merge.data.frame(tmt.ril.ratios.hyb2mp.cor.pos, tmt.6h.ratios.hyb2mp.cor.pos[,c(1,3)], by.x = "Accession", by.y = "Accession")
+
+tmt.ril.ratios.hyb2mp.cor.neg <- tmt.ril.ratios.hyb2mp.cor[tmt.ril.ratios.hyb2mp.cor$cor < -0.5,c(1,2,28:36)]
+tmt.6h.ratios.hyb2mp.cor.neg <- tmt.6h.ratios.hyb2mp.cor[tmt.6h.ratios.hyb2mp.cor$cor < -0.5,c(1,2,22:30)]
+cor.neg.hyb2mp.ril.6h <- merge.data.frame(tmt.ril.ratios.hyb2mp.cor.neg, tmt.6h.ratios.hyb2mp.cor.neg[,c(1,3)], by.x = "Accession", by.y = "Accession")
+```
+```{r}
+cor.pos.hyb2mp.ril.6h <- cor.pos.hyb2mp.ril.6h[,c(3,12,1,2,4:11)]
+cor.pos.hyb2mp.ril.6h <- cor.pos.hyb2mp.ril.6h[order(-cor.pos.hyb2mp.ril.6h$cor.x),]
+colnames(cor.pos.hyb2mp.ril.6h)[1] <- "cor.ril"
+colnames(cor.pos.hyb2mp.ril.6h)[2] <- "cor.6h"
+write.csv(cor.pos.hyb2mp.ril.6h, "cor.pos.hyb2mp.ril.6h.csv", row.names = F)
+
+cor.neg.hyb2mp.ril.6h <- cor.neg.hyb2mp.ril.6h[,c(3,12,1,2,4:11)]
+cor.neg.hyb2mp.ril.6h <- cor.neg.hyb2mp.ril.6h[order(cor.neg.hyb2mp.ril.6h$cor.x),]
+colnames(cor.neg.hyb2mp.ril.6h)[1] <- "cor.ril"
+colnames(cor.neg.hyb2mp.ril.6h)[2] <- "cor.6h"
+write.csv(cor.neg.hyb2mp.ril.6h, "cor.neg.hyb2mp.ril.6h.csv", row.names = F)
+```
+
+
 
