@@ -1176,6 +1176,10 @@ friso$Gene <- substr(friso$Accession, start = 1, stop = 13)
 friso <- merge.data.frame(friso, mgdb[,c(1,11)], by.x = "Gene", by.y = "v3_gene_model")
 friso.v4 <- friso$v4_gene_model
 ```
+```{r}
+plastid <- c(friso.v4, lightrxn.PSI.kc, lightrxn.PSII.kc, lightrxn.b6f.k, lightrxn.ETC.kc, lightrxn.NDH, lightrxn.ATPase.k, darkrxn.C4.c, darkrxn.Calvin.kc, darkrxn.Calvin.RubiscoSS, Nuc.PtRibo, Pt)
+```
+
 
 ##Plastid-encoded
 ```{r}
@@ -1702,13 +1706,24 @@ Mt.other <- tmt.mt$Gene[!(tmt.mt$Gene%in%c(Mt.OxPhos, Mt.ribo))]
 wang <- read.csv("data/Wang2018_SupTab4.csv", stringsAsFactors = F)
 wang$Gene <- substr(wang$Accession.NO., start = 1, stop = 13)
 wang <- merge.data.frame(wang, mgdb[,c(1,11)], by.x = "Gene", by.y = "v3_gene_model", all.x = T, all.y = F)
-wangv4 <- na.omit(wang$v4_gene_model)
+wangv4 <- as.character(na.omit(wang$v4_gene_model))
 ```
+```{r}
+#From Dahal et al. 2012, supplemental table 2; https://onlinelibrary.wiley.com/doi/full/10.1111/j.1365-313X.2012.05056.x
+dahal <- read.csv("Dahal2012_SupTab2_MitoProteome.csv", stringsAsFactors = F)
+dahal$Gene <- substr(dahal$v3, start = 1, stop = 13)
+dahal <- merge.data.frame(dahal, mgdb[,c(1,11)], by.x = "Gene", by.y = "v3_gene_model", all.x = T, all.y = F)
+dahalv4 <- as.character(na.omit(dahal$v4_gene_model))
+```
+```{r}
+mito <- unique(c(wangv4,dahalv4, Mt.OxPhos, Mt.ribo, Mt.other, Nuc.MtRibo, OxPhos))
+```
+
 
 ##GOI list
 ```{r}
-GOIs <- list(lightrxn.PSI.kc, lightrxn.PSII.kc, lightrxn.ATPase.k, lightrxn.NDH, lightrxn.ETC.kc, darkrxn.C4.c, darkrxn.Calvin.kc, darkrxn.Calvin.RubiscoSS, Pt.PS.PSI, Pt.PS.PSII, Pt.PS.ATP, Pt.PS.NADH, Pt.PS.b6f, Pt.PS.rubisco, Pt.rpo, Pt.other, Pt.ribo, Nuc.PtRibo, Mt.ribo, Mt.OxPhos, Mt.other, OxPhos, EtBio, NE.PtComplexes, Pt.Complexes, friso.v4, Nuc.MtRibo, OxyEvol)
-names(GOIs) <- c("lightrxn.PSI.kc", "lightrxn.PSII.kc", "lightrxn.ATPase.k", "lightrxn.NDH", "lightrxn.ETC.kc", "darkrxn.C4.c", "darkrxn.Calvin.kc", "darkrxn.Calvin.RubiscoSS", "Pt.PS.PSI", "Pt.PS.PSII", "Pt.PS.ATP", "Pt.PS.NADH", "Pt.PS.b6f", "Pt.PS.rubisco", "Pt.rpo", "Pt.other", "Pt.ribo", "Nuc.PtRibo", "Mt.ribo", "Mt.OxPhos", "Mt.other", "OxPhos", "EtBio", "NE.PtComplexes", "Pt.Complexes", "friso.v4", "Nuc.MtRibo", "OxyEvol")
+GOIs <- list(lightrxn.PSI.kc, lightrxn.PSII.kc, lightrxn.ATPase.k, lightrxn.NDH, lightrxn.ETC.kc, darkrxn.C4.c, darkrxn.Calvin.kc, darkrxn.Calvin.RubiscoSS, Pt.PS.PSI, Pt.PS.PSII, Pt.PS.ATP, Pt.PS.NADH, Pt.PS.b6f, Pt.PS.rubisco, Pt.rpo, Pt.other, Pt.ribo, Nuc.PtRibo, Mt.ribo, Mt.OxPhos, Mt.other, OxPhos, EtBio, NE.PtComplexes, Pt.Complexes, Nuc.MtRibo, OxyEvol, mito, plastid)
+names(GOIs) <- c("lightrxn.PSI.kc", "lightrxn.PSII.kc", "lightrxn.ATPase.k", "lightrxn.NDH", "lightrxn.ETC.kc", "darkrxn.C4.c", "darkrxn.Calvin.kc", "darkrxn.Calvin.RubiscoSS", "Pt.PS.PSI", "Pt.PS.PSII", "Pt.PS.ATP", "Pt.PS.NADH", "Pt.PS.b6f", "Pt.PS.rubisco", "Pt.rpo", "Pt.other", "Pt.ribo", "Nuc.PtRibo", "Mt.ribo", "Mt.OxPhos", "Mt.other", "OxPhos", "EtBio", "NE.PtComplexes", "Pt.Complexes", "Nuc.MtRibo", "OxyEvol", "mito", "plastid")
 saveRDS(GOIs, "GOIs")
 ```
 
@@ -1770,8 +1785,8 @@ tmt.GOI[(tmt.GOI$Gene %in% OxPhos),"Order"] <- 24
 tmt.GOI[(tmt.GOI$Gene %in% EtBio),"Category"] <- "NE.EtBio.c"
 tmt.GOI[(tmt.GOI$Gene %in% EtBio),"Order"] <- 25
 
-tmt.GOI$`Plastid (Friso et al 2010)` <- FALSE
-tmt.GOI[(tmt.GOI$Gene %in% friso.v4),"Plastid (Friso et al 2010)"] <- TRUE
+tmt.GOI$`Plastid (Friso et al 2010; KEGG; CornCyc)` <- FALSE
+tmt.GOI[(tmt.GOI$Gene %in% plastid),"Plastid (Friso et al 2010; KEGG; CornCyc)"] <- TRUE
 
 tmt.GOI <- tmt.GOI[order(tmt.GOI$Order),]
 ```
@@ -1889,7 +1904,6 @@ tmt.GOI <- tmt.GOI[,c(1:9,16:23,10:15)]
 #Combine columns of each pathway into single column
 tmt.GOI <- unite(tmt.GOI, "KeggPathway", KeggPathway1:KeggPathway15, sep = " // ")
 ```
-
 ```{r read in gamer}
 # Read in Maize GAMER GO dataset, which lists maize V4 accessions with all associated GO terms (Wimalanathan et al. 2018) downloaded from https://datacommons.cyverse.org/browse/iplant/home/shared/commons_repo/curated/Carolyn_Lawrence-Dill_maize-GAMER_maize.B73_RefGen_v4_Zm00001d.2_Oct_2017.r1/e.agg_data
 GAMER <- read.delim("maize.B73.AGPv4.aggregate.gaf", sep = "\t", header = FALSE)
@@ -1900,36 +1914,25 @@ gamer$GOterm <- AnnotationDbi::Term(as.character(gamer$term_accession))
 ```{r}
 #merge gamer GO terms
 tmt.GOI <- merge.data.frame(tmt.GOI, gamer[,c(2,18)], by.x = "Gene", by.y = "db_object_id", all.x = T, all.y = F)
-
 #Convert duplicated rows into multiple columns for each GO term
 tmt.GOI.w <- dcast(setDT(tmt.GOI), Accession~rowid(Accession, prefix="GOterm"), value.var="GOterm")
-
 tmt.GOI <- merge.data.frame(tmt.GOI[,1:9], tmt.GOI.w, by.x = "Accession", by.y = "Accession")
 tmt.GOI <- distinct(tmt.GOI)
-
 #reorder
 tmt.GOI <- tmt.GOI[,c(1:10,21,32,43,54,65,76,79,80,11:20,22:31,33:42,44:53,55:64,66:75,77:78)]
 #Combine columns of each pathway into single column
 tmt.GOI <- unite(tmt.GOI, "GOterm", GOterm1:GOterm71, sep = " // ")
-```
-```{r}
+#reorder rows
 tmt.GOI <- tmt.GOI[order(tmt.GOI$Order),]
-```
-```{r}
 #Remove extra NAs
 tmt.GOI$KeggPathway <- gsub(tmt.GOI$KeggPathway, pattern = " // NA", replacement = "")
 tmt.GOI$GOterm <- gsub(tmt.GOI$GOterm, pattern = " // NA", replacement = "")
-```
-```{r}
 #Add column for mitochondria proteins
-tmt.GOI$`Mitochondria (Wang et al 2018)` <- FALSE
-tmt.GOI[(tmt.GOI$Gene %in% wangv4),"Mitochondria (Wang et al 2018)"] <- TRUE
-```
-```{r}
-#reorder
+tmt.GOI$`Mitochondria (Wang et al 2018; Dahal et al 2012; KEGG; CornCyc)` <- FALSE
+tmt.GOI[(tmt.GOI$Gene %in% mito),"Mitochondria (Wang et al 2018; Dahal et al 2012; KEGG; CornCyc)"] <- TRUE
+#reorder columns
 tmt.GOI <- tmt.GOI[,c(1:7,11,8:10)]
-```
-```{r}
+#save
 write.csv(tmt.GOI, "FinalLeafGOIs.csv", row.names = F)
 ```
 
@@ -1969,8 +1972,8 @@ df.lims.plastid <- df.lims
 df.lims.plastid$Category <- "Other"
 df.lims.plastid$Order <- 1
 
-df.lims.plastid[(df.lims.plastid$Gene %in% GOIs$friso.v4),"Category"] <- "Plastid"
-df.lims.plastid[(df.lims.plastid$Gene %in% GOIs$friso.v4),"Order"] <- 2
+df.lims.plastid[(df.lims.plastid$Gene %in% GOIs$plastid),"Category"] <- "Plastid"
+df.lims.plastid[(df.lims.plastid$Gene %in% GOIs$plastid),"Order"] <- 2
 
 df.lims.plastid[(df.lims.plastid$Gene %in% GOIs$Nuc.PtRibo),"Category"] <- "NE plastid ribosome"
 df.lims.plastid[(df.lims.plastid$Gene %in% GOIs$Nuc.PtRibo),"Order"] <- 3
@@ -2036,8 +2039,8 @@ df.lims.mito <- df.lims
 df.lims.mito$Category <- "Other"
 df.lims.mito$Order <- 1
 
-df.lims.mito[(df.lims.mito$Gene %in% wangv4),"Category"] <- "Mitochondria"
-df.lims.mito[(df.lims.mito$Gene %in% wangv4),"Order"] <- 2
+df.lims.mito[(df.lims.mito$Gene %in% GOIs$mito),"Category"] <- "Mitochondria"
+df.lims.mito[(df.lims.mito$Gene %in% GOIs$mito),"Order"] <- 2
 
 df.lims.mito[(df.lims.mito$Gene %in% GOIs$OxPhos),"Category"] <- "NE oxidative phosphorylation"
 df.lims.mito[(df.lims.mito$Gene %in% GOIs$OxPhos),"Order"] <- 3
@@ -2125,8 +2128,8 @@ df.lims.plastid <- df.lims
 df.lims.plastid$Category <- "Other"
 df.lims.plastid$Order <- 1
 
-df.lims.plastid[(df.lims.plastid$Gene %in% GOIs$friso.v4),"Category"] <- "Plastid"
-df.lims.plastid[(df.lims.plastid$Gene %in% GOIs$friso.v4),"Order"] <- 2
+df.lims.plastid[(df.lims.plastid$Gene %in% GOIs$plastid),"Category"] <- "Plastid"
+df.lims.plastid[(df.lims.plastid$Gene %in% GOIs$plastid),"Order"] <- 2
 
 df.lims.plastid[(df.lims.plastid$Gene %in% GOIs$NE.PtComplexes),"Category"] <- "NE digenomic complexes"
 df.lims.plastid[(df.lims.plastid$Gene %in% GOIs$NE.PtComplexes),"Order"] <- 3
@@ -2233,8 +2236,8 @@ df.lims.mito <- df.lims
 df.lims.mito$Category <- "Other"
 df.lims.mito$Order <- 1
 
-df.lims.mito[(df.lims.mito$Gene %in% wangv4),"Category"] <- "Mitochondria"
-df.lims.mito[(df.lims.mito$Gene %in% wangv4),"Order"] <- 2
+df.lims.mito[(df.lims.mito$Gene %in% GOIs$mito),"Category"] <- "Mitochondria"
+df.lims.mito[(df.lims.mito$Gene %in% GOIs$mito),"Order"] <- 2
 
 df.lims.mito[(df.lims.mito$Gene %in% GOIs$OxPhos),"Category"] <- "NE oxidative phosphorylation"
 df.lims.mito[(df.lims.mito$Gene %in% GOIs$OxPhos),"Order"] <- 3
@@ -2338,23 +2341,23 @@ df.lims.et <- df.lims
 df.lims.et$Category <- "Other"
 df.lims.et$Order <- 1
 
-df.lims.et[(df.lims.et$Gene %in% friso.v4),"Category"] <- "Plastid"
-df.lims.et[(df.lims.et$Gene %in% friso.v4),"Order"] <- 2
+df.lims.et[(df.lims.et$Gene %in% GOIs$plastid),"Category"] <- "Plastid"
+df.lims.et[(df.lims.et$Gene %in% GOIs$plastid),"Order"] <- 2
 
-df.lims.et[(df.lims.et$Gene %in% Nuc.PtRibo),"Category"] <- "NE plastid ribosome"
-df.lims.et[(df.lims.et$Gene %in% Nuc.PtRibo),"Order"] <- 3
+df.lims.et[(df.lims.et$Gene %in% GOIs$Nuc.PtRibo),"Category"] <- "NE plastid ribosome"
+df.lims.et[(df.lims.et$Gene %in% GOIs$Nuc.PtRibo),"Order"] <- 3
 
-df.lims.et[(df.lims.et$Gene %in% Pt.ribo),"Category"] <- "PE plastid ribosome"
-df.lims.et[(df.lims.et$Gene %in% Pt.ribo),"Order"] <- 4
+df.lims.et[(df.lims.et$Gene %in% GOIs$Pt.ribo),"Category"] <- "PE plastid ribosome"
+df.lims.et[(df.lims.et$Gene %in% GOIs$Pt.ribo),"Order"] <- 4
 
-df.lims.et[(df.lims.et$Gene %in% NE.PtComplexes),"Category"] <- "NE digenomic complexes"
-df.lims.et[(df.lims.et$Gene %in% NE.PtComplexes),"Order"] <- 5
+df.lims.et[(df.lims.et$Gene %in% GOIs$NE.PtComplexes),"Category"] <- "NE digenomic complexes"
+df.lims.et[(df.lims.et$Gene %in% GOIs$NE.PtComplexes),"Order"] <- 5
 
-df.lims.et[(df.lims.et$Gene %in% Pt.Complexes),"Category"] <- "PE digenomic complexes"
-df.lims.et[(df.lims.et$Gene %in% Pt.Complexes),"Order"] <- 6
+df.lims.et[(df.lims.et$Gene %in% GOIs$Pt.Complexes),"Category"] <- "PE digenomic complexes"
+df.lims.et[(df.lims.et$Gene %in% GOIs$Pt.Complexes),"Order"] <- 6
 
-df.lims.et[(df.lims.et$Gene %in% EtBio),"Category"] <- "Ethylene biosynthesis"
-df.lims.et[(df.lims.et$Gene %in% EtBio),"Order"] <- 7
+df.lims.et[(df.lims.et$Gene %in% GOIs$EtBio),"Category"] <- "Ethylene biosynthesis"
+df.lims.et[(df.lims.et$Gene %in% GOIs$EtBio),"Order"] <- 7
 ###Re-order
 df.lims.et <- df.lims.et[(order(df.lims.et$Order)),]
 ###remove "other"
@@ -2421,8 +2424,8 @@ df.lims.plastid <- df.lims
 df.lims.plastid$Category <- "Other"
 df.lims.plastid$Order <- 1
 
-df.lims.plastid[(df.lims.plastid$Gene %in% GOIs$friso.v4),"Category"] <- "Plastid"
-df.lims.plastid[(df.lims.plastid$Gene %in% GOIs$friso.v4),"Order"] <- 2
+df.lims.plastid[(df.lims.plastid$Gene %in% GOIs$plastid),"Category"] <- "Plastid"
+df.lims.plastid[(df.lims.plastid$Gene %in% GOIs$plastid),"Order"] <- 2
 
 df.lims.plastid[(df.lims.plastid$Gene %in% GOIs$NE.PtComplexes),"Category"] <- "NE digenomic complexes"
 df.lims.plastid[(df.lims.plastid$Gene %in% GOIs$NE.PtComplexes),"Order"] <- 3
@@ -2516,13 +2519,27 @@ legend <- get_legend(df.lims.plastid.scat)
 ##Run functions
 ###Plastid and Mitochondria - Protein
 ```{r}
+PlotPlastidMitoFun(tmt.OG.SL, RNAorProtein = "Protein", limX = 0.5, limY = 1.0)
+PlotPlastidMitoFun(tmt.6h.SL, RNAorProtein = "Protein", limX = 0.5, limY = 1.0)
+PlotPlastidMitoFun(tmt.dn.SL, RNAorProtein = "Protein", limX = 0.5, limY = 1.0)
+PlotPlastidMitoFun(tmt.ril.SL, RNAorProtein = "Protein", limX = 0.5, limY = 1.0)
+
 PlotPlastidMitoFun(tmt.OG.SL, RNAorProtein = "Protein", limX = 0.75, limY = 1.0)
 PlotPlastidMitoFun(tmt.6h.SL, RNAorProtein = "Protein", limX = 0.75, limY = 1.0)
 PlotPlastidMitoFun(tmt.dn.SL, RNAorProtein = "Protein", limX = 0.75, limY = 1.0)
 PlotPlastidMitoFun(tmt.ril.SL, RNAorProtein = "Protein", limX = 0.75, limY = 1.0)
+
+PlotPlastidMitoFun(tmt.OG.SL, RNAorProtein = "Protein", limX = 1.0, limY = 1.0)
+PlotPlastidMitoFun(tmt.6h.SL, RNAorProtein = "Protein", limX = 1.0, limY = 1.0)
+PlotPlastidMitoFun(tmt.dn.SL, RNAorProtein = "Protein", limX = 1.0, limY = 1.0)
+PlotPlastidMitoFun(tmt.ril.SL, RNAorProtein = "Protein", limX = 1.0, limY = 1.0)
 ```
 ###Plastid and Mitochondria - RNA
 ```{r}
+PlotPlastidMitoFun(cpm.OG.SL, RNAorProtein = "RNA", limX = 1.0, limY = 2.0)
+PlotPlastidMitoFun(cpm.6h.SL, RNAorProtein = "RNA", limX = 1.0, limY = 2.0)
+PlotPlastidMitoFun(cpm.ril.SL, RNAorProtein = "RNA", limX = 1.0, limY = 2.0)
+
 PlotPlastidMitoFun(cpm.OG.SL, RNAorProtein = "RNA", limX = 2.0, limY = 2.0)
 PlotPlastidMitoFun(cpm.6h.SL, RNAorProtein = "RNA", limX = 2.0, limY = 2.0)
 PlotPlastidMitoFun(cpm.ril.SL, RNAorProtein = "RNA", limX = 2.0, limY = 2.0)
@@ -2568,10 +2585,19 @@ panel.cpm <- rbind(panel.cpm,panel.cpm.ril)
 ```
 ####Run
 ```{r}
+PlotPlastidPanelFun(panel.tmt, RNAorProtein = "Protein", limX = 0.5, limY = 1.0)
+PlotMitoPanelFun(panel.tmt, RNAorProtein = "Protein", limX = 0.5, limY = 1.0)
+
+PlotPlastidPanelFun(panel.tmt, RNAorProtein = "Protein", limX = 0.75, limY = 1.0)
+PlotMitoPanelFun(panel.tmt, RNAorProtein = "Protein", limX = 0.75, limY = 1.0)
+
 PlotPlastidPanelFun(panel.tmt, RNAorProtein = "Protein", limX = 1.0, limY = 1.0)
 PlotMitoPanelFun(panel.tmt, RNAorProtein = "Protein", limX = 1.0, limY = 1.0)
 ```
 ```{r}
+PlotPlastidPanelFun(panel.cpm, RNAorProtein = "RNA", limX = 1.0, limY = 2.0)
+PlotMitoPanelFun(panel.cpm,  RNAorProtein = "RNA", limX = 1.0, limY = 2.0)
+
 PlotPlastidPanelFun(panel.cpm, RNAorProtein = "RNA", limX = 2.0, limY = 2.0)
 PlotMitoPanelFun(panel.cpm,  RNAorProtein = "RNA", limX = 2.0, limY = 2.0)
 ```
@@ -2583,8 +2609,17 @@ PlotEthyleneFun(tmt.OG.acs.SL, limX = 0.5, limY = 1.0)
 PlotEthyleneFun(tmt.6h.acs.SL, limX = 0.5, limY = 1.0)
 PlotEthyleneFun(tmt.dn.acs.SL, limX = 0.5, limY = 1.0)
 PlotEthyleneFun(tmt.ril.acs.SL, limX = 0.5, limY = 1.0)
-```
 
+PlotEthyleneFun(tmt.OG.acs.SL, limX = 0.75, limY = 1.0)
+PlotEthyleneFun(tmt.6h.acs.SL, limX = 0.75, limY = 1.0)
+PlotEthyleneFun(tmt.dn.acs.SL, limX = 0.75, limY = 1.0)
+PlotEthyleneFun(tmt.ril.acs.SL, limX = 0.75, limY = 1.0)
+
+PlotEthyleneFun(tmt.OG.acs.SL, limX = 1.0, limY = 1.0)
+PlotEthyleneFun(tmt.6h.acs.SL, limX = 1.0, limY = 1.0)
+PlotEthyleneFun(tmt.dn.acs.SL, limX = 1.0, limY = 1.0)
+PlotEthyleneFun(tmt.ril.acs.SL, limX = 1.0, limY = 1.0)
+```
 ###Ethylene biosynthesis Panel - Protein
 ####Setup df
 ```{r}
@@ -2607,11 +2642,11 @@ panel.acs.tmt <- rbind(panel.acs.tmt.OG,panel.acs.tmt.6h)
 panel.acs.tmt <- rbind(panel.acs.tmt,panel.acs.tmt.ril)
 panel.acs.tmt <- rbind(panel.acs.tmt,panel.acs.tmt.dn)
 ```
-
-
 ####Run
 ```{r}
 PlotEthylenePanelFun(panel.acs.tmt, RNAorProtein = "Protein", limX = 0.5, limY = 1.0)
+PlotEthylenePanelFun(panel.acs.tmt, RNAorProtein = "Protein", limX = 0.75, limY = 1.0)
+PlotEthylenePanelFun(panel.acs.tmt, RNAorProtein = "Protein", limX = 1.0, limY = 1.0)
 ```
 
 
