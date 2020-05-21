@@ -2684,6 +2684,210 @@ legend <- get_legend(df.lims.mito.scat)
   ggsave(plot=r, filename =paste0("Plots/Mitochondria/", RNAorProtein, "/", deparse(substitute(plotDF)),".mito.", "Xlim", limX, ".Ylim", limY, ".pdf"), dpi=300, width=4.75, height=5)  
 }
 ```
+```{r PlotMitoPanel9Fun}
+PlotMitoPanel9Fun<-function(plotDF, RNAorProtein, limX, limY){
+  colors <- c("Mitochondria"="black", "ME ribosome"="#ffa744", "NE mitochondrial ribosome"="#ff0000", "ME oxidative phosphorylation"="#71b1ff", "NE oxidative phosphorylation"="#3447ff")
+  plot<-unique(plotDF[,"plot"])
+  plotList<-vector(mode = "list", length = length(plot))
+  plotLab<-unique(plotDF[,"plot"])
+  for(i in 1:length(plot)){
+    df<-plotDF[which(plotDF[,"plot"]==plot[i]),]
+    ###Set limits
+df.lims <- df
+df.lims$l2.HYB.MP[df.lims$l2.HYB.MP <= -limX] <- -limX
+df.lims$l2.HYB.MP[df.lims$l2.HYB.MP >= limX] <- limX
+
+df.lims$l2.parent.parent[df.lims$l2.parent.parent <= -limY] <- -limY
+df.lims$l2.parent.parent[df.lims$l2.parent.parent >= limY] <- limY
+###Set GOIs
+df.lims.mito <- df.lims
+
+df.lims.mito$Category <- "Other"
+df.lims.mito$Order <- 1
+
+df.lims.mito[(df.lims.mito$Gene %in% GOIs$mito),"Category"] <- "Mitochondria"
+df.lims.mito[(df.lims.mito$Gene %in% GOIs$mito),"Order"] <- 2
+
+df.lims.mito[(df.lims.mito$Gene %in% GOIs$OxPhos),"Category"] <- "NE oxidative phosphorylation"
+df.lims.mito[(df.lims.mito$Gene %in% GOIs$OxPhos),"Order"] <- 3
+
+df.lims.mito[(df.lims.mito$Gene %in% GOIs$Mt.OxPhos),"Category"] <- "ME oxidative phosphorylation"
+df.lims.mito[(df.lims.mito$Gene %in% GOIs$Mt.OxPhos),"Order"] <- 4
+
+df.lims.mito[(df.lims.mito$Gene %in% GOIs$Nuc.MtRibo),"Category"] <- "NE mitochondrial ribosome"
+df.lims.mito[(df.lims.mito$Gene %in% GOIs$Nuc.MtRibo),"Order"] <- 5
+
+df.lims.mito[(df.lims.mito$Gene %in% GOIs$Mt.ribo),"Category"] <- "ME ribosome"
+df.lims.mito[(df.lims.mito$Gene %in% GOIs$Mt.ribo),"Order"] <- 6
+###Re-order
+df.lims.mito <- df.lims.mito[(order(df.lims.mito$Order)),]
+###remove "other"
+df.lims.mito <- df.lims.mito[!df.lims.mito$Category=="Other",]
+###factor
+df.lims.mito$Category <- factor(df.lims.mito$Category, levels = c("Mitochondria", "NE oxidative phosphorylation", "ME oxidative phosphorylation", "NE mitochondrial ribosome", "ME ribosome"))
+    #scatter plot with marginal density curves
+    df.lims.mito.scat <- ggplot(df.lims.mito, mapping=aes(x=l2.HYB.MP, y=l2.parent.parent, color=Category, shape=Category))+
+    geom_point(aes(color=Category), size=1)+
+  scale_color_manual(values=colors, name="Category")+
+      scale_shape_manual(values=c(1,19,19,19,19))+
+    theme_classic()+
+      xlim(c(-limX,limX))+
+      ylim(c(-limY,limY))+
+      geom_vline(xintercept=0, linetype="dashed", color = "gray60", size=0.5)+
+      geom_hline(yintercept=0, linetype="dashed", color = "gray60", size=0.5)+
+      xlab("log2 HYB/midparent")+
+      ylab("log2 parent/parent")+
+      ggtitle(plotLab[i])+
+      theme(aspect.ratio=1)+
+      coord_fixed(expand = F)+
+      theme(plot.margin=grid::unit(c(-3,-3,0,-3), "mm"))+
+      theme(axis.text=element_text(size=10), legend.text=element_text(size=10),
+        legend.position="bottom", legend.title = element_blank(), plot.title = element_text(vjust = -3.5, hjust = -0.485), axis.text.x = element_text(size = 9), axis.text.y = element_text(size = 9), legend.spacing.x = unit(0.1, 'cm'), legend.spacing.y = unit(-3, 'cm'))+
+      guides(col=guide_legend(nrow = 2))
+legend <- get_legend(df.lims.mito.scat)
+    df.lims.mito.scat <- df.lims.mito.scat+theme(legend.position = "none")
+###Add density curves
+    densityplotX<-axis_canvas(df.lims.mito.scat, axis="x")+
+      geom_density(aes(df.lims.mito[,"l2.HYB.MP"], color=df.lims.mito[,"Category"]), size=0.5)+
+    scale_color_manual(values=colors, name="Category")+
+      geom_vline(xintercept=0, linetype="dashed", color = "gray60", size=0.5)+
+      theme_void()+
+      theme(legend.title = element_blank())+
+      theme(plot.margin=grid::unit(c(-3,-3,0,-3), "mm"))
+    #set up marginal density plot Y axis
+    densityplotY<-axis_canvas(df.lims.mito.scat, axis="y", coord_flip = T)+
+      geom_density(aes(df.lims.mito[,"l2.parent.parent"], color=df.lims.mito[,"Category"]), size=0.5)+
+      scale_color_manual(values=colors, name="Category")+
+      scale_linetype_manual(values=c("dotted", "solid"))+
+      geom_vline(xintercept=0, linetype="dashed", color = "gray60", size=0.5)+
+      theme_void()+
+      theme(legend.title = element_blank())+
+      coord_flip()+
+      theme(plot.margin=grid::unit(c(-2,-2,0,-2), "mm"))
+    #put two plots together
+      q <- insert_xaxis_grob(df.lims.mito.scat, densityplotX, grid::unit(0.275, "null"), position = "top")
+      q <- insert_yaxis_grob(q, densityplotY, grid::unit(0.275, "null"), position = "right")
+    if(i==1){
+      plotList<-list()
+      plotList[[1]]<-q
+    }
+    else{
+      plotList <- c(plotList, list(q))
+    }
+  }
+  plotList <- c(plotList, list(legend))
+  des <- "ABC
+          DEG
+          HIJ
+          KKK"
+  r<-patchwork::wrap_plots(A=plotList[[1]], B=plotList[[2]], C=plotList[[3]], D=plotList[[4]], E=plotList[[5]], G=plotList[[6]], H=plotList[[7]], I=plotList[[8]], J=plotList[[9]], K=plotList[[10]], nrow = 4, heights = c(3,3,3,1.2), design = des)
+  
+ggsave(plot=r, filename =paste0("Plots/Mitochondria/", RNAorProtein, "/panel.", deparse(substitute(plotDF)),".mito.", "Xlim", limX, ".Ylim", limY, ".pdf"),
+          dpi=300, width=7.125, height=7.5)  
+}
+```
+```{r PlotMitoPanel6Fun}
+PlotMitoPanel6Fun<-function(plotDF, RNAorProtein, limX, limY){
+  colors <- c("Mitochondria"="black", "ME ribosome"="#ffa744", "NE mitochondrial ribosome"="#ff0000", "ME oxidative phosphorylation"="#71b1ff", "NE oxidative phosphorylation"="#3447ff")
+  plot<-unique(plotDF[,"plot"])
+  plotList<-vector(mode = "list", length = length(plot))
+  plotLab<-unique(plotDF[,"plot"])
+  for(i in 1:length(plot)){
+    df<-plotDF[which(plotDF[,"plot"]==plot[i]),]
+    ###Set limits
+df.lims <- df
+df.lims$l2.HYB.MP[df.lims$l2.HYB.MP <= -limX] <- -limX
+df.lims$l2.HYB.MP[df.lims$l2.HYB.MP >= limX] <- limX
+
+df.lims$l2.parent.parent[df.lims$l2.parent.parent <= -limY] <- -limY
+df.lims$l2.parent.parent[df.lims$l2.parent.parent >= limY] <- limY
+###Set GOIs
+df.lims.mito <- df.lims
+
+df.lims.mito$Category <- "Other"
+df.lims.mito$Order <- 1
+
+df.lims.mito[(df.lims.mito$Gene %in% GOIs$mito),"Category"] <- "Mitochondria"
+df.lims.mito[(df.lims.mito$Gene %in% GOIs$mito),"Order"] <- 2
+
+df.lims.mito[(df.lims.mito$Gene %in% GOIs$OxPhos),"Category"] <- "NE oxidative phosphorylation"
+df.lims.mito[(df.lims.mito$Gene %in% GOIs$OxPhos),"Order"] <- 3
+
+df.lims.mito[(df.lims.mito$Gene %in% GOIs$Mt.OxPhos),"Category"] <- "ME oxidative phosphorylation"
+df.lims.mito[(df.lims.mito$Gene %in% GOIs$Mt.OxPhos),"Order"] <- 4
+
+df.lims.mito[(df.lims.mito$Gene %in% GOIs$Nuc.MtRibo),"Category"] <- "NE mitochondrial ribosome"
+df.lims.mito[(df.lims.mito$Gene %in% GOIs$Nuc.MtRibo),"Order"] <- 5
+
+df.lims.mito[(df.lims.mito$Gene %in% GOIs$Mt.ribo),"Category"] <- "ME ribosome"
+df.lims.mito[(df.lims.mito$Gene %in% GOIs$Mt.ribo),"Order"] <- 6
+###Re-order
+df.lims.mito <- df.lims.mito[(order(df.lims.mito$Order)),]
+###remove "other"
+df.lims.mito <- df.lims.mito[!df.lims.mito$Category=="Other",]
+###factor
+df.lims.mito$Category <- factor(df.lims.mito$Category, levels = c("Mitochondria", "NE oxidative phosphorylation", "ME oxidative phosphorylation", "NE mitochondrial ribosome", "ME ribosome"))
+    #scatter plot with marginal density curves
+    df.lims.mito.scat <- ggplot(df.lims.mito, mapping=aes(x=l2.HYB.MP, y=l2.parent.parent, color=Category, shape=Category))+
+    geom_point(aes(color=Category), size=1)+
+  scale_color_manual(values=colors, name="Category")+
+      scale_shape_manual(values=c(1,19,19,19,19))+
+    theme_classic()+
+      xlim(c(-limX,limX))+
+      ylim(c(-limY,limY))+
+      geom_vline(xintercept=0, linetype="dashed", color = "gray60", size=0.5)+
+      geom_hline(yintercept=0, linetype="dashed", color = "gray60", size=0.5)+
+      xlab("log2 HYB/midparent")+
+      ylab("log2 parent/parent")+
+      ggtitle(plotLab[i])+
+      theme(aspect.ratio=1)+
+      coord_fixed(expand = F)+
+      theme(plot.margin=grid::unit(c(-3,-3,0,-3), "mm"))+
+      theme(axis.text=element_text(size=10), legend.text=element_text(size=10),
+        legend.position="bottom", legend.title = element_blank(), plot.title = element_text(vjust = -3.5, hjust = -0.485), axis.text.x = element_text(size = 9), axis.text.y = element_text(size = 9), legend.spacing.x = unit(0.1, 'cm'), legend.spacing.y = unit(-3, 'cm'))+
+      guides(col=guide_legend(nrow = 3))
+legend <- get_legend(df.lims.mito.scat)
+    df.lims.mito.scat <- df.lims.mito.scat+theme(legend.position = "none")
+###Add density curves
+    densityplotX<-axis_canvas(df.lims.mito.scat, axis="x")+
+      geom_density(aes(df.lims.mito[,"l2.HYB.MP"], color=df.lims.mito[,"Category"]), size=0.5)+
+    scale_color_manual(values=colors, name="Category")+
+      geom_vline(xintercept=0, linetype="dashed", color = "gray60", size=0.5)+
+      theme_void()+
+      theme(legend.title = element_blank())+
+      theme(plot.margin=grid::unit(c(-3,-3,0,-3), "mm"))
+    #set up marginal density plot Y axis
+    densityplotY<-axis_canvas(df.lims.mito.scat, axis="y", coord_flip = T)+
+      geom_density(aes(df.lims.mito[,"l2.parent.parent"], color=df.lims.mito[,"Category"]), size=0.5)+
+      scale_color_manual(values=colors, name="Category")+
+      scale_linetype_manual(values=c("dotted", "solid"))+
+      geom_vline(xintercept=0, linetype="dashed", color = "gray60", size=0.5)+
+      theme_void()+
+      theme(legend.title = element_blank())+
+      coord_flip()+
+      theme(plot.margin=grid::unit(c(-2,-2,0,-2), "mm"))
+    #put two plots together
+      q <- insert_xaxis_grob(df.lims.mito.scat, densityplotX, grid::unit(0.275, "null"), position = "top")
+      q <- insert_yaxis_grob(q, densityplotY, grid::unit(0.275, "null"), position = "right")
+    if(i==1){
+      plotList<-list()
+      plotList[[1]]<-q
+    }
+    else{
+      plotList <- c(plotList, list(q))
+    }
+  }
+  plotList <- c(plotList, list(legend))
+  des <- "AB
+          CD
+          EG
+          HH"
+  r<-patchwork::wrap_plots(A=plotList[[1]], B=plotList[[2]], C=plotList[[3]], D=plotList[[4]], E=plotList[[5]], G=plotList[[6]], H=plotList[[7]], nrow = 4, heights = c(3,3,3,1.5), design = des)
+  
+ggsave(plot=r, filename =paste0("Plots/Mitochondria//", RNAorProtein, "/panel.", deparse(substitute(plotDF)),".mito.", "Xlim", limX, ".Ylim", limY, ".pdf"),
+          dpi=300, width=4.75, height=6.5)  
+}
+```
 ```{r PlotEthyleneFun}
 PlotEthyleneFun <- function(df, limX, limY){
   colors <- c("Plastid"="black", "PE plastid ribosome"="#ef73ef", "NE plastid ribosome"="#a742da", "PE digenomic complexes"="#7ae281", "NE digenomic complexes"="#009fa7", "Ethylene biosynthesis"="#fab5bd")
@@ -3019,11 +3223,16 @@ PlotEthylenePanelFun(panel.acs.tmt, RNAorProtein = "Protein", limX = 1.0, limY =
 PlotPlastidPanel9Fun(tmt.ril.all9, RNAorProtein = "Protein", limX = 0.3, limY = 1.0)
 PlotPlastidPanel9Fun(tmt.ril.all9, RNAorProtein = "Protein", limX = 0.5, limY = 1.0)
 PlotPlastidPanel9Fun(tmt.ril.all9, RNAorProtein = "Protein", limX = 1.0, limY = 1.0)
-```
-```{r}
+
 PlotPlastidPanel9Fun(cpm.ril.all9, RNAorProtein = "RNA", limX = 1.0, limY = 2.0)
 PlotPlastidPanel9Fun(cpm.ril.all9, RNAorProtein = "RNA", limX = 2.0, limY = 2.0)
 ```
+```{r}
+PlotMitoPanel9Fun(tmt.ril.all9, RNAorProtein = "Protein", limX = 0.5, limY = 1.0)
+PlotMitoPanel9Fun(cpm.ril.all9, RNAorProtein = "RNA", limX = 1.0, limY = 2.0)
+PlotMitoPanel9Fun(cpm.ril.all9, RNAorProtein = "RNA", limX = 2.0, limY = 2.0)
+```
+
 
 
 ###6hybrid
@@ -3035,6 +3244,10 @@ PlotPlastidPanel6Fun(tmt.6h.all6, RNAorProtein = "Protein", limX = 1.0, limY = 1
 ```{r}
 PlotPlastidPanel6Fun(cpm.6h.all6, RNAorProtein = "RNA", limX = 1.0, limY = 2.0)
 PlotPlastidPanel6Fun(cpm.6h.all6, RNAorProtein = "RNA", limX = 2.0, limY = 2.0)
+```
+```{r}
+PlotMitoPanel6Fun(tmt.6h.all6, RNAorProtein = "Protein", limX = 0.5, limY = 1.0)
+PlotMitoPanel6Fun(cpm.6h.all6, RNAorProtein = "RNA", limX = 2.0, limY = 2.0)
 ```
 
 
