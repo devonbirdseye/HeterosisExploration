@@ -2225,8 +2225,69 @@ df.lims.plastid.scat <- ggplot(df.lims.plastid, mapping=aes(x=l2.BM.MP, y=l2.B73
       q <- insert_yaxis_grob(q, densityplotY, grid::unit(0.275, "null"), position = "right")
     #save
      # ggsave(plot=q, filename = "df.lims.plastid.scat.png")
-  ggsave(plot=q, filename = paste0("Plots/Plastid/", RNAorProtein, "/", deparse(substitute(df)),"Xlim", limX, ".Ylim", limY, ".plastid.scat.pdf"),  dpi=300, width=4.75, height = 5, scale = 1, units = "in")}
-```  
+  ggsave(plot=q, filename = paste0("Plots/Plastid/", RNAorProtein, "/", deparse(substitute(df)),"Xlim", limX, ".Ylim", limY, ".plastid.scat.pdf"),  dpi=300, width=4.75, height = 5, scale = 1, units = "in")
+  
+##Scatterplot - Mitochondria
+###Set GOIs
+df.lims.mito <- df.lims
+df.lims.mito$Category <- "Other"
+df.lims.mito$Order <- 1
+df.lims.mito[(df.lims.mito$Gene %in% GOIs$mito),"Category"] <- "Mitochondria"
+df.lims.mito[(df.lims.mito$Gene %in% GOIs$mito),"Order"] <- 2
+df.lims.mito[(df.lims.mito$Gene %in% GOIs$OxPhos),"Category"] <- "NE oxidative phosphorylation"
+df.lims.mito[(df.lims.mito$Gene %in% GOIs$OxPhos),"Order"] <- 3
+df.lims.mito[(df.lims.mito$Gene %in% GOIs$Mt.OxPhos),"Category"] <- "ME oxidative phosphorylation"
+df.lims.mito[(df.lims.mito$Gene %in% GOIs$Mt.OxPhos),"Order"] <- 4
+df.lims.mito[(df.lims.mito$Gene %in% GOIs$Nuc.MtRibo),"Category"] <- "NE mitochondrial ribosome"
+df.lims.mito[(df.lims.mito$Gene %in% GOIs$Nuc.MtRibo),"Order"] <- 5
+df.lims.mito[(df.lims.mito$Gene %in% GOIs$Mt.ribo),"Category"] <- "ME ribosome"
+df.lims.mito[(df.lims.mito$Gene %in% GOIs$Mt.ribo),"Order"] <- 6
+###Re-order
+df.lims.mito <- df.lims.mito[(order(df.lims.mito$Order)),]
+###remove "other"
+df.lims.mito <- df.lims.mito[!df.lims.mito$Category=="Other",]
+###factor
+df.lims.mito$Category <- factor(df.lims.mito$Category, levels = c("Mitochondria", "NE oxidative phosphorylation", "ME oxidative phosphorylation", "NE mitochondrial ribosome", "ME ribosome"))
+###Scatterplot
+df.lims.mito.scat <- ggplot(df.lims.mito, mapping=aes(x=l2.BM.MP, y=l2.B73.Mo17, color=Category, shape=Category))+
+    geom_point(aes(color=Category), size=3)+
+  scale_color_manual(values=colors.m, name="Category")+
+  scale_shape_manual(values=c(1,19,19,19,19))+
+    theme_classic()+
+          xlim(c(-limX,limX))+
+          ylim(c(-limY,limY))+
+          geom_vline(xintercept=0, linetype="dashed", color = "gray50")+
+          geom_hline(yintercept=0, linetype="dashed", color = "gray50")+
+          theme(axis.text=element_text(size=10), legend.text=element_text(size=10),
+                legend.position="bottom", legend.title = element_blank())+
+          guides(col=guide_legend(nrow = 3))+
+    xlab("log2 BxM/MP")+
+    ylab("log2 B73/Mo17")+
+    theme(aspect.ratio=1)+
+    coord_fixed(expand = F)
+###Add density curves
+    densityplotX<-axis_canvas(df.lims.mito.scat, axis="x")+
+      geom_density(aes(df.lims.mito[,"l2.BM.MP"], color=df.lims.mito[,"Category"]), size=1)+
+    scale_color_manual(values=colors.m, name="Category")+
+      geom_vline(xintercept=0, linetype="dashed", color = "gray50")+
+      theme_void()+
+      theme(legend.title = element_blank())
+    #set up marginal density plot Y axis
+    densityplotY<-axis_canvas(df.lims.mito.scat, axis="y", coord_flip = T)+
+      geom_density(aes(df.lims.mito[,"l2.B73.Mo17"], color=df.lims.mito[,"Category"]), size=1)+
+      scale_color_manual(values=colors.m, name="Category")+
+      scale_linetype_manual(values=c("dotted", "solid"))+
+      geom_vline(xintercept=0, linetype="dashed", color = "gray50")+
+      theme_void()+
+      theme(legend.title = element_blank())+
+      coord_flip()
+    #put two plots together
+      q <- insert_xaxis_grob(df.lims.mito.scat, densityplotX, grid::unit(0.275, "null"), position = "top")
+      q <- insert_yaxis_grob(q, densityplotY, grid::unit(0.275, "null"), position = "right")
+    #save
+  ggsave(plot=q, filename = paste0("Plots/Mitochondria/", RNAorProtein, "/", deparse(substitute(df)),"Xlim", limX, ".Ylim", limY, ".mito.scat.pdf"), dpi=300, width=4.75, height = 5, scale = 1, units = "in")
+}
+```
 ```{r get_legend}
 get_legend<-function(myggplot){
   tmp <- ggplot_gtable(ggplot_build(myggplot))
