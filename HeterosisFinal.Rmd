@@ -408,6 +408,10 @@ tmt.ril.317m$plot <- "I"
 ```{r}
 tmt.ril.all9 <- rbind(tmt.ril.bm, tmt.ril.14b, tmt.ril.14m, tmt.ril.16b, tmt.ril.16m, tmt.ril.21b, tmt.ril.21m, tmt.ril.317b, tmt.ril.317m)
 ```
+```{r}
+saveRDS(tmt.ril.all9, "tmt.ril.all9")
+```
+
 
 ###acs
 ```{r}
@@ -2142,6 +2146,7 @@ tmt.OG.acs.SL <- readRDS("tmt.OG.acs.SL")
 tmt.6h.acs.SL <- readRDS("tmt.6h.acs.SL")
 tmt.dn.acs.SL <- readRDS("tmt.dn.acs.SL")
 tmt.ril.acs.SL <- readRDS("tmt.ril.acs.SL")
+tmt.ril.all9 <- readRDS("tmt.ril.all9")
 cpm.OG.SL <- readRDS("cpm.OG.SL")
 cpm.6h.SL <- readRDS("cpm.6h.SL")
 cpm.ril.SL <- readRDS("cpm.ril.SL")
