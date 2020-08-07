@@ -1,5 +1,5 @@
 ---
-title: "Final version of Leaf Heterosis proteomics for Paper"
+title: "Heterosis Part I"
 output: github_document
 ---
 #Setup
@@ -192,12 +192,12 @@ colnames(tmt.6h.a682xmo17)[10:11] <- c("l2.HYB.MP", "l2.parent.parent")
 tmt.6h.b73xmo17$plot <- "A"
 tmt.6h.mo17xb73$plot <- "B"
 tmt.6h.b84xb73$plot <- "C"
-tmt.6h.b84xmo17$plot <- "D"
+tmt.6h.a682xmo17$plot <- "D"
 tmt.6h.a682xb73$plot <- "E"
-tmt.6h.a682xmo17$plot <- "F"
+tmt.6h.b84xmo17$plot <- "F"
 ```
 ```{r}
-tmt.6h.all6 <- rbind(tmt.6h.b73xmo17, tmt.6h.mo17xb73, tmt.6h.b84xb73, tmt.6h.b84xmo17, tmt.6h.a682xb73, tmt.6h.a682xmo17)
+tmt.6h.all6 <- rbind(tmt.6h.b73xmo17, tmt.6h.mo17xb73, tmt.6h.b84xb73, tmt.6h.a682xmo17, tmt.6h.a682xb73, tmt.6h.b84xmo17)
 ```
 ```{r}
 saveRDS(tmt.6h.all6, "tmt.6h.all6")
@@ -259,10 +259,18 @@ saveRDS(tmt.dn.night.SL, "tmt.dn.night.SL")
 ```
 ####Combined
 ```{r}
-tmt.dn.both <- merge.data.frame(tmt.dn.SL[,c(1:9,29,31)],tmt.dn.night.SL[,c(6,29,31)], by.x = "Accession", by.y = "Accession", all.x = T, all.y = T)
+tmt.dn.both <- merge.data.frame(tmt.dn.SL[,c(6,19:21,26,27,29,31)],tmt.dn.night.SL[,c(6,19:21,26,27,29,31)], by.x = "Accession", by.y = "Accession", all.x = T, all.y = T)
 ```
 ```{r}
-colnames(tmt.dn.both)[10:13] <- c("day.l2.BM.MP", "day.l2.B73.Mo17", "night.l2.BM.MP", "night.l2.B73.Mo17")
+colnames(tmt.dn.both)[c(2:15)] <- c("day.B73", "day.Mo17", "day.BM", "day.BM.MP", "day.sig", "day.l2.BM.MP", "day.l2.B73.Mo17","night.B73", "night.Mo17", "night.BM", "night.BM.MP", "night.sig", "night.l2.BM.MP", "night.l2.B73.Mo17")
+```
+```{r}
+for(i in 2:15){
+  tmt.dn.both[,i][is.na(tmt.dn.both[,i])] <- 0
+}
+```
+```{r}
+tmt.dn.both <- merge.data.frame(tmt.dn.both, tmt.GOI, by.x = "Accession", by.y = "Accession", all.x = T, all.y = F)
 ```
 ```{r}
 saveRDS(tmt.dn.both, "tmt.dn.both")
@@ -436,6 +444,7 @@ tmt.acs$ACSavg <- rowMeans(tmt.acs[,15:19])
 tmt.acs$acs.B73 <- tmt.acs$ACSavg/tmt.acs$B73avg
 tmt.acs$Sig <- ttestFun(tmt.acs, 10:14, 15:19)
 tmt.acs$l2.acs.B73 <- log2(tmt.acs$acs.B73)
+saveRDS(tmt.acs, "tmt.acs")
 ```
 
 ###original BxM SL + acs
@@ -561,15 +570,8 @@ saveRDS(tmt.ril.acs.SL, "tmt.ril.acs.SL")
 ##OG
 ```{r}
 cpm <- read_tsv("data/cpm.tsv")
-```
-```{r}
 cpm.OG.SL <- as.data.frame(cpm[,c(1,178:186)])
-```
-```{r}
 colnames(cpm.OG.SL) <- c("Gene", "B73.1", "B73.2", "B73.3", "Mo17.1", "Mo17.2", "Mo17.3", "BM.1", "BM.2", "BM.3")
-```
-
-```{r}
 #Remove genes not detected
 cpm.OG.SL <- cpm.OG.SL[!(rowSums(cpm.OG.SL[,2:10])==0),]
 #Calculate averages of bio reps
@@ -587,9 +589,10 @@ cpm.OG.SL$l2.BM.MP <- log2(cpm.OG.SL$HYB.MP)
 #Calculate log2(B73/Mo17)
 cpm.OG.SL$B73.Mo17 <- cpm.OG.SL$B73avg/cpm.OG.SL$Mo17avg
 cpm.OG.SL$l2.B73.Mo17 <-log2(cpm.OG.SL$B73.Mo17)
+#Limit to what we detect as protein
+cpm.OG.SL <- cpm.OG.SL[cpm.OG.SL$Gene%in%tmt.OG.SL$Gene,]
 saveRDS(cpm.OG.SL, "cpm.OG.SL")
 ```
-
 ##6H
 ```{r}
 rna.6h <- readRDS("data/rn20b.rds")
@@ -602,8 +605,7 @@ rna.6h.tl <- rna.6h$tl
 rna.6h.tm <- rna.6h$tm
 rna.6h.th_m <- rna.6h$th_m
 rna.6h.tm_m <- rna.6h$tm_m
-```
-```{r}
+
 rna.6h.tm.B73.1 <- rna.6h.tm[rna.6h.tm$SampleID=="mBR582",]
 rna.6h.tm.B73.2 <- rna.6h.tm[rna.6h.tm$SampleID=="mBR583",]
 rna.6h.tm.B73.3 <- rna.6h.tm[rna.6h.tm$SampleID=="mBR584",]
@@ -613,16 +615,13 @@ rna.6h.tm.M017.3 <- rna.6h.tm[rna.6h.tm$SampleID=="mBR592",]
 rna.6h.tm.BM.1 <- rna.6h.tm[rna.6h.tm$SampleID=="mBR598",]
 rna.6h.tm.BM.2 <- rna.6h.tm[rna.6h.tm$SampleID=="mBR599",]
 rna.6h.tm.BM.3 <- rna.6h.tm[rna.6h.tm$SampleID=="mBR600",]
-```
-```{r}
+
 cpm.6h.SL.reps <- data.frame("Gene"=rna.6h.tm.B73.1$gid, "B73.1"=rna.6h.tm.B73.1$CPM, "B73.2"=rna.6h.tm.B73.2$CPM, "B73.3"=rna.6h.tm.B73.3$CPM, "Mo17.1"=rna.6h.tm.M017.1$CPM, "Mo17.2"=rna.6h.tm.M017.2$CPM, "Mo17.3"=rna.6h.tm.M017.3$CPM, "BM.1"=rna.6h.tm.BM.1$CPM, "BM.2"=rna.6h.tm.BM.2$CPM, "BM.3"=rna.6h.tm.BM.3$CPM)
 #Remove genes not detected
 cpm.6h.SL.reps <- cpm.6h.SL.reps[!(rowSums(cpm.6h.SL.reps[,2:10])==0),]
-```
+#limit to genes detected as proteins
+cpm.6h.SL.reps <- cpm.6h.SL.reps[cpm.6h.SL.reps$Gene%in%tmt.6h.SL$Gene,]
 
-
-
-```{r}
 #subset
 rna.6h.tm_m.B73 <- rna.6h.tm_m[rna.6h.tm_m$SampleID=="s027",]
 rna.6h.tm_m.Mo17 <- rna.6h.tm_m[rna.6h.tm_m$SampleID=="s037",]
@@ -652,6 +651,8 @@ cpm.6h.SL$l2.A682.B73 <- log2(cpm.6h.SL$A682/cpm.6h.SL$B73)
 cpm.6h.SL$l2.A682.Mo17 <- log2(cpm.6h.SL$A682/cpm.6h.SL$Mo17)
 cpm.6h.SL$l2.B84.B73 <- log2(cpm.6h.SL$B84/cpm.6h.SL$B73)
 cpm.6h.SL$l2.B84.Mo17 <- log2(cpm.6h.SL$B84/cpm.6h.SL$Mo17)
+#limit to genes detected as proteins
+cpm.6h.SL <- cpm.6h.SL[cpm.6h.SL$Gene%in%cpm.6h.SL$Gene,]
 #save
 saveRDS(cpm.6h.SL, "cpm.6h.SL")
 ```
@@ -674,12 +675,13 @@ colnames(cpm.6h.SL.b84xm)[2:3] <- c("l2.HYB.MP", "l2.parent.parent")
 #name plots
 cpm.6h.SL.bm$plot <- "A"
 cpm.6h.SL.mb$plot <- "B"
-cpm.6h.SL.a682xb$plot <- "C"
+cpm.6h.SL.b84xb$plot <- "C"
 cpm.6h.SL.a682xm$plot <- "D"
-cpm.6h.SL.b84xb$plot <- "E"
+cpm.6h.SL.a682xb$plot <- "E"
 cpm.6h.SL.b84xm$plot <- "F"
+
 #rbind
-cpm.6h.all6 <- rbind(cpm.6h.SL.bm,cpm.6h.SL.mb,cpm.6h.SL.a682xb,cpm.6h.SL.a682xm,cpm.6h.SL.b84xb,cpm.6h.SL.b84xm)
+cpm.6h.all6 <- rbind(cpm.6h.SL.bm,cpm.6h.SL.mb,cpm.6h.SL.b84xb,cpm.6h.SL.a682xm,cpm.6h.SL.a682xb,cpm.6h.SL.b84xm)
 #save
 saveRDS(cpm.6h.all6, "cpm.6h.all6")
 ```
@@ -697,11 +699,7 @@ rna.ril.tl <- rna.ril$tl
 rna.ril.tm <- rna.ril$tm
 rna.ril.th_m <- rna.ril$th_m
 rna.ril.tm_m <- rna.ril$tm_m
-```
-```{r}
-rna.ril.th
-```
-```{r}
+
 rna.ril.tm.B73.1 <- rna.ril.tm[rna.ril.tm$SampleID=="BR701",]
 rna.ril.tm.B73.2 <- rna.ril.tm[rna.ril.tm$SampleID=="BR702",]
 rna.ril.tm.B73.3 <- rna.ril.tm[rna.ril.tm$SampleID=="BR703",]
@@ -714,16 +712,15 @@ rna.ril.tm.BM.1 <- rna.ril.tm[rna.ril.tm$SampleID=="BR705",]
 rna.ril.tm.BM.2 <- rna.ril.tm[rna.ril.tm$SampleID=="BR707",]
 rna.ril.tm.BM.3 <- rna.ril.tm[rna.ril.tm$SampleID=="BR708",]
 rna.ril.tm.BM.4 <- rna.ril.tm[rna.ril.tm$SampleID=="BR761",]
-```
-```{r}
+
 #combine
 cpm.ril.SL.reps <- data.frame("Gene"=rna.ril.tm.B73.1$gid, "B73.1"=rna.ril.tm.B73.1$CPM, "B73.2"=rna.ril.tm.B73.2$CPM, "B73.3"=rna.ril.tm.B73.3$CPM, "B73.4"=rna.ril.tm.B73.4$CPM, "Mo17.1"=rna.ril.tm.Mo17.1$CPM, "Mo17.2"=rna.ril.tm.Mo17.2$CPM, "Mo17.3"=rna.ril.tm.Mo17.3$CPM, "Mo17.4"=rna.ril.tm.Mo17.4$CPM, "BM.1"=rna.ril.tm.BM.1$CPM, "BM.2"=rna.ril.tm.BM.2$CPM, "BM.3"=rna.ril.tm.BM.3$CPM, "BM.4"=rna.ril.tm.BM.4$CPM)
 colnames(cpm.ril.SL.reps)
 #Remove genes not detected
 cpm.ril.SL.reps <- cpm.ril.SL.reps[!(rowSums(cpm.ril.SL.reps[,2:13])==0),]
-```
+#limit to genes detected as protein
+cpm.ril.SL.reps <- cpm.ril.SL.reps[cpm.ril.SL.reps$Gene%in%tmt.ril.SL$Gene,]
 
-```{r}
 #subset
 rna.ril.tm_m.B73 <- rna.ril.tm_m[rna.ril.tm_m$SampleID=="s001",]
 rna.ril.tm_m.BM <- rna.ril.tm_m[rna.ril.tm_m$SampleID=="s002",]
@@ -764,6 +761,8 @@ cpm.ril.SL$l2.M0021.B73 <- log2(cpm.ril.SL$M0021/cpm.ril.SL$B73)
 cpm.ril.SL$l2.M0021.Mo17 <- log2(cpm.ril.SL$M0021/cpm.ril.SL$Mo17)
 cpm.ril.SL$l2.M0317.B73 <- log2(cpm.ril.SL$M0317/cpm.ril.SL$B73)
 cpm.ril.SL$l2.M0317.Mo17 <- log2(cpm.ril.SL$M0317/cpm.ril.SL$Mo17)
+#limit to genes detected as protein
+cpm.ril.SL <- cpm.ril.SL[cpm.ril.SL$Gene%in%tmt.ril.SL$Gene,]
 #save
 saveRDS(cpm.ril.SL, "cpm.ril.SL")
 ```
@@ -1462,6 +1461,17 @@ ribosom.pt <- ribosom[(grep("30S|50S|plastid|Plastid|Chloropl|chloropl", ribosom
 Nuc.PtRibo <- unique(c(ribosom.pt$Gene, CRASS.prpl.prps))
 ```
 
+```{r}
+phytochromes <- c("Zm00001d033799", "Zm00001d028905", "Zm00001d013402", "Zm00001d013262")
+```
+
+```{r}
+tmt.dn.SL[grep("atpF", tmt.dn.SL$Protein),]
+```
+```{r}
+mgdb$arabidopsis_ortholog[mgdb$v3_gene_model=="GRMZM2G004583"]
+```
+
 
 ##Eukaryotic ribosome
 ```{r}
@@ -1539,7 +1549,6 @@ mito <- unique(c(wangv4,dahalv4, Mt.OxPhos, Mt.ribo, Mt.other, Nuc.MtRibo, OxPho
 ```
 
 ##Mitochondria
-
 ###Oxidative Phosphorylation
 ####KEGG
 ```{r}
@@ -1979,10 +1988,11 @@ Mt.other <- tmt.mt$Gene[!(tmt.mt$Gene%in%c(Mt.OxPhos, Mt.ribo))]
 
 
 
+
 ##GOI list
 ```{r}
-GOIs <- list(lightrxn.PSI.kc, lightrxn.PSII.kc, lightrxn.ATPase.k, lightrxn.NDH, lightrxn.ETC.kc, darkrxn.C4.c, darkrxn.Calvin.kc, darkrxn.Calvin.RubiscoSS, Pt.PS.PSI, Pt.PS.PSII, Pt.PS.ATP, Pt.PS.NADH, Pt.PS.b6f, Pt.PS.rubisco, Pt.rpo, Pt.other, Pt.ribo, Nuc.PtRibo, Mt.ribo, Mt.OxPhos, Mt.other, OxPhos, OxPhos.atp, OxPhos.nadh, OxPhos.complexes, EtBio, NE.PtComplexes, Pt.Complexes, Nuc.MtRibo, OxyEvol, mito, plastid, eukRibo)
-names(GOIs) <- c("lightrxn.PSI.kc", "lightrxn.PSII.kc", "lightrxn.ATPase.k", "lightrxn.NDH", "lightrxn.ETC.kc", "darkrxn.C4.c", "darkrxn.Calvin.kc", "darkrxn.Calvin.RubiscoSS", "Pt.PS.PSI", "Pt.PS.PSII", "Pt.PS.ATP", "Pt.PS.NADH", "Pt.PS.b6f", "Pt.PS.rubisco", "Pt.rpo", "Pt.other", "Pt.ribo", "Nuc.PtRibo", "Mt.ribo", "Mt.OxPhos", "Mt.other", "OxPhos", "OxPhos.atp", "OxPhos.nadh", "OxPhos.complexes", "EtBio", "NE.PtComplexes", "Pt.Complexes", "Nuc.MtRibo", "OxyEvol", "mito", "plastid", "eukRibo")
+GOIs <- list(lightrxn.PSI.kc, lightrxn.PSII.kc, lightrxn.ATPase.k, lightrxn.NDH, lightrxn.ETC.kc, darkrxn.C4.c, darkrxn.Calvin.kc, darkrxn.Calvin.RubiscoSS, Pt.PS.PSI, Pt.PS.PSII, Pt.PS.ATP, Pt.PS.NADH, Pt.PS.b6f, Pt.PS.rubisco, Pt.rpo, Pt.other, Pt.ribo, Nuc.PtRibo, Mt.ribo, Mt.OxPhos, Mt.other, OxPhos, OxPhos.atp, OxPhos.nadh, OxPhos.complexes, EtBio, NE.PtComplexes, Pt.Complexes, Nuc.MtRibo, OxyEvol, mito, plastid, eukRibo, lightrxn.b6f.k)
+names(GOIs) <- c("lightrxn.PSI.kc", "lightrxn.PSII.kc", "lightrxn.ATPase.k", "lightrxn.NDH", "lightrxn.ETC.kc", "darkrxn.C4.c", "darkrxn.Calvin.kc", "darkrxn.Calvin.RubiscoSS", "Pt.PS.PSI", "Pt.PS.PSII", "Pt.PS.ATP", "Pt.PS.NADH", "Pt.PS.b6f", "Pt.PS.rubisco", "Pt.rpo", "Pt.other", "Pt.ribo", "Nuc.PtRibo", "Mt.ribo", "Mt.OxPhos", "Mt.other", "OxPhos", "OxPhos.atp", "OxPhos.nadh", "OxPhos.complexes", "EtBio", "NE.PtComplexes", "Pt.Complexes", "Nuc.MtRibo", "OxyEvol", "mito", "plastid", "eukRibo", "lightrxn.b6f.k")
 saveRDS(GOIs, "GOIs")
 ```
 
@@ -1994,63 +2004,63 @@ tmt.GOI <- tmt.withPolymorphic[,c(183,176,182)]
 
 tmt.GOI$Category <- "other"
 tmt.GOI$Order <- 28
-tmt.GOI[(tmt.GOI$Gene %in% lightrxn.PSI.kc),"Category"] <- "NE.PSI.kc"
-tmt.GOI[(tmt.GOI$Gene %in% lightrxn.PSI.kc),"Order"] <- 1
-tmt.GOI[(tmt.GOI$Gene %in% lightrxn.PSII.kc),"Category"] <- "NE.PSII.kc"
-tmt.GOI[(tmt.GOI$Gene %in% lightrxn.PSII.kc),"Order"] <- 2
-tmt.GOI[(tmt.GOI$Gene %in% lightrxn.ATPase.k),"Category"] <- "NE.ATPase.k"
-tmt.GOI[(tmt.GOI$Gene %in% lightrxn.ATPase.k),"Order"] <- 3
-tmt.GOI[(tmt.GOI$Gene %in% lightrxn.NDH),"Category"] <- "NE.NDH"
-tmt.GOI[(tmt.GOI$Gene %in% lightrxn.NDH),"Order"] <- 4
-tmt.GOI[(tmt.GOI$Gene %in% lightrxn.ETC.kc),"Category"] <- "NE.ETC.kc"
-tmt.GOI[(tmt.GOI$Gene %in% lightrxn.ETC.kc),"Order"] <- 5
-tmt.GOI[(tmt.GOI$Gene %in% darkrxn.C4.c),"Category"] <- "NE.C4photo.c"
-tmt.GOI[(tmt.GOI$Gene %in% darkrxn.C4.c),"Order"] <- 6
-tmt.GOI[(tmt.GOI$Gene %in% darkrxn.Calvin.kc),"Category"] <- "NE.CalvinCycle.kc"
-tmt.GOI[(tmt.GOI$Gene %in% darkrxn.Calvin.kc),"Order"] <- 7
-tmt.GOI[(tmt.GOI$Gene %in% darkrxn.Calvin.RubiscoSS),"Category"] <- "NE.Rubisco"
-tmt.GOI[(tmt.GOI$Gene %in% darkrxn.Calvin.RubiscoSS),"Order"] <- 8
-tmt.GOI[(tmt.GOI$Gene %in% Pt.PS.PSI),"Category"] <- "Pt.PSI"
-tmt.GOI[(tmt.GOI$Gene %in% Pt.PS.PSI),"Order"] <- 9
-tmt.GOI[(tmt.GOI$Gene %in% Pt.PS.PSII),"Category"] <- "Pt.PSII"
-tmt.GOI[(tmt.GOI$Gene %in% Pt.PS.PSII),"Order"] <- 10
-tmt.GOI[(tmt.GOI$Gene %in% Pt.PS.ATP),"Category"] <- "Pt.ATP"
-tmt.GOI[(tmt.GOI$Gene %in% Pt.PS.ATP),"Order"] <- 11
-tmt.GOI[(tmt.GOI$Gene %in% Pt.PS.NADH),"Category"] <- "Pt.NADH"
-tmt.GOI[(tmt.GOI$Gene %in% Pt.PS.NADH),"Order"] <- 12
-tmt.GOI[(tmt.GOI$Gene %in% Pt.PS.b6f),"Category"] <- "Pt.b6f"
-tmt.GOI[(tmt.GOI$Gene %in% Pt.PS.b6f),"Order"] <- 13
-tmt.GOI[(tmt.GOI$Gene %in% Pt.PS.rubisco),"Category"] <- "Pt.Rubisco"
-tmt.GOI[(tmt.GOI$Gene %in% Pt.PS.rubisco),"Order"] <- 14
-tmt.GOI[(tmt.GOI$Gene %in% Pt.rpo),"Category"] <- "Pt.RNApol"
-tmt.GOI[(tmt.GOI$Gene %in% Pt.rpo),"Order"] <- 15
-tmt.GOI[(tmt.GOI$Gene %in% Pt.other),"Category"] <- "Pt.Other"
-tmt.GOI[(tmt.GOI$Gene %in% Pt.other),"Order"] <- 16
-tmt.GOI[(tmt.GOI$Gene %in% Pt.ribo),"Category"] <- "Pt.Ribo"
-tmt.GOI[(tmt.GOI$Gene %in% Pt.ribo),"Order"] <- 17
-tmt.GOI[(tmt.GOI$Gene %in% Nuc.PtRibo),"Category"] <- "NE.PlastidRibo"
-tmt.GOI[(tmt.GOI$Gene %in% Nuc.PtRibo),"Order"] <- 18
-tmt.GOI[(tmt.GOI$Gene %in% eukRibo),"Category"] <- "NE.EukRibo"
-tmt.GOI[(tmt.GOI$Gene %in% eukRibo),"Order"] <- 19
-tmt.GOI[(tmt.GOI$Gene %in% Nuc.MtRibo),"Category"] <- "NE.MitoRibo"
-tmt.GOI[(tmt.GOI$Gene %in% Nuc.MtRibo),"Order"] <- 20
-tmt.GOI[(tmt.GOI$Gene %in% Mt.ribo),"Category"] <- "Mt.Ribo"
-tmt.GOI[(tmt.GOI$Gene %in% Mt.ribo),"Order"] <- 21
-tmt.GOI[(tmt.GOI$Gene %in% Mt.OxPhos),"Category"] <- "Mt.OxPhos"
-tmt.GOI[(tmt.GOI$Gene %in% Mt.OxPhos),"Order"] <- 22
-tmt.GOI[(tmt.GOI$Gene %in% Mt.other),"Category"] <- "Mt.Other"
-tmt.GOI[(tmt.GOI$Gene %in% Mt.other),"Order"] <- 23
-tmt.GOI[(tmt.GOI$Gene %in% OxPhos),"Category"] <- "NE.OxPhos.kc"
-tmt.GOI[(tmt.GOI$Gene %in% OxPhos),"Order"] <- 24
-tmt.GOI[(tmt.GOI$Gene %in% OxPhos.atp),"Category"] <- "NE.OxPhos.ATPsynthase.kc"
-tmt.GOI[(tmt.GOI$Gene %in% OxPhos.atp),"Order"] <- 25
-tmt.GOI[(tmt.GOI$Gene %in% OxPhos.nadh),"Category"] <- "NE.OxPhos.NADHdehydrogenase.kc"
-tmt.GOI[(tmt.GOI$Gene %in% OxPhos.nadh),"Order"] <- 26
-tmt.GOI[(tmt.GOI$Gene %in% EtBio),"Category"] <- "NE.EtBio.c"
-tmt.GOI[(tmt.GOI$Gene %in% EtBio),"Order"] <- 27
+tmt.GOI[(tmt.GOI$Gene %in% GOIs$lightrxn.PSI.kc),"Category"] <- "NE.PSI.kc"
+tmt.GOI[(tmt.GOI$Gene %in% GOIs$lightrxn.PSI.kc),"Order"] <- 1
+tmt.GOI[(tmt.GOI$Gene %in% GOIs$lightrxn.PSII.kc),"Category"] <- "NE.PSII.kc"
+tmt.GOI[(tmt.GOI$Gene %in% GOIs$lightrxn.PSII.kc),"Order"] <- 2
+tmt.GOI[(tmt.GOI$Gene %in% GOIs$lightrxn.ATPase.k),"Category"] <- "NE.ATPase.k"
+tmt.GOI[(tmt.GOI$Gene %in% GOIs$lightrxn.ATPase.k),"Order"] <- 3
+tmt.GOI[(tmt.GOI$Gene %in% GOIs$lightrxn.NDH),"Category"] <- "NE.NDH"
+tmt.GOI[(tmt.GOI$Gene %in% GOIs$lightrxn.NDH),"Order"] <- 4
+tmt.GOI[(tmt.GOI$Gene %in% GOIs$lightrxn.ETC.kc),"Category"] <- "NE.ETC.kc"
+tmt.GOI[(tmt.GOI$Gene %in% GOIs$lightrxn.ETC.kc),"Order"] <- 5
+tmt.GOI[(tmt.GOI$Gene %in% GOIs$darkrxn.C4.c),"Category"] <- "NE.C4photo.c"
+tmt.GOI[(tmt.GOI$Gene %in% GOIs$darkrxn.C4.c),"Order"] <- 6
+tmt.GOI[(tmt.GOI$Gene %in% GOIs$darkrxn.Calvin.kc),"Category"] <- "NE.CalvinCycle.kc"
+tmt.GOI[(tmt.GOI$Gene %in% GOIs$darkrxn.Calvin.kc),"Order"] <- 7
+tmt.GOI[(tmt.GOI$Gene %in% GOIs$darkrxn.Calvin.RubiscoSS),"Category"] <- "NE.Rubisco"
+tmt.GOI[(tmt.GOI$Gene %in% GOIs$darkrxn.Calvin.RubiscoSS),"Order"] <- 8
+tmt.GOI[(tmt.GOI$Gene %in% GOIs$Pt.PS.PSI),"Category"] <- "Pt.PSI"
+tmt.GOI[(tmt.GOI$Gene %in% GOIs$Pt.PS.PSI),"Order"] <- 9
+tmt.GOI[(tmt.GOI$Gene %in% GOIs$Pt.PS.PSII),"Category"] <- "Pt.PSII"
+tmt.GOI[(tmt.GOI$Gene %in% GOIs$Pt.PS.PSII),"Order"] <- 10
+tmt.GOI[(tmt.GOI$Gene %in% GOIs$Pt.PS.ATP),"Category"] <- "Pt.ATP"
+tmt.GOI[(tmt.GOI$Gene %in% GOIs$Pt.PS.ATP),"Order"] <- 11
+tmt.GOI[(tmt.GOI$Gene %in% GOIs$Pt.PS.NADH),"Category"] <- "Pt.NADH"
+tmt.GOI[(tmt.GOI$Gene %in% GOIs$Pt.PS.NADH),"Order"] <- 12
+tmt.GOI[(tmt.GOI$Gene %in% GOIs$Pt.PS.b6f),"Category"] <- "Pt.b6f"
+tmt.GOI[(tmt.GOI$Gene %in% GOIs$Pt.PS.b6f),"Order"] <- 13
+tmt.GOI[(tmt.GOI$Gene %in% GOIs$Pt.PS.rubisco),"Category"] <- "Pt.Rubisco"
+tmt.GOI[(tmt.GOI$Gene %in% GOIs$Pt.PS.rubisco),"Order"] <- 14
+tmt.GOI[(tmt.GOI$Gene %in% GOIs$Pt.rpo),"Category"] <- "Pt.RNApol"
+tmt.GOI[(tmt.GOI$Gene %in% GOIs$Pt.rpo),"Order"] <- 15
+tmt.GOI[(tmt.GOI$Gene %in% GOIs$Pt.other),"Category"] <- "Pt.Other"
+tmt.GOI[(tmt.GOI$Gene %in% GOIs$Pt.other),"Order"] <- 16
+tmt.GOI[(tmt.GOI$Gene %in% GOIs$Pt.ribo),"Category"] <- "Pt.Ribo"
+tmt.GOI[(tmt.GOI$Gene %in% GOIs$Pt.ribo),"Order"] <- 17
+tmt.GOI[(tmt.GOI$Gene %in% GOIs$Nuc.PtRibo),"Category"] <- "NE.PlastidRibo"
+tmt.GOI[(tmt.GOI$Gene %in% GOIs$Nuc.PtRibo),"Order"] <- 18
+tmt.GOI[(tmt.GOI$Gene %in% GOIs$eukRibo),"Category"] <- "NE.EukRibo"
+tmt.GOI[(tmt.GOI$Gene %in% GOIs$eukRibo),"Order"] <- 19
+tmt.GOI[(tmt.GOI$Gene %in% GOIs$Nuc.MtRibo),"Category"] <- "NE.MitoRibo"
+tmt.GOI[(tmt.GOI$Gene %in% GOIs$Nuc.MtRibo),"Order"] <- 20
+tmt.GOI[(tmt.GOI$Gene %in% GOIs$Mt.ribo),"Category"] <- "Mt.Ribo"
+tmt.GOI[(tmt.GOI$Gene %in% GOIs$Mt.ribo),"Order"] <- 21
+tmt.GOI[(tmt.GOI$Gene %in% GOIs$Mt.OxPhos),"Category"] <- "Mt.OxPhos"
+tmt.GOI[(tmt.GOI$Gene %in% GOIs$Mt.OxPhos),"Order"] <- 22
+tmt.GOI[(tmt.GOI$Gene %in% GOIs$Mt.other),"Category"] <- "Mt.Other"
+tmt.GOI[(tmt.GOI$Gene %in% GOIs$Mt.other),"Order"] <- 23
+tmt.GOI[(tmt.GOI$Gene %in% GOIs$OxPhos),"Category"] <- "NE.OxPhos.kc"
+tmt.GOI[(tmt.GOI$Gene %in% GOIs$OxPhos),"Order"] <- 24
+tmt.GOI[(tmt.GOI$Gene %in% GOIs$OxPhos.atp),"Category"] <- "NE.OxPhos.ATPsynthase.kc"
+tmt.GOI[(tmt.GOI$Gene %in% GOIs$OxPhos.atp),"Order"] <- 25
+tmt.GOI[(tmt.GOI$Gene %in% GOIs$OxPhos.nadh),"Category"] <- "NE.OxPhos.NADHdehydrogenase.kc"
+tmt.GOI[(tmt.GOI$Gene %in% GOIs$OxPhos.nadh),"Order"] <- 26
+tmt.GOI[(tmt.GOI$Gene %in% GOIs$EtBio),"Category"] <- "NE.EtBio.c"
+tmt.GOI[(tmt.GOI$Gene %in% GOIs$EtBio),"Order"] <- 27
 
 tmt.GOI$`Plastid (Friso et al 2010; KEGG; CornCyc)` <- FALSE
-tmt.GOI[(tmt.GOI$Gene %in% plastid),"Plastid (Friso et al 2010; KEGG; CornCyc)"] <- TRUE
+tmt.GOI[(tmt.GOI$Gene %in% GOIs$plastid),"Plastid (Friso et al 2010; KEGG; CornCyc)"] <- TRUE
 
 tmt.GOI <- tmt.GOI[order(tmt.GOI$Order),]
 
@@ -2188,14 +2198,16 @@ tmt.GOI$KeggPathway <- gsub(tmt.GOI$KeggPathway, pattern = " // NA", replacement
 tmt.GOI$GOterm <- gsub(tmt.GOI$GOterm, pattern = " // NA", replacement = "")
 #Add column for mitochondria proteins
 tmt.GOI$`Mitochondria (Wang et al 2018; Dahal et al 2012; KEGG; CornCyc)` <- FALSE
-tmt.GOI[(tmt.GOI$Gene %in% mito),"Mitochondria (Wang et al 2018; Dahal et al 2012; KEGG; CornCyc)"] <- TRUE
+tmt.GOI[(tmt.GOI$Gene %in% GOIs$mito),"Mitochondria (Wang et al 2018; Dahal et al 2012; KEGG; CornCyc)"] <- TRUE
 #reorder columns
 tmt.GOI <- tmt.GOI[,c(1:7,11,8:10)]
 #save
+saveRDS(tmt.GOI, "tmt.GOI")
 write.csv(tmt.GOI, "FinalLeafGOIs.csv", row.names = F)
 ```
 #Resume here after cleared enviornment
 ```{r}
+tmt.GOI <- readRDS("tmt.GOI")
 tmt.OG.SL <- readRDS("tmt.OG.SL")
 tmt.6h.SL <- readRDS("tmt.6h.SL")
 tmt.dn.SL <- readRDS("tmt.dn.SL")
@@ -2207,6 +2219,7 @@ tmt.ril.acs.SL <- readRDS("tmt.ril.acs.SL")
 tmt.ril.all9 <- readRDS("tmt.ril.all9")
 tmt.6h.all6 <- readRDS("tmt.6h.all6")
 tmt.dn.both <- readRDS("tmt.dn.both")
+tmt.acs <- readRDS("tmt.acs")
 cpm.OG.SL <- readRDS("cpm.OG.SL")
 cpm.6h.SL <- readRDS("cpm.6h.SL")
 cpm.ril.SL <- readRDS("cpm.ril.SL")
@@ -2218,8 +2231,8 @@ GOIs <- readRDS("GOIs")
 ##Define functions
 ```{r PlotPlastidMitoFun}
 PlotPlastidMitoFun <- function(df, RNAorProtein, limX, limY){
-  colors.p <- c("Plastid"="black", "PE plastid ribosome"="#ef73ef", "NE plastid ribosome"="#a742da", "PE digenomic complexes"="#7ae281", "NE digenomic complexes"="#009fa7")
-  colors.m <- c("Mitochondria"="black", "ME ribosome"="#ffa744", "NE mitochondrial ribosome"="#ff0000", "ME digenomic complexes"="#71b1ff", "NE digenomic complexes"="#3447ff")
+  colors.p <- c("Other"="grey70", "Plastid"="black", "PE plastid ribosome"="#ef73ef", "NE plastid ribosome"="#a742da", "PhAPGs"="#7ae281", "PhANGs"="#009fa7", "Ethylene biosynthesis"="#fab5bd")
+  colors.m <- c("Mitochondria"="black", "ME ribosome"="#ffa744", "NE mitochondrial ribosome"="#ff0000", "ME digenomic complexes"="#71b1ff", "PhANGs"="#3447ff")
 ##Scatterplot - plastid
 ###Set limits
 df.lims <- df
@@ -2237,28 +2250,28 @@ df.lims.plastid[(df.lims.plastid$Gene %in% GOIs$Nuc.PtRibo),"Category"] <- "NE p
 df.lims.plastid[(df.lims.plastid$Gene %in% GOIs$Nuc.PtRibo),"Order"] <- 3
 df.lims.plastid[(df.lims.plastid$Gene %in% GOIs$Pt.ribo),"Category"] <- "PE plastid ribosome"
 df.lims.plastid[(df.lims.plastid$Gene %in% GOIs$Pt.ribo),"Order"] <- 4
-df.lims.plastid[(df.lims.plastid$Gene %in% GOIs$NE.PtComplexes),"Category"] <- "NE digenomic complexes"
+df.lims.plastid[(df.lims.plastid$Gene %in% GOIs$NE.PtComplexes),"Category"] <- "PhANGs"
 df.lims.plastid[(df.lims.plastid$Gene %in% GOIs$NE.PtComplexes),"Order"] <- 5
-df.lims.plastid[(df.lims.plastid$Gene %in% GOIs$Pt.Complexes),"Category"] <- "PE digenomic complexes"
+df.lims.plastid[(df.lims.plastid$Gene %in% GOIs$Pt.Complexes),"Category"] <- "PhAPGs"
 df.lims.plastid[(df.lims.plastid$Gene %in% GOIs$Pt.Complexes),"Order"] <- 6
 ###Re-order
 df.lims.plastid <- df.lims.plastid[(order(df.lims.plastid$Order)),]
 ###remove "other"
-df.lims.plastid <- df.lims.plastid[!df.lims.plastid$Category=="Other",]
+#df.lims.plastid <- df.lims.plastid[!df.lims.plastid$Category=="Other",]
 ###factor
-df.lims.plastid$Category <- factor(df.lims.plastid$Category, levels = c("Plastid", "NE plastid ribosome","PE plastid ribosome", "NE digenomic complexes", "PE digenomic complexes"))
+df.lims.plastid$Category <- factor(df.lims.plastid$Category, levels = c("Other", "Plastid", "NE plastid ribosome","PE plastid ribosome", "PhANGs", "PhAPGs", "Ethylene biosynthesis"))
 ###Scatterplot
 df.lims.plastid.scat <- ggplot(df.lims.plastid, mapping=aes(x=l2.BM.MP, y=l2.B73.Mo17, color=Category, shape=Category))+
     geom_point(aes(color=Category), size=2.5)+
   scale_color_manual(values=colors.p, name="Category")+
-  scale_shape_manual(values=c(1,19,19,19,19))+
+  scale_shape_manual(values=c(1,19,19,19,19,19,19))+
     theme_classic()+
           xlim(c(-limX,limX))+
           ylim(c(-limY,limY))+
           geom_vline(xintercept=0, linetype="dashed", color = "gray50")+
           geom_hline(yintercept=0, linetype="dashed", color = "gray50")+
           theme(axis.text=element_text(size=10), legend.text=element_text(size=10),
-                legend.position="bottom", legend.title = element_blank())+
+                legend.position="none", legend.title = element_blank())+
           guides(col=guide_legend(nrow=3))+
     xlab("log2 BxM/MP")+
     ylab("log2 B73/Mo17")+
@@ -2294,7 +2307,7 @@ df.lims.mito$Category <- "Other"
 df.lims.mito$Order <- 1
 df.lims.mito[(df.lims.mito$Gene %in% GOIs$mito),"Category"] <- "Mitochondria"
 df.lims.mito[(df.lims.mito$Gene %in% GOIs$mito),"Order"] <- 2
-df.lims.mito[(df.lims.mito$Gene %in% GOIs$OxPhos.complexes),"Category"] <- "NE digenomic complexes"
+df.lims.mito[(df.lims.mito$Gene %in% GOIs$OxPhos.complexes),"Category"] <- "PhANGs"
 df.lims.mito[(df.lims.mito$Gene %in% GOIs$OxPhos.complexes),"Order"] <- 3
 df.lims.mito[(df.lims.mito$Gene %in% GOIs$Mt.OxPhos),"Category"] <- "ME digenomic complexes"
 df.lims.mito[(df.lims.mito$Gene %in% GOIs$Mt.OxPhos),"Order"] <- 4
@@ -2307,7 +2320,7 @@ df.lims.mito <- df.lims.mito[(order(df.lims.mito$Order)),]
 ###remove "other"
 df.lims.mito <- df.lims.mito[!df.lims.mito$Category=="Other",]
 ###factor
-df.lims.mito$Category <- factor(df.lims.mito$Category, levels = c("Mitochondria", "NE digenomic complexes", "ME digenomic complexes", "NE mitochondrial ribosome", "ME ribosome"))
+df.lims.mito$Category <- factor(df.lims.mito$Category, levels = c("Mitochondria", "PhANGs", "ME digenomic complexes", "NE mitochondrial ribosome", "ME ribosome"))
 ###Scatterplot
 df.lims.mito.scat <- ggplot(df.lims.mito, mapping=aes(x=l2.BM.MP, y=l2.B73.Mo17, color=Category, shape=Category))+
     geom_point(aes(color=Category), size=3)+
@@ -2348,6 +2361,71 @@ df.lims.mito.scat <- ggplot(df.lims.mito, mapping=aes(x=l2.BM.MP, y=l2.B73.Mo17,
   ggsave(plot=q, filename = paste0("Plots/Mitochondria/", RNAorProtein, "/", deparse(substitute(df)),"Xlim", limX, ".Ylim", limY, ".mito.scat.pdf"), dpi=300, width=4.75, height = 5, scale = 1, units = "in")
 }
 ```
+```{r PlotEtBioFun}
+PlotEtBioFun <- function(df, RNAorProtein, limX, limY){
+  colors <- c("Other"="black","Ethylene biosynthesis"="#ef73ef")
+##Scatterplot - plastid
+###Set limits
+df.lims <- df
+df.lims$l2.BM.MP[df.lims$l2.BM.MP <= -limX] <- -limX
+df.lims$l2.BM.MP[df.lims$l2.BM.MP >= limX] <- limX
+df.lims$l2.B73.Mo17[df.lims$l2.B73.Mo17 <= -limY] <- -limY
+df.lims$l2.B73.Mo17[df.lims$l2.B73.Mo17 >= limY] <- limY
+###Set GOIs
+df.lims.etbio <- df.lims
+df.lims.etbio$Category <- "Other"
+df.lims.etbio$Order <- 1
+
+df.lims.etbio[(df.lims.etbio$Gene %in% GOIs$EtBio),"Category"] <- "Ethylene biosynthesis"
+df.lims.etbio[(df.lims.etbio$Gene %in% GOIs$EtBio),"Order"] <- 2
+
+###Re-order
+df.lims.etbio <- df.lims.etbio[(order(df.lims.etbio$Order)),]
+###remove "other"
+#df.lims.etbio <- df.lims.etbio[!df.lims.etbio$Category=="Other",]
+###factor
+df.lims.etbio$Category <- factor(df.lims.etbio$Category, levels = c("Other", "Ethylene biosynthesis"))
+###Scatterplot
+df.lims.etbio.scat <- ggplot(df.lims.etbio, mapping=aes(x=l2.BM.MP, y=l2.B73.Mo17, color=Category, shape=Category))+
+    geom_point(aes(color=Category), size=2.5)+
+  scale_color_manual(values=colors, name="Category")+
+  scale_shape_manual(values=c(1,19))+
+    theme_classic()+
+          xlim(c(-limX,limX))+
+          ylim(c(-limY,limY))+
+          geom_vline(xintercept=0, linetype="dashed", color = "gray50")+
+          geom_hline(yintercept=0, linetype="dashed", color = "gray50")+
+          theme(axis.text=element_text(size=10), legend.text=element_text(size=10),
+                legend.position="bottom", legend.title = element_blank())+
+          guides(col=guide_legend(nrow=1))+
+    xlab("log2 BxM/MP")+
+    ylab("log2 B73/Mo17")+
+    theme(aspect.ratio=1)+
+    coord_fixed(expand = F)
+###Add density curves
+    densityplotX<-axis_canvas(df.lims.etbio.scat, axis="x")+
+      geom_density(aes(df.lims.etbio[,"l2.BM.MP"], color=df.lims.etbio[,"Category"]), size=0.7)+
+    scale_color_manual(values=colors, name="Category")+
+      geom_vline(xintercept=0, linetype="dashed", color = "gray50")+
+      theme_void()+
+      theme(legend.title = element_blank())
+    #set up marginal density plot Y axis
+    densityplotY<-axis_canvas(df.lims.etbio.scat, axis="y", coord_flip = T)+
+      geom_density(aes(df.lims.etbio[,"l2.B73.Mo17"], color=df.lims.etbio[,"Category"]), size=0.7)+
+      scale_color_manual(values=colors, name="Category")+
+      scale_linetype_manual(values=c("dotted", "solid"))+
+      geom_vline(xintercept=0, linetype="dashed", color = "gray50")+
+      theme_void()+
+      theme(legend.title = element_blank())+
+      coord_flip()
+    #put two plots together
+      q <- insert_xaxis_grob(df.lims.etbio.scat, densityplotX, grid::unit(0.275, "null"), position = "top")
+      q <- insert_yaxis_grob(q, densityplotY, grid::unit(0.275, "null"), position = "right")
+    #save
+     # ggsave(plot=q, filename = "df.lims.etbio.scat.png")
+  ggsave(plot=q, filename = paste0("Plots/EtBio/", RNAorProtein, "/", deparse(substitute(df)),"Xlim", limX, ".Ylim", limY, ".etbio.scat.pdf"),  dpi=300, width=4.75, height = 5, scale = 1, units = "in")
+}
+```
 ```{r get_legend}
 get_legend<-function(myggplot){
   tmp <- ggplot_gtable(ggplot_build(myggplot))
@@ -2358,7 +2436,7 @@ get_legend<-function(myggplot){
 ```
 ```{r PlotPlastidPanelFun}
 PlotPlastidPanelFun<-function(plotDF, RNAorProtein, limX, limY){
-  colors <- c("Plastid"="black", "PE plastid ribosome"="#ef73ef", "NE plastid ribosome"="#a742da", "PE digenomic complexes"="#7ae281", "NE digenomic complexes"="#009fa7")
+  colors <- c("Plastid"="black", "PE plastid ribosome"="#ef73ef", "NE plastid ribosome"="#a742da", "PhAPGs"="#7ae281", "PhANGs"="#009fa7")
   plot<-unique(plotDF[,"plot"])
   plotList<-vector(mode = "list", length = length(plot))
   plotLab<-unique(plotDF[,"plot"])
@@ -2380,7 +2458,7 @@ df.lims.plastid$Order <- 1
 df.lims.plastid[(df.lims.plastid$Gene %in% GOIs$plastid),"Category"] <- "Plastid"
 df.lims.plastid[(df.lims.plastid$Gene %in% GOIs$plastid),"Order"] <- 2
 
-df.lims.plastid[(df.lims.plastid$Gene %in% GOIs$NE.PtComplexes),"Category"] <- "NE digenomic complexes"
+df.lims.plastid[(df.lims.plastid$Gene %in% GOIs$NE.PtComplexes),"Category"] <- "PhANGs"
 df.lims.plastid[(df.lims.plastid$Gene %in% GOIs$NE.PtComplexes),"Order"] <- 3
 
 df.lims.plastid[(df.lims.plastid$Gene %in% GOIs$Nuc.PtRibo),"Category"] <- "NE plastid ribosome"
@@ -2389,14 +2467,14 @@ df.lims.plastid[(df.lims.plastid$Gene %in% GOIs$Nuc.PtRibo),"Order"] <- 4
 df.lims.plastid[(df.lims.plastid$Gene %in% GOIs$Pt.ribo),"Category"] <- "PE plastid ribosome"
 df.lims.plastid[(df.lims.plastid$Gene %in% GOIs$Pt.ribo),"Order"] <- 5
 
-df.lims.plastid[(df.lims.plastid$Gene %in% GOIs$Pt.Complexes),"Category"] <- "PE digenomic complexes"
+df.lims.plastid[(df.lims.plastid$Gene %in% GOIs$Pt.Complexes),"Category"] <- "PhAPGs"
 df.lims.plastid[(df.lims.plastid$Gene %in% GOIs$Pt.Complexes),"Order"] <- 6
 ###Re-order
 df.lims.plastid <- df.lims.plastid[(order(df.lims.plastid$Order)),]
 ###remove "other"
 df.lims.plastid <- df.lims.plastid[!df.lims.plastid$Category=="Other",]
 ###factor
-df.lims.plastid$Category <- factor(df.lims.plastid$Category, levels = c("Plastid", "NE digenomic complexes", "NE plastid ribosome", "PE plastid ribosome", "PE digenomic complexes"))
+df.lims.plastid$Category <- factor(df.lims.plastid$Category, levels = c("Plastid", "PhANGs", "NE plastid ribosome", "PE plastid ribosome", "PhAPGs"))
     #scatter plot with marginal density curves
     df.lims.plastid.scat <- ggplot(df.lims.plastid, mapping=aes(x=l2.BM.MP, y=l2.B73.Mo17, color=Category, shape=Category))+
     geom_point(aes(color=Category), size=1)+
@@ -2463,7 +2541,7 @@ legend <- get_legend(df.lims.plastid.scat)
 ```
 ```{r PlotPlastidPanel9Fun}
 PlotPlastidPanel9Fun<-function(plotDF, RNAorProtein, limX, limY){
-  colors <- c("Plastid"="black", "PE plastid ribosome"="#ef73ef", "NE plastid ribosome"="#a742da", "PE digenomic complexes"="#7ae281", "NE digenomic complexes"="#009fa7")
+  colors <- c("Plastid"="black", "PE plastid ribosome"="#ef73ef", "NE plastid ribosome"="#a742da", "PhAPGs"="#7ae281", "PhANGs"="#009fa7")
   plot<-unique(plotDF[,"plot"])
   plotList<-vector(mode = "list", length = length(plot))
   plotLab<-unique(plotDF[,"plot"])
@@ -2481,20 +2559,20 @@ df.lims.plastid$Category <- "Other"
 df.lims.plastid$Order <- 1
 df.lims.plastid[(df.lims.plastid$Gene %in% GOIs$plastid),"Category"] <- "Plastid"
 df.lims.plastid[(df.lims.plastid$Gene %in% GOIs$plastid),"Order"] <- 2
-df.lims.plastid[(df.lims.plastid$Gene %in% GOIs$NE.PtComplexes),"Category"] <- "NE digenomic complexes"
+df.lims.plastid[(df.lims.plastid$Gene %in% GOIs$NE.PtComplexes),"Category"] <- "PhANGs"
 df.lims.plastid[(df.lims.plastid$Gene %in% GOIs$NE.PtComplexes),"Order"] <- 3
 df.lims.plastid[(df.lims.plastid$Gene %in% GOIs$Nuc.PtRibo),"Category"] <- "NE plastid ribosome"
 df.lims.plastid[(df.lims.plastid$Gene %in% GOIs$Nuc.PtRibo),"Order"] <- 4
 df.lims.plastid[(df.lims.plastid$Gene %in% GOIs$Pt.ribo),"Category"] <- "PE plastid ribosome"
 df.lims.plastid[(df.lims.plastid$Gene %in% GOIs$Pt.ribo),"Order"] <- 5
-df.lims.plastid[(df.lims.plastid$Gene %in% GOIs$Pt.Complexes),"Category"] <- "PE digenomic complexes"
+df.lims.plastid[(df.lims.plastid$Gene %in% GOIs$Pt.Complexes),"Category"] <- "PhAPGs"
 df.lims.plastid[(df.lims.plastid$Gene %in% GOIs$Pt.Complexes),"Order"] <- 6
 ###Re-order
 df.lims.plastid <- df.lims.plastid[(order(df.lims.plastid$Order)),]
 ###remove "other"
 df.lims.plastid <- df.lims.plastid[!df.lims.plastid$Category=="Other",]
 ###factor
-df.lims.plastid$Category <- factor(df.lims.plastid$Category, levels = c("Plastid", "NE digenomic complexes", "NE plastid ribosome", "PE plastid ribosome", "PE digenomic complexes"))
+df.lims.plastid$Category <- factor(df.lims.plastid$Category, levels = c("Plastid", "PhANGs", "NE plastid ribosome", "PE plastid ribosome", "PhAPGs"))
     #scatter plot with marginal density curves
     df.lims.plastid.scat <- ggplot(df.lims.plastid, mapping=aes(x=l2.HYB.MP, y=l2.parent.parent, color=Category, shape=Category))+
     geom_point(aes(color=Category), size=1)+
@@ -2558,7 +2636,7 @@ ggsave(plot=r, filename =paste0("Plots/Plastid/", RNAorProtein, "/panel.", depar
 ```
 ```{r PlotPlastidPanel6Fun}
 PlotPlastidPanel6Fun<-function(plotDF, RNAorProtein, limX, limY){
-  colors <- c("Plastid"="black", "PE plastid ribosome"="#ef73ef", "NE plastid ribosome"="#a742da", "PE digenomic complexes"="#7ae281", "NE digenomic complexes"="#009fa7")
+  colors <- c("Plastid"="black", "PE plastid ribosome"="#ef73ef", "NE plastid ribosome"="#a742da", "PhAPGs"="#7ae281", "PhANGs"="#009fa7")
   plot<-unique(plotDF[,"plot"])
   plotList<-vector(mode = "list", length = length(plot))
   plotLab<-unique(plotDF[,"plot"])
@@ -2580,7 +2658,7 @@ df.lims.plastid$Order <- 1
 df.lims.plastid[(df.lims.plastid$Gene %in% GOIs$plastid),"Category"] <- "Plastid"
 df.lims.plastid[(df.lims.plastid$Gene %in% GOIs$plastid),"Order"] <- 2
 
-df.lims.plastid[(df.lims.plastid$Gene %in% GOIs$NE.PtComplexes),"Category"] <- "NE digenomic complexes"
+df.lims.plastid[(df.lims.plastid$Gene %in% GOIs$NE.PtComplexes),"Category"] <- "PhANGs"
 df.lims.plastid[(df.lims.plastid$Gene %in% GOIs$NE.PtComplexes),"Order"] <- 3
 
 df.lims.plastid[(df.lims.plastid$Gene %in% GOIs$Nuc.PtRibo),"Category"] <- "NE plastid ribosome"
@@ -2589,14 +2667,14 @@ df.lims.plastid[(df.lims.plastid$Gene %in% GOIs$Nuc.PtRibo),"Order"] <- 4
 df.lims.plastid[(df.lims.plastid$Gene %in% GOIs$Pt.ribo),"Category"] <- "PE plastid ribosome"
 df.lims.plastid[(df.lims.plastid$Gene %in% GOIs$Pt.ribo),"Order"] <- 5
 
-df.lims.plastid[(df.lims.plastid$Gene %in% GOIs$Pt.Complexes),"Category"] <- "PE digenomic complexes"
+df.lims.plastid[(df.lims.plastid$Gene %in% GOIs$Pt.Complexes),"Category"] <- "PhAPGs"
 df.lims.plastid[(df.lims.plastid$Gene %in% GOIs$Pt.Complexes),"Order"] <- 6
 ###Re-order
 df.lims.plastid <- df.lims.plastid[(order(df.lims.plastid$Order)),]
 ###remove "other"
 df.lims.plastid <- df.lims.plastid[!df.lims.plastid$Category=="Other",]
 ###factor
-df.lims.plastid$Category <- factor(df.lims.plastid$Category, levels = c("Plastid", "NE digenomic complexes", "NE plastid ribosome", "PE plastid ribosome", "PE digenomic complexes"))
+df.lims.plastid$Category <- factor(df.lims.plastid$Category, levels = c("Plastid", "PhANGs", "NE plastid ribosome", "PE plastid ribosome", "PhAPGs"))
     #scatter plot with marginal density curves
     df.lims.plastid.scat <- ggplot(df.lims.plastid, mapping=aes(x=l2.HYB.MP, y=l2.parent.parent, color=Category, shape=Category))+
     geom_point(aes(color=Category), size=1)+
@@ -2607,8 +2685,6 @@ df.lims.plastid$Category <- factor(df.lims.plastid$Category, levels = c("Plastid
       ylim(c(-limY,limY))+
       geom_vline(xintercept=0, linetype="dashed", color = "gray60", size=0.5)+
       geom_hline(yintercept=0, linetype="dashed", color = "gray60", size=0.5)+
-      xlab("log2 HYB/midparent")+
-      ylab("log2 parent/parent")+
       ggtitle(plotLab[i])+
       theme(aspect.ratio=1)+
       coord_fixed(expand = F)+
@@ -2618,6 +2694,24 @@ df.lims.plastid$Category <- factor(df.lims.plastid$Category, levels = c("Plastid
       guides(col=guide_legend(nrow = 3))
 legend <- get_legend(df.lims.plastid.scat)
     df.lims.plastid.scat <- df.lims.plastid.scat+theme(legend.position = "none")
+    if(i==1){
+      df.lims.plastid.scat <- df.lims.plastid.scat+ xlab("log2 B73xMo17/MP")+ ylab("log2 B73/Mo17")
+    }
+    else if(i==2){
+      df.lims.plastid.scat <- df.lims.plastid.scat+ xlab("log2 Mo17xB73/MP")+ ylab("log2 Mo17/B73")
+    }
+    else if(i==3){
+      df.lims.plastid.scat <- df.lims.plastid.scat+ xlab("log2 B84xB73/MP")+ ylab("log2 B84/B73")
+    }
+    else if(i==4){
+      df.lims.plastid.scat <- df.lims.plastid.scat+ xlab("log2 A682xMo17/MP")+ ylab("log2 A682/Mo17")
+    }
+    else if(i==5){
+      df.lims.plastid.scat <- df.lims.plastid.scat+ xlab("log2 A682xB73/MP")+ ylab("log2 A682/B73")
+    }
+    else if(i==6){
+      df.lims.plastid.scat <- df.lims.plastid.scat+ xlab("log2 B84xMo17/MP")+ ylab("log2 B84/Mo17")
+    }
 ###Add density curves
     densityplotX<-axis_canvas(df.lims.plastid.scat, axis="x")+
       geom_density(aes(df.lims.plastid[,"l2.HYB.MP"], color=df.lims.plastid[,"Category"]), size=0.5)+
@@ -2658,9 +2752,98 @@ ggsave(plot=r, filename =paste0("Plots/Plastid/", RNAorProtein, "/panel.", depar
           dpi=300, width=4.75, height=6.5)  
 }
 ```
+```{r PlotEtBioPanel6Fun}
+PlotEtBioPanel6Fun<-function(plotDF, RNAorProtein, limX, limY){
+  colors <- c("Other"="black", "Ethylene biosynthesis"="#ef73ef")
+  plot<-unique(plotDF[,"plot"])
+  plotList<-vector(mode = "list", length = length(plot))
+  plotLab<-unique(plotDF[,"plot"])
+  for(i in 1:length(plot)){
+    df<-plotDF[which(plotDF[,"plot"]==plot[i]),]
+    ###Set limits
+df.lims <- df
+df.lims$l2.HYB.MP[df.lims$l2.HYB.MP <= -limX] <- -limX
+df.lims$l2.HYB.MP[df.lims$l2.HYB.MP >= limX] <- limX
+
+df.lims$l2.parent.parent[df.lims$l2.parent.parent <= -limY] <- -limY
+df.lims$l2.parent.parent[df.lims$l2.parent.parent >= limY] <- limY
+###Set GOIs
+df.lims.etbio <- df.lims
+
+df.lims.etbio$Category <- "Other"
+df.lims.etbio$Order <- 1
+
+df.lims.etbio[(df.lims.etbio$Gene %in% GOIs$EtBio),"Category"] <- "Ethylene biosynthesis"
+df.lims.etbio[(df.lims.etbio$Gene %in% GOIs$EtBio),"Order"] <- 2
+
+###Re-order
+df.lims.etbio <- df.lims.etbio[(order(df.lims.etbio$Order)),]
+###factor
+df.lims.etbio$Category <- factor(df.lims.etbio$Category, levels = c("Other", "Ethylene biosynthesis"))
+    #scatter plot with marginal density curves
+    df.lims.etbio.scat <- ggplot(df.lims.etbio, mapping=aes(x=l2.HYB.MP, y=l2.parent.parent, color=Category, shape=Category))+
+    geom_point(aes(color=Category), size=1)+
+  scale_color_manual(values=colors, name="Category")+
+      scale_shape_manual(values=c(1,19))+
+    theme_classic()+
+      xlim(c(-limX,limX))+
+      ylim(c(-limY,limY))+
+      geom_vline(xintercept=0, linetype="dashed", color = "gray60", size=0.5)+
+      geom_hline(yintercept=0, linetype="dashed", color = "gray60", size=0.5)+
+      xlab("log2 HYB/midparent")+
+      ylab("log2 parent/parent")+
+      ggtitle(plotLab[i])+
+      theme(aspect.ratio=1)+
+      coord_fixed(expand = F)+
+      theme(plot.margin=grid::unit(c(-3,-3,0,-3), "mm"))+
+      theme(axis.text=element_text(size=10), legend.text=element_text(size=10),
+        legend.position="bottom", legend.title = element_blank(), plot.title = element_text(vjust = -3.5, hjust = -0.485), axis.text.x = element_text(size = 9), axis.text.y = element_text(size = 9), legend.spacing.x = unit(0.1, 'cm'), legend.spacing.y = unit(-3, 'cm'))+
+      guides(col=guide_legend(nrow = 1))
+legend <- get_legend(df.lims.etbio.scat)
+    df.lims.etbio.scat <- df.lims.etbio.scat+theme(legend.position = "none")
+###Add density curves
+    densityplotX<-axis_canvas(df.lims.etbio.scat, axis="x")+
+      geom_density(aes(df.lims.etbio[,"l2.HYB.MP"], color=df.lims.etbio[,"Category"]), size=0.5)+
+    scale_color_manual(values=colors, name="Category")+
+      geom_vline(xintercept=0, linetype="dashed", color = "gray60", size=0.5)+
+      theme_void()+
+      theme(legend.title = element_blank())+
+      theme(plot.margin=grid::unit(c(-3,-3,0,-3), "mm"))
+    #set up marginal density plot Y axis
+    densityplotY<-axis_canvas(df.lims.etbio.scat, axis="y", coord_flip = T)+
+      geom_density(aes(df.lims.etbio[,"l2.parent.parent"], color=df.lims.etbio[,"Category"]), size=0.5)+
+      scale_color_manual(values=colors, name="Category")+
+      scale_linetype_manual(values=c("dotted", "solid"))+
+      geom_vline(xintercept=0, linetype="dashed", color = "gray60", size=0.5)+
+      theme_void()+
+      theme(legend.title = element_blank())+
+      coord_flip()+
+      theme(plot.margin=grid::unit(c(-2,-2,0,-2), "mm"))
+    #put two plots together
+      q <- insert_xaxis_grob(df.lims.etbio.scat, densityplotX, grid::unit(0.275, "null"), position = "top")
+      q <- insert_yaxis_grob(q, densityplotY, grid::unit(0.275, "null"), position = "right")
+    if(i==1){
+      plotList<-list()
+      plotList[[1]]<-q
+    }
+    else{
+      plotList <- c(plotList, list(q))
+    }
+  }
+  plotList <- c(plotList, list(legend))
+  des <- "AB
+          CD
+          EG
+          HH"
+  r<-patchwork::wrap_plots(A=plotList[[1]], B=plotList[[2]], C=plotList[[3]], D=plotList[[4]], E=plotList[[5]], G=plotList[[6]], H=plotList[[7]], nrow = 4, heights = c(3,3,3,1), design = des)
+  
+ggsave(plot=r, filename =paste0("Plots/EtBio/", RNAorProtein, "/panel.", deparse(substitute(plotDF)),".etbio.", "Xlim", limX, ".Ylim", limY, ".pdf"),
+          dpi=300, width=4.75, height=6.5)  
+}
+```
 ```{r PlotMitoPanelFun}
 PlotMitoPanelFun<-function(plotDF, RNAorProtein, limX, limY){
-  colors <- c("Mitochondria"="black", "ME ribosome"="#ffa744", "NE mitochondrial ribosome"="#ff0000", "ME digenomic complexes"="#71b1ff", "NE digenomic complexes"="#3447ff")
+  colors <- c("Mitochondria"="black", "ME ribosome"="#ffa744", "NE mitochondrial ribosome"="#ff0000", "ME digenomic complexes"="#71b1ff", "PhANGs"="#3447ff")
   plot<-unique(plotDF[,"plot"])
   plotList<-vector(mode = "list", length = length(plot))
   plotLab<-unique(plotDF[,"plot"])
@@ -2682,7 +2865,7 @@ df.lims.mito$Order <- 1
 df.lims.mito[(df.lims.mito$Gene %in% GOIs$mito),"Category"] <- "Mitochondria"
 df.lims.mito[(df.lims.mito$Gene %in% GOIs$mito),"Order"] <- 2
 
-df.lims.mito[(df.lims.mito$Gene %in% GOIs$OxPhos.complexes),"Category"] <- "NE digenomic complexes"
+df.lims.mito[(df.lims.mito$Gene %in% GOIs$OxPhos.complexes),"Category"] <- "PhANGs"
 df.lims.mito[(df.lims.mito$Gene %in% GOIs$OxPhos.complexes),"Order"] <- 3
 
 df.lims.mito[(df.lims.mito$Gene %in% GOIs$Mt.OxPhos),"Category"] <- "ME digenomic complexes"
@@ -2698,7 +2881,7 @@ df.lims.mito <- df.lims.mito[(order(df.lims.mito$Order)),]
 ###remove "other"
 df.lims.mito <- df.lims.mito[!df.lims.mito$Category=="Other",]
 ###factor
-df.lims.mito$Category <- factor(df.lims.mito$Category, levels = c("Mitochondria", "NE digenomic complexes", "ME digenomic complexes", "NE mitochondrial ribosome", "ME ribosome"))
+df.lims.mito$Category <- factor(df.lims.mito$Category, levels = c("Mitochondria", "PhANGs", "ME digenomic complexes", "NE mitochondrial ribosome", "ME ribosome"))
     #scatter plot with marginal density curves
     df.lims.mito.scat <- ggplot(df.lims.mito, mapping=aes(x=l2.BM.MP, y=l2.B73.Mo17, color=Category, shape=Category))+
     geom_point(aes(color=Category), size=1)+
@@ -2768,7 +2951,7 @@ legend <- get_legend(df.lims.mito.scat)
 ```
 ```{r PlotMitoPanel9Fun}
 PlotMitoPanel9Fun<-function(plotDF, RNAorProtein, limX, limY){
-  colors <- c("Mitochondria"="black", "ME ribosome"="#ffa744", "NE mitochondrial ribosome"="#ff0000", "ME digenomic complexes"="#71b1ff", "NE digenomic complexes"="#3447ff")
+  colors <- c("Mitochondria"="black", "ME ribosome"="#ffa744", "NE mitochondrial ribosome"="#ff0000", "ME digenomic complexes"="#71b1ff", "PhANGs"="#3447ff")
   plot<-unique(plotDF[,"plot"])
   plotList<-vector(mode = "list", length = length(plot))
   plotLab<-unique(plotDF[,"plot"])
@@ -2790,7 +2973,7 @@ df.lims.mito$Order <- 1
 df.lims.mito[(df.lims.mito$Gene %in% GOIs$mito),"Category"] <- "Mitochondria"
 df.lims.mito[(df.lims.mito$Gene %in% GOIs$mito),"Order"] <- 2
 
-df.lims.mito[(df.lims.mito$Gene %in% GOIs$OxPhos.complexes),"Category"] <- "NE digenomic complexes"
+df.lims.mito[(df.lims.mito$Gene %in% GOIs$OxPhos.complexes),"Category"] <- "PhANGs"
 df.lims.mito[(df.lims.mito$Gene %in% GOIs$OxPhos.complexes),"Order"] <- 3
 
 df.lims.mito[(df.lims.mito$Gene %in% GOIs$Mt.OxPhos),"Category"] <- "ME digenomic complexes"
@@ -2806,7 +2989,7 @@ df.lims.mito <- df.lims.mito[(order(df.lims.mito$Order)),]
 ###remove "other"
 df.lims.mito <- df.lims.mito[!df.lims.mito$Category=="Other",]
 ###factor
-df.lims.mito$Category <- factor(df.lims.mito$Category, levels = c("Mitochondria", "NE digenomic complexes", "ME digenomic complexes", "NE mitochondrial ribosome", "ME ribosome"))
+df.lims.mito$Category <- factor(df.lims.mito$Category, levels = c("Mitochondria", "PhANGs", "ME digenomic complexes", "NE mitochondrial ribosome", "ME ribosome"))
     #scatter plot with marginal density curves
     df.lims.mito.scat <- ggplot(df.lims.mito, mapping=aes(x=l2.HYB.MP, y=l2.parent.parent, color=Category, shape=Category))+
     geom_point(aes(color=Category), size=1)+
@@ -2870,7 +3053,7 @@ ggsave(plot=r, filename =paste0("Plots/Mitochondria/", RNAorProtein, "/panel.", 
 ```
 ```{r PlotMitoPanel6Fun}
 PlotMitoPanel6Fun<-function(plotDF, RNAorProtein, limX, limY){
-  colors <- c("Mitochondria"="black", "ME ribosome"="#ffa744", "NE mitochondrial ribosome"="#ff0000", "ME digenomic complexes"="#71b1ff", "NE digenomic complexes"="#3447ff")
+  colors <- c("Mitochondria"="black", "ME ribosome"="#ffa744", "NE mitochondrial ribosome"="#ff0000", "ME digenomic complexes"="#71b1ff", "PhANGs"="#3447ff")
   plot<-unique(plotDF[,"plot"])
   plotList<-vector(mode = "list", length = length(plot))
   plotLab<-unique(plotDF[,"plot"])
@@ -2892,7 +3075,7 @@ df.lims.mito$Order <- 1
 df.lims.mito[(df.lims.mito$Gene %in% GOIs$mito),"Category"] <- "Mitochondria"
 df.lims.mito[(df.lims.mito$Gene %in% GOIs$mito),"Order"] <- 2
 
-df.lims.mito[(df.lims.mito$Gene %in% GOIs$OxPhos.complexes),"Category"] <- "NE digenomic complexes"
+df.lims.mito[(df.lims.mito$Gene %in% GOIs$OxPhos.complexes),"Category"] <- "PhANGs"
 df.lims.mito[(df.lims.mito$Gene %in% GOIs$OxPhos.complexes),"Order"] <- 3
 
 df.lims.mito[(df.lims.mito$Gene %in% GOIs$Mt.OxPhos),"Category"] <- "ME digenomic complexes"
@@ -2908,7 +3091,7 @@ df.lims.mito <- df.lims.mito[(order(df.lims.mito$Order)),]
 ###remove "other"
 df.lims.mito <- df.lims.mito[!df.lims.mito$Category=="Other",]
 ###factor
-df.lims.mito$Category <- factor(df.lims.mito$Category, levels = c("Mitochondria", "NE digenomic complexes", "ME digenomic complexes", "NE mitochondrial ribosome", "ME ribosome"))
+df.lims.mito$Category <- factor(df.lims.mito$Category, levels = c("Mitochondria", "PhANGs", "ME digenomic complexes", "NE mitochondrial ribosome", "ME ribosome"))
     #scatter plot with marginal density curves
     df.lims.mito.scat <- ggplot(df.lims.mito, mapping=aes(x=l2.HYB.MP, y=l2.parent.parent, color=Category, shape=Category))+
     geom_point(aes(color=Category), size=1)+
@@ -2972,7 +3155,7 @@ ggsave(plot=r, filename =paste0("Plots/Mitochondria//", RNAorProtein, "/panel.",
 ```
 ```{r PlotEthyleneFun}
 PlotEthyleneFun <- function(df, limX, limY){
-  colors <- c("Plastid"="black", "PE plastid ribosome"="#ef73ef", "NE plastid ribosome"="#a742da", "PE digenomic complexes"="#7ae281", "NE digenomic complexes"="#009fa7", "Ethylene biosynthesis"="#fab5bd")
+  colors <- c("Plastid"="black", "PE plastid ribosome"="#ef73ef", "NE plastid ribosome"="#a742da", "PhAPGs"="#7ae281", "PhANGs"="#009fa7", "Ethylene biosynthesis"="#fab5bd")
 ##Plastid
 ###Set limits
 df.lims <- df
@@ -2997,10 +3180,10 @@ df.lims.et[(df.lims.et$Gene %in% GOIs$Nuc.PtRibo),"Order"] <- 3
 df.lims.et[(df.lims.et$Gene %in% GOIs$Pt.ribo),"Category"] <- "PE plastid ribosome"
 df.lims.et[(df.lims.et$Gene %in% GOIs$Pt.ribo),"Order"] <- 4
 
-df.lims.et[(df.lims.et$Gene %in% GOIs$NE.PtComplexes),"Category"] <- "NE digenomic complexes"
+df.lims.et[(df.lims.et$Gene %in% GOIs$NE.PtComplexes),"Category"] <- "PhANGs"
 df.lims.et[(df.lims.et$Gene %in% GOIs$NE.PtComplexes),"Order"] <- 5
 
-df.lims.et[(df.lims.et$Gene %in% GOIs$Pt.Complexes),"Category"] <- "PE digenomic complexes"
+df.lims.et[(df.lims.et$Gene %in% GOIs$Pt.Complexes),"Category"] <- "PhAPGs"
 df.lims.et[(df.lims.et$Gene %in% GOIs$Pt.Complexes),"Order"] <- 6
 
 df.lims.et[(df.lims.et$Gene %in% GOIs$EtBio),"Category"] <- "Ethylene biosynthesis"
@@ -3010,7 +3193,7 @@ df.lims.et <- df.lims.et[(order(df.lims.et$Order)),]
 ###remove "other"
 df.lims.et <- df.lims.et[!df.lims.et$Category=="Other",]
 ###factor
-df.lims.et$Category <- factor(df.lims.et$Category, levels = c("Plastid",  "NE plastid ribosome","PE plastid ribosome", "NE digenomic complexes", "PE digenomic complexes", "Ethylene biosynthesis"))
+df.lims.et$Category <- factor(df.lims.et$Category, levels = c("Plastid",  "NE plastid ribosome","PE plastid ribosome", "PhANGs", "PhAPGs", "Ethylene biosynthesis"))
 ##Scatterplot
 df.lims.et.scat <- ggplot(df.lims.et, mapping=aes(x=l2.BM.MP, y=l2.ACS.B73, color=Category, shape=Category))+
     geom_point(aes(color=Category), size=2.5, alpha=0.8)+
@@ -3052,7 +3235,7 @@ df.lims.et.scat <- ggplot(df.lims.et, mapping=aes(x=l2.BM.MP, y=l2.ACS.B73, colo
 ```
 ```{r PlotEthylenePanelFun}
 PlotEthylenePanelFun<-function(plotDF, RNAorProtein, limX, limY){
-  colors <- c("Plastid"="black", "PE plastid ribosome"="#ef73ef", "NE plastid ribosome"="#a742da", "PE digenomic complexes"="#7ae281", "NE digenomic complexes"="#009fa7", "Ethylene biosynthesis"="#fab5bd")
+  colors <- c("Plastid"="black", "PE plastid ribosome"="#ef73ef", "NE plastid ribosome"="#a742da", "PhAPGs"="#7ae281", "PhANGs"="#009fa7", "Ethylene biosynthesis"="#fab5bd")
   plot<-unique(plotDF[,"plot"])
   plotList<-vector(mode = "list", length = length(plot))
   plotLab<-unique(plotDF[,"plot"])
@@ -3074,7 +3257,7 @@ df.lims.plastid$Order <- 1
 df.lims.plastid[(df.lims.plastid$Gene %in% GOIs$plastid),"Category"] <- "Plastid"
 df.lims.plastid[(df.lims.plastid$Gene %in% GOIs$plastid),"Order"] <- 2
 
-df.lims.plastid[(df.lims.plastid$Gene %in% GOIs$NE.PtComplexes),"Category"] <- "NE digenomic complexes"
+df.lims.plastid[(df.lims.plastid$Gene %in% GOIs$NE.PtComplexes),"Category"] <- "PhANGs"
 df.lims.plastid[(df.lims.plastid$Gene %in% GOIs$NE.PtComplexes),"Order"] <- 3
 
 df.lims.plastid[(df.lims.plastid$Gene %in% GOIs$Nuc.PtRibo),"Category"] <- "NE plastid ribosome"
@@ -3083,7 +3266,7 @@ df.lims.plastid[(df.lims.plastid$Gene %in% GOIs$Nuc.PtRibo),"Order"] <- 4
 df.lims.plastid[(df.lims.plastid$Gene %in% GOIs$Pt.ribo),"Category"] <- "PE plastid ribosome"
 df.lims.plastid[(df.lims.plastid$Gene %in% GOIs$Pt.ribo),"Order"] <- 5
 
-df.lims.plastid[(df.lims.plastid$Gene %in% GOIs$Pt.Complexes),"Category"] <- "PE digenomic complexes"
+df.lims.plastid[(df.lims.plastid$Gene %in% GOIs$Pt.Complexes),"Category"] <- "PhAPGs"
 df.lims.plastid[(df.lims.plastid$Gene %in% GOIs$Pt.Complexes),"Order"] <- 6
 
 df.lims.plastid[(df.lims.plastid$Gene %in% GOIs$EtBio),"Category"] <- "Ethylene biosynthesis"
@@ -3094,7 +3277,7 @@ df.lims.plastid <- df.lims.plastid[(order(df.lims.plastid$Order)),]
 ###remove "other"
 df.lims.plastid <- df.lims.plastid[!df.lims.plastid$Category=="Other",]
 ###factor
-df.lims.plastid$Category <- factor(df.lims.plastid$Category, levels = c("Plastid", "NE digenomic complexes", "NE plastid ribosome", "PE plastid ribosome", "PE digenomic complexes", "Ethylene biosynthesis"))
+df.lims.plastid$Category <- factor(df.lims.plastid$Category, levels = c("Plastid", "PhANGs", "NE plastid ribosome", "PE plastid ribosome", "PhAPGs", "Ethylene biosynthesis"))
     #scatter plot with marginal density curves
     df.lims.plastid.scat <- ggplot(df.lims.plastid, mapping=aes(x=l2.BM.MP, y=l2.ACS.B73, color=Category, shape=Category))+
     geom_point(aes(color=Category), size=1)+
@@ -3184,6 +3367,10 @@ PlotPlastidMitoFun(tmt.6h.SL, RNAorProtein = "Protein", limX = 1.0, limY = 1.0)
 PlotPlastidMitoFun(tmt.dn.SL, RNAorProtein = "Protein", limX = 1.0, limY = 1.0)
 PlotPlastidMitoFun(tmt.ril.SL, RNAorProtein = "Protein", limX = 1.0, limY = 1.0)
 ```
+```{r}
+PlotEtBioFun(tmt.OG.SL, RNAorProtein = "Protein", limX = 1.0, limY = 1.0)
+```
+
 ####Plastid and Mitochondria - RNA
 ```{r}
 PlotPlastidMitoFun(cpm.OG.SL, RNAorProtein = "RNA", limX = 1.0, limY = 2.0)
@@ -3250,6 +3437,152 @@ PlotMitoPanelFun(panel.cpm,  RNAorProtein = "RNA", limX = 1.0, limY = 2.0)
 
 PlotPlastidPanelFun(panel.cpm, RNAorProtein = "RNA", limX = 2.0, limY = 2.0)
 PlotMitoPanelFun(panel.cpm,  RNAorProtein = "RNA", limX = 2.0, limY = 2.0)
+```
+
+
+###BxM OG SL - protein and RNA panel
+```{r}
+colors.p <- c("Other"="grey70", "Plastid"="black", "PE plastid ribosome"="#ef73ef", "NE plastid ribosome"="#a742da", "PhAPGs"="#7ae281", "PhANGs"="#009fa7", "Ethylene biosynthesis"="#fab5bd")
+###Set limits
+tmt.OG.SL.lims <- tmt.OG.SL
+tmt.OG.SL.lims$l2.BM.MP[tmt.OG.SL.lims$l2.BM.MP <= -1] <- -1
+tmt.OG.SL.lims$l2.BM.MP[tmt.OG.SL.lims$l2.BM.MP >= 1] <- 1
+tmt.OG.SL.lims$l2.B73.Mo17[tmt.OG.SL.lims$l2.B73.Mo17 <= -1] <- -1
+tmt.OG.SL.lims$l2.B73.Mo17[tmt.OG.SL.lims$l2.B73.Mo17 >= 1] <- 1
+###Set GOIs
+tmt.OG.SL.lims.plastid <- tmt.OG.SL.lims
+tmt.OG.SL.lims.plastid$Category <- "Other"
+tmt.OG.SL.lims.plastid$Order <- 1
+tmt.OG.SL.lims.plastid[(tmt.OG.SL.lims.plastid$Gene %in% GOIs$plastid),"Category"] <- "Plastid"
+tmt.OG.SL.lims.plastid[(tmt.OG.SL.lims.plastid$Gene %in% GOIs$plastid),"Order"] <- 2
+tmt.OG.SL.lims.plastid[(tmt.OG.SL.lims.plastid$Gene %in% GOIs$Nuc.PtRibo),"Category"] <- "NE plastid ribosome"
+tmt.OG.SL.lims.plastid[(tmt.OG.SL.lims.plastid$Gene %in% GOIs$Nuc.PtRibo),"Order"] <- 3
+tmt.OG.SL.lims.plastid[(tmt.OG.SL.lims.plastid$Gene %in% GOIs$Pt.ribo),"Category"] <- "PE plastid ribosome"
+tmt.OG.SL.lims.plastid[(tmt.OG.SL.lims.plastid$Gene %in% GOIs$Pt.ribo),"Order"] <- 4
+tmt.OG.SL.lims.plastid[(tmt.OG.SL.lims.plastid$Gene %in% GOIs$NE.PtComplexes),"Category"] <- "PhANGs"
+tmt.OG.SL.lims.plastid[(tmt.OG.SL.lims.plastid$Gene %in% GOIs$NE.PtComplexes),"Order"] <- 5
+tmt.OG.SL.lims.plastid[(tmt.OG.SL.lims.plastid$Gene %in% GOIs$Pt.Complexes),"Category"] <- "PhAPGs"
+tmt.OG.SL.lims.plastid[(tmt.OG.SL.lims.plastid$Gene %in% GOIs$Pt.Complexes),"Order"] <- 6
+
+###Re-order
+tmt.OG.SL.lims.plastid <- tmt.OG.SL.lims.plastid[(order(tmt.OG.SL.lims.plastid$Order)),]
+###remove "other"
+#tmt.OG.SL.lims.plastid <- tmt.OG.SL.lims.plastid[!tmt.OG.SL.lims.plastid$Category=="Other",]
+###factor
+tmt.OG.SL.lims.plastid$Category <- factor(tmt.OG.SL.lims.plastid$Category, levels = c("Other", "Plastid", "NE plastid ribosome","PE plastid ribosome", "PhANGs", "PhAPGs"))
+###Scatterplot
+tmt.OG.SL.lims.plastid.scat <- ggplot(tmt.OG.SL.lims.plastid, mapping=aes(x=l2.BM.MP, y=l2.B73.Mo17, color=Category, shape=Category))+
+    geom_point(aes(color=Category), size=1)+
+  scale_color_manual(values=colors.p, name="Category")+
+  scale_shape_manual(values=c(1,19,19,19,19,19,19))+
+ # theme(plot.margin=grid::unit(c(-3,-3,0,-3), "mm"))+
+    theme_classic()+
+          xlim(c(-1,1))+
+          ylim(c(-1,1))+
+          geom_vline(xintercept=0, linetype="dashed", color = "gray50")+
+          geom_hline(yintercept=0, linetype="dashed", color = "gray50")+
+          theme(axis.text=element_text(size=10), legend.text=element_text(size=10),
+                legend.position="bottom", legend.title = element_blank(),  plot.title = element_text(vjust = -3.5, hjust = -0.485), plot.margin=grid::unit(c(-3,-3,0,-3), "mm"))+
+          guides(col=guide_legend(ncol=2))+
+    ggtitle("A")+
+    xlab("log2 BxM/MP")+
+    ylab("log2 B73/Mo17")+
+    theme(aspect.ratio=1)+
+    coord_fixed(expand = F)
+tmt.OG.SL.lims.plastid.scat.legend <- get_legend(tmt.OG.SL.lims.plastid.scat)
+tmt.OG.SL.lims.plastid.scat <- tmt.OG.SL.lims.plastid.scat+theme(legend.position = "none")
+###Add density curves
+    densityplotX<-axis_canvas(tmt.OG.SL.lims.plastid.scat, axis="x")+
+      geom_density(aes(tmt.OG.SL.lims.plastid[,"l2.BM.MP"], color=tmt.OG.SL.lims.plastid[,"Category"]), size=0.7)+
+    scale_color_manual(values=colors.p, name="Category")+
+      geom_vline(xintercept=0, linetype="dashed", color = "gray50")+
+      theme_void()+
+      theme(legend.title = element_blank())
+    #set up marginal density plot Y axis
+    densityplotY<-axis_canvas(tmt.OG.SL.lims.plastid.scat, axis="y", coord_flip = T)+
+      geom_density(aes(tmt.OG.SL.lims.plastid[,"l2.B73.Mo17"], color=tmt.OG.SL.lims.plastid[,"Category"]), size=0.7)+
+      scale_color_manual(values=colors.p, name="Category")+
+      scale_linetype_manual(values=c("dotted", "solid"))+
+      geom_vline(xintercept=0, linetype="dashed", color = "gray50")+
+      theme_void()+
+      theme(legend.title = element_blank())+
+      coord_flip()
+    #put two plots together
+      A <- insert_xaxis_grob(tmt.OG.SL.lims.plastid.scat, densityplotX, grid::unit(0.275, "null"), position = "top")
+      A <- insert_yaxis_grob(A, densityplotY, grid::unit(0.275, "null"), position = "right")
+      
+      
+      ###Set limits
+cpm.OG.SL.lims <- cpm.OG.SL
+cpm.OG.SL.lims$l2.BM.MP[cpm.OG.SL.lims$l2.BM.MP <= -1] <- -1
+cpm.OG.SL.lims$l2.BM.MP[cpm.OG.SL.lims$l2.BM.MP >= 1] <- 1
+cpm.OG.SL.lims$l2.B73.Mo17[cpm.OG.SL.lims$l2.B73.Mo17 <= -2] <- -2
+cpm.OG.SL.lims$l2.B73.Mo17[cpm.OG.SL.lims$l2.B73.Mo17 >= 2] <- 2
+###Set GOIs
+cpm.OG.SL.lims.plastid <- cpm.OG.SL.lims
+cpm.OG.SL.lims.plastid$Category <- "Other"
+cpm.OG.SL.lims.plastid$Order <- 1
+cpm.OG.SL.lims.plastid[(cpm.OG.SL.lims.plastid$Gene %in% GOIs$plastid),"Category"] <- "Plastid"
+cpm.OG.SL.lims.plastid[(cpm.OG.SL.lims.plastid$Gene %in% GOIs$plastid),"Order"] <- 2
+cpm.OG.SL.lims.plastid[(cpm.OG.SL.lims.plastid$Gene %in% GOIs$Nuc.PtRibo),"Category"] <- "NE plastid ribosome"
+cpm.OG.SL.lims.plastid[(cpm.OG.SL.lims.plastid$Gene %in% GOIs$Nuc.PtRibo),"Order"] <- 3
+cpm.OG.SL.lims.plastid[(cpm.OG.SL.lims.plastid$Gene %in% GOIs$Pt.ribo),"Category"] <- "PE plastid ribosome"
+cpm.OG.SL.lims.plastid[(cpm.OG.SL.lims.plastid$Gene %in% GOIs$Pt.ribo),"Order"] <- 4
+cpm.OG.SL.lims.plastid[(cpm.OG.SL.lims.plastid$Gene %in% GOIs$NE.PtComplexes),"Category"] <- "PhANGs"
+cpm.OG.SL.lims.plastid[(cpm.OG.SL.lims.plastid$Gene %in% GOIs$NE.PtComplexes),"Order"] <- 5
+cpm.OG.SL.lims.plastid[(cpm.OG.SL.lims.plastid$Gene %in% GOIs$Pt.Complexes),"Category"] <- "PhAPGs"
+cpm.OG.SL.lims.plastid[(cpm.OG.SL.lims.plastid$Gene %in% GOIs$Pt.Complexes),"Order"] <- 6
+
+###Re-order
+cpm.OG.SL.lims.plastid <- cpm.OG.SL.lims.plastid[(order(cpm.OG.SL.lims.plastid$Order)),]
+###remove "other"
+#cpm.OG.SL.lims.plastid <- cpm.OG.SL.lims.plastid[!cpm.OG.SL.lims.plastid$Category=="Other",]
+###factor
+cpm.OG.SL.lims.plastid$Category <- factor(cpm.OG.SL.lims.plastid$Category, levels = c("Other", "Plastid", "NE plastid ribosome","PE plastid ribosome", "PhANGs", "PhAPGs"))
+###Scatterplot
+cpm.OG.SL.lims.plastid.scat <- ggplot(cpm.OG.SL.lims.plastid, mapping=aes(x=l2.BM.MP, y=l2.B73.Mo17, color=Category, shape=Category))+
+    geom_point(aes(color=Category), size=1)+
+  scale_color_manual(values=colors.p, name="Category")+
+  scale_shape_manual(values=c(1,19,19,19,19,19,19))+
+    theme_classic()+
+          xlim(c(-1,1))+
+          ylim(c(-2,2))+
+          geom_vline(xintercept=0, linetype="dashed", color = "gray50")+
+          geom_hline(yintercept=0, linetype="dashed", color = "gray50")+
+          theme(axis.text=element_text(size=10), legend.text=element_text(size=10),
+                legend.position="none", legend.title = element_blank(),  plot.title = element_text(vjust = -3.5, hjust = -0.485), plot.margin=grid::unit(c(-3,-3,0,-3), "mm"))+
+          guides(col=guide_legend(ncol=2))+
+    ggtitle("B")+
+    xlab("log2 BxM/MP")+
+    ylab("log2 B73/Mo17")+
+    theme(aspect.ratio=1)+
+    coord_fixed(expand = F)
+###Add density curves
+    densityplotX<-axis_canvas(cpm.OG.SL.lims.plastid.scat, axis="x")+
+      geom_density(aes(cpm.OG.SL.lims.plastid[,"l2.BM.MP"], color=cpm.OG.SL.lims.plastid[,"Category"]), size=0.7)+
+    scale_color_manual(values=colors.p, name="Category")+
+      geom_vline(xintercept=0, linetype="dashed", color = "gray50")+
+      theme_void()+
+      theme(legend.title = element_blank())
+    #set up marginal density plot Y axis
+    densityplotY<-axis_canvas(cpm.OG.SL.lims.plastid.scat, axis="y", coord_flip = T)+
+      geom_density(aes(cpm.OG.SL.lims.plastid[,"l2.B73.Mo17"], color=cpm.OG.SL.lims.plastid[,"Category"]), size=0.7)+
+      scale_color_manual(values=colors.p, name="Category")+
+      scale_linetype_manual(values=c("dotted", "solid"))+
+      geom_vline(xintercept=0, linetype="dashed", color = "gray50")+
+      theme_void()+
+      theme(legend.title = element_blank())+
+      coord_flip()
+    #put two plots together
+      B <- insert_xaxis_grob(cpm.OG.SL.lims.plastid.scat, densityplotX, grid::unit(0.275, "null"), position = "top")
+      B <- insert_yaxis_grob(B, densityplotY, grid::unit(0.275, "null"), position = "right")
+```
+```{r}
+OG.SL.plotlist <- list(A, B, tmt.OG.SL.lims.plastid.scat.legend)
+OG.SL.design <- "AB
+                 CC"
+OG.SL.plotpanel<-patchwork::wrap_plots(A=OG.SL.plotlist[[1]], B=OG.SL.plotlist[[2]], C=OG.SL.plotlist[[3]],  nrow = 2, heights = c(3,1.2), design = OG.SL.design)
+ggsave(plot=OG.SL.plotpanel, filename ="Plots/tmt.cpm.OG.SL.plastid.pdf", dpi=300, width=4.75, height=3)
 ```
 
 
@@ -3337,7 +3670,10 @@ PlotMitoPanel6Fun(tmt.6h.all6, RNAorProtein = "Protein", limX = 0.5, limY = 1.0)
 ```{r}
 PlotMitoPanel6Fun(cpm.6h.all6, RNAorProtein = "RNA", limX = 2.0, limY = 2.0)
 ```
-
+```{r}
+PlotEtBioPanel6Fun(tmt.6h.all6, RNAorProtein = "Protein", limX = 0.5, limY = 1.0)
+PlotEtBioPanel6Fun(cpm.6h.all6, RNAorProtein = "RNA", limX = 1.0, limY = 2.0)
+```
 
 ###day/night
 ```{r}
@@ -3369,19 +3705,19 @@ tmt.dn.both.lims.plastid[(tmt.dn.both.lims.plastid$Gene %in% GOIs$Nuc.PtRibo),"O
 tmt.dn.both.lims.plastid[(tmt.dn.both.lims.plastid$Gene %in% GOIs$Pt.ribo),"Category"] <- "PE plastid ribosome"
 tmt.dn.both.lims.plastid[(tmt.dn.both.lims.plastid$Gene %in% GOIs$Pt.ribo),"Order"] <- 4
 
-tmt.dn.both.lims.plastid[(tmt.dn.both.lims.plastid$Gene %in% GOIs$NE.PtComplexes),"Category"] <- "NE digenomic complexes"
+tmt.dn.both.lims.plastid[(tmt.dn.both.lims.plastid$Gene %in% GOIs$NE.PtComplexes),"Category"] <- "PhANGs"
 tmt.dn.both.lims.plastid[(tmt.dn.both.lims.plastid$Gene %in% GOIs$NE.PtComplexes),"Order"] <- 5
 
-tmt.dn.both.lims.plastid[(tmt.dn.both.lims.plastid$Gene %in% GOIs$Pt.Complexes),"Category"] <- "PE digenomic complexes"
+tmt.dn.both.lims.plastid[(tmt.dn.both.lims.plastid$Gene %in% GOIs$Pt.Complexes),"Category"] <- "PhAPGs"
 tmt.dn.both.lims.plastid[(tmt.dn.both.lims.plastid$Gene %in% GOIs$Pt.Complexes),"Order"] <- 6
 ###Re-order
 tmt.dn.both.lims.plastid <- tmt.dn.both.lims.plastid[(order(tmt.dn.both.lims.plastid$Order)),]
 ###remove "other"
 tmt.dn.both.lims.plastid <- tmt.dn.both.lims.plastid[!tmt.dn.both.lims.plastid$Category=="Other",]
 ###factor
-tmt.dn.both.lims.plastid$Category <- factor(tmt.dn.both.lims.plastid$Category, levels = c("Plastid", "NE plastid ribosome","PE plastid ribosome", "NE digenomic complexes", "PE digenomic complexes"))
+tmt.dn.both.lims.plastid$Category <- factor(tmt.dn.both.lims.plastid$Category, levels = c("Plastid", "NE plastid ribosome","PE plastid ribosome", "PhANGs", "PhAPGs"))
 ###Scatterplot
-colors.p <- c("Plastid"="black", "PE plastid ribosome"="#ef73ef", "NE plastid ribosome"="#a742da", "PE digenomic complexes"="#7ae281", "NE digenomic complexes"="#009fa7")
+colors.p <- c("Plastid"="black", "PE plastid ribosome"="#ef73ef", "NE plastid ribosome"="#a742da", "PhAPGs"="#7ae281", "PhANGs"="#009fa7")
   colors.m <- c("Mitochondria"="black", "ME ribosome"="#ffa744", "NE mitochondrial ribosome"="#ff0000", "ME oxidative phosphorylation"="#71b1ff", "NE oxidative phosphorylation"="#3447ff")
   
 tmt.dn.both.BM.MP.lims.plastid.scat <- ggplot(tmt.dn.both.lims.plastid, mapping=aes(x=day.l2.BM.MP, y=night.l2.BM.MP, color=Category, shape=Category))+
@@ -3389,16 +3725,18 @@ tmt.dn.both.BM.MP.lims.plastid.scat <- ggplot(tmt.dn.both.lims.plastid, mapping=
   scale_color_manual(values=colors.p, name="Category")+
   scale_shape_manual(values=c(1,19,19,19,19))+
     theme_classic()+
+ theme(plot.margin=grid::unit(c(-3,-3,0,-3), "mm"))+
           xlim(c(-0.75,0.75))+
           ylim(c(-0.75,0.75))+
           geom_vline(xintercept=0, linetype="dashed", color = "gray50")+
           geom_hline(yintercept=0, linetype="dashed", color = "gray50")+
           geom_abline(slope = 1, linetype="dashed", color = "gray50")+
           theme(axis.text=element_text(size=10), legend.text=element_text(size=10),
-                legend.position="bottom", legend.title = element_blank())+
-          guides(col=guide_legend(ncol=1))+
+                legend.position="bottom", legend.title = element_blank(),  plot.title = element_text(vjust = -3.5, hjust = -0.485))+
+          guides(col=guide_legend(ncol=2))+
     xlab("log2 day BxM/MP")+
     ylab("log2 night BxM/MP")+
+    ggtitle("A")+
     theme(aspect.ratio=1)+
     coord_fixed(expand = F)
 dn.plastid.legend <- get_legend(tmt.dn.both.BM.MP.lims.plastid.scat)
@@ -3409,7 +3747,8 @@ tmt.dn.both.BM.MP.lims.plastid.scat <- tmt.dn.both.BM.MP.lims.plastid.scat+theme
     scale_color_manual(values=colors.p, name="Category")+
       geom_vline(xintercept=0, linetype="dashed", color = "gray50")+
       theme_void()+
-      theme(legend.title = element_blank())
+      theme(legend.title = element_blank())+
+      theme(plot.margin=grid::unit(c(-3,-3,0,-3), "mm"))
     #set up marginal density plot Y axis
     densityplotY<-axis_canvas(tmt.dn.both.BM.MP.lims.plastid.scat, axis="y", coord_flip = T)+
       geom_density(aes(tmt.dn.both.lims.plastid[,"night.l2.BM.MP"], color=tmt.dn.both.lims.plastid[,"Category"]), size=0.7)+
@@ -3418,7 +3757,8 @@ tmt.dn.both.BM.MP.lims.plastid.scat <- tmt.dn.both.BM.MP.lims.plastid.scat+theme
       geom_vline(xintercept=0, linetype="dashed", color = "gray50")+
       theme_void()+
       theme(legend.title = element_blank())+
-      coord_flip()
+      coord_flip()+
+      theme(plot.margin=grid::unit(c(-2,-2,0,-2), "mm"))
     #put two plots together
       tmt.dn.both.BM.MP.lims.plastid.scat <- insert_xaxis_grob(tmt.dn.both.BM.MP.lims.plastid.scat, densityplotX, grid::unit(0.275, "null"), position = "top")
       tmt.dn.both.BM.MP.lims.plastid.scat <- insert_yaxis_grob(tmt.dn.both.BM.MP.lims.plastid.scat, densityplotY, grid::unit(0.275, "null"), position = "right")
@@ -3430,16 +3770,18 @@ tmt.dn.both.B73.Mo17.lims.plastid.scat <- ggplot(tmt.dn.both.lims.plastid, mappi
   scale_color_manual(values=colors.p, name="Category")+
   scale_shape_manual(values=c(1,19,19,19,19))+
     theme_classic()+
+  theme(plot.margin=grid::unit(c(-3,-3,0,-3), "mm"))+
           xlim(c(-0.75,0.75))+
           ylim(c(-0.75,0.75))+
           geom_vline(xintercept=0, linetype="dashed", color = "gray50")+
           geom_hline(yintercept=0, linetype="dashed", color = "gray50")+
           geom_abline(slope = 1, linetype="dashed", color = "gray50")+
           theme(axis.text=element_text(size=10), legend.text=element_text(size=10),
-                legend.position="none", legend.title = element_blank())+
+                legend.position="none", legend.title = element_blank(),  plot.title = element_text(vjust = -3.5, hjust = -0.485))+
           guides(col=guide_legend(nrow=3))+
     xlab("log2 day B73/Mo17")+
     ylab("log2 night B73/Mo17")+
+    ggtitle("B")+
     theme(aspect.ratio=1)+
     coord_fixed(expand = F)
 ###Add density curves
@@ -3448,7 +3790,8 @@ tmt.dn.both.B73.Mo17.lims.plastid.scat <- ggplot(tmt.dn.both.lims.plastid, mappi
     scale_color_manual(values=colors.p, name="Category")+
       geom_vline(xintercept=0, linetype="dashed", color = "gray50")+
       theme_void()+
-      theme(legend.title = element_blank())
+      theme(legend.title = element_blank())+
+      theme(plot.margin=grid::unit(c(-3,-3,0,-3), "mm"))
     #set up marginal density plot Y axis
     densityplotY<-axis_canvas(tmt.dn.both.B73.Mo17.lims.plastid.scat, axis="y", coord_flip = T)+
       geom_density(aes(tmt.dn.both.lims.plastid[,"night.l2.B73.Mo17"], color=tmt.dn.both.lims.plastid[,"Category"]), size=0.7)+
@@ -3457,7 +3800,8 @@ tmt.dn.both.B73.Mo17.lims.plastid.scat <- ggplot(tmt.dn.both.lims.plastid, mappi
       geom_vline(xintercept=0, linetype="dashed", color = "gray50")+
       theme_void()+
       theme(legend.title = element_blank())+
-      coord_flip()
+      coord_flip()+
+      theme(plot.margin=grid::unit(c(-2,-2,0,-2), "mm"))
     #put two plots together
       tmt.dn.both.B73.Mo17.lims.plastid.scat <- insert_xaxis_grob(tmt.dn.both.B73.Mo17.lims.plastid.scat, densityplotX, grid::unit(0.275, "null"), position = "top")
       tmt.dn.both.B73.Mo17.lims.plastid.scat <- insert_yaxis_grob(tmt.dn.both.B73.Mo17.lims.plastid.scat, densityplotY, grid::unit(0.275, "null"), position = "right")
@@ -3465,38 +3809,50 @@ tmt.dn.both.B73.Mo17.lims.plastid.scat <- ggplot(tmt.dn.both.lims.plastid, mappi
 #ggsave(plot=tmt.dn.both.B73.Mo17.lims.plastid.scat, filename = "Plots/Plastid/Protein/tmt.dn.both.B73.Mo17.Xlim0.75.Ylim0.75.plastid.scat.pdf",  dpi=300, width=4.75, height = 5, scale = 1, units = "in")
 ```
 ```{r}
-tmt.dn.both.lims.mito <- tmt.dn.both.lims
+dn.plotlist <- list(tmt.dn.both.BM.MP.lims.plastid.scat, tmt.dn.both.B73.Mo17.lims.plastid.scat, dn.plastid.legend)
+dn.design <- "AB
+              CC"
+dn.plotpanel<-patchwork::wrap_plots(A=dn.plotlist[[1]], B=dn.plotlist[[2]], C=dn.plotlist[[3]],  nrow = 2, heights = c(3,1.2), design = dn.design)
+ggsave(plot=dn.plotpanel, filename ="Plots/Day vs Night/dn.plastid.mito.panel.Xlim0.75.Ylim0.75.pdf", dpi=300, width=4.75, height=3)
+```
 
-tmt.dn.both.lims.mito$Category <- "Other"
-tmt.dn.both.lims.mito$Order <- 1
+```{r}
+###Set GOIs
+tmt.dn.both.lims.other <- tmt.dn.both.lims
 
-tmt.dn.both.lims.mito[(tmt.dn.both.lims.mito$Gene %in% GOIs$mito),"Category"] <- "Mitochondria"
-tmt.dn.both.lims.mito[(tmt.dn.both.lims.mito$Gene %in% GOIs$mito),"Order"] <- 2
+tmt.dn.both.lims.other$Category <- "Other"
+tmt.dn.both.lims.other$Order <- 1
 
-tmt.dn.both.lims.mito[(tmt.dn.both.lims.mito$Gene %in% GOIs$OxPhos.complexes),"Category"] <- "NE digenomic complexes"
-tmt.dn.both.lims.mito[(tmt.dn.both.lims.mito$Gene %in% GOIs$OxPhos.complexes),"Order"] <- 3
+tmt.dn.both.lims.other[(tmt.dn.both.lims.other$Gene %in% GOIs$plastid),"Category"] <- "Plastid"
+tmt.dn.both.lims.other[(tmt.dn.both.lims.other$Gene %in% GOIs$plastid),"Order"] <- 2
 
-tmt.dn.both.lims.mito[(tmt.dn.both.lims.mito$Gene %in% GOIs$Mt.OxPhos),"Category"] <- "ME digenomic complexes"
-tmt.dn.both.lims.mito[(tmt.dn.both.lims.mito$Gene %in% GOIs$Mt.OxPhos),"Order"] <- 4
+tmt.dn.both.lims.other[(tmt.dn.both.lims.other$Gene %in% GOIs$darkrxn.Calvin.kc),"Category"] <- "darkrxn.Calvin.kc"
+tmt.dn.both.lims.other[(tmt.dn.both.lims.other$Gene %in% GOIs$darkrxn.Calvin.kc),"Order"] <- 3
 
-tmt.dn.both.lims.mito[(tmt.dn.both.lims.mito$Gene %in% GOIs$Nuc.MtRibo),"Category"] <- "NE mitochondrial ribosome"
-tmt.dn.both.lims.mito[(tmt.dn.both.lims.mito$Gene %in% GOIs$Nuc.MtRibo),"Order"] <- 5
+tmt.dn.both.lims.other[(tmt.dn.both.lims.other$Gene %in% GOIs$darkrxn.C4.c),"Category"] <- "darkrxn.C4.c"
+tmt.dn.both.lims.other[(tmt.dn.both.lims.other$Gene %in% GOIs$darkrxn.C4.c),"Order"] <- 4
 
-tmt.dn.both.lims.mito[(tmt.dn.both.lims.mito$Gene %in% GOIs$Mt.ribo),"Category"] <- "ME ribosome"
-tmt.dn.both.lims.mito[(tmt.dn.both.lims.mito$Gene %in% GOIs$Mt.ribo),"Order"] <- 6
+#tmt.dn.both.lims.other[(tmt.dn.both.lims.other$Gene %in% GOIs$darkrxn.Calvin.RubiscoSS),"Category"] <- "darkrxn.Calvin.RubiscoSS"
+#tmt.dn.both.lims.other[(tmt.dn.both.lims.other$Gene %in% GOIs$darkrxn.Calvin.RubiscoSS),"Order"] <- 5
+
+tmt.dn.both.lims.other[(tmt.dn.both.lims.other$Gene %in% GOIs$Pt.PS.rubisco),"Category"] <- "Pt.PS.rubisco"
+tmt.dn.both.lims.other[(tmt.dn.both.lims.other$Gene %in% GOIs$Pt.PS.rubisco),"Order"] <- 6
+
+tmt.dn.both.lims.other[(tmt.dn.both.lims.other$Gene %in% GOIs$EtBio),"Category"] <- "EtBio"
+tmt.dn.both.lims.other[(tmt.dn.both.lims.other$Gene %in% GOIs$EtBio),"Order"] <- 7
 ###Re-order
-tmt.dn.both.lims.mito <- tmt.dn.both.lims.mito[(order(tmt.dn.both.lims.mito$Order)),]
+tmt.dn.both.lims.other <- tmt.dn.both.lims.other[(order(tmt.dn.both.lims.other$Order)),]
 ###remove "other"
-tmt.dn.both.lims.mito <- tmt.dn.both.lims.mito[!tmt.dn.both.lims.mito$Category=="Other",]
+tmt.dn.both.lims.other <- tmt.dn.both.lims.other[!tmt.dn.both.lims.other$Category=="Other",]
 ###factor
-tmt.dn.both.lims.mito$Category <- factor(tmt.dn.both.lims.mito$Category, levels = c("Mitochondria", "NE digenomic complexes", "ME digenomic complexes", "NE mitochondrial ribosome", "ME ribosome"))
+tmt.dn.both.lims.other$Category <- factor(tmt.dn.both.lims.other$Category, levels = c("Plastid", "darkrxn.Calvin.kc","darkrxn.C4.c", "darkrxn.Calvin.RubiscoSS", "Pt.PS.rubisco", "EtBio"))
 ###Scatterplot
-  colors.m <- c("Mitochondria"="black", "ME ribosome"="#ffa744", "NE mitochondrial ribosome"="#ff0000", "ME digenomic complexes"="#71b1ff", "NE digenomic complexes"="#3447ff")
+colors.p <- c("Plastid"="black", "darkrxn.C4.c"="#ef73ef", "darkrxn.Calvin.kc"="#a742da", "EtBio"="#7ae281", "Pt.PS.rubisco"="#009fa7", "darkrxn.Calvin.RubiscoSS"="blue")
   
-tmt.dn.both.BM.MP.lims.mito.scat <- ggplot(tmt.dn.both.lims.mito, mapping=aes(x=day.l2.BM.MP, y=night.l2.BM.MP, color=Category, shape=Category))+
-    geom_point(aes(color=Category), size=1)+
-  scale_color_manual(values=colors.m, name="Category")+
-  scale_shape_manual(values=c(1,19,19,19,19))+
+tmt.dn.both.BM.MP.lims.other.scat <- ggplot(tmt.dn.both.lims.other, mapping=aes(x=day.l2.BM.MP, y=night.l2.BM.MP, color=Category, shape=Category))+
+    geom_point(aes(color=Category), size=3)+
+  scale_color_manual(values=colors.p, name="Category")+
+  scale_shape_manual(values=c(1,19,19,19,19,19))+
     theme_classic()+
           xlim(c(-0.75,0.75))+
           ylim(c(-0.75,0.75))+
@@ -3510,85 +3866,27 @@ tmt.dn.both.BM.MP.lims.mito.scat <- ggplot(tmt.dn.both.lims.mito, mapping=aes(x=
     ylab("log2 night BxM/MP")+
     theme(aspect.ratio=1)+
     coord_fixed(expand = F)
-dn.mito.legend <- get_legend(tmt.dn.both.BM.MP.lims.mito.scat)
-tmt.dn.both.BM.MP.lims.mito.scat <- tmt.dn.both.BM.MP.lims.mito.scat+theme(legend.position = "none")
 ###Add density curves
-    densityplotX<-axis_canvas(tmt.dn.both.BM.MP.lims.mito.scat, axis="x")+
-      geom_density(aes(tmt.dn.both.lims.mito[,"day.l2.BM.MP"], color=tmt.dn.both.lims.mito[,"Category"]), size=0.7)+
-    scale_color_manual(values=colors.m, name="Category")+
+    densityplotX<-axis_canvas(tmt.dn.both.BM.MP.lims.other.scat, axis="x")+
+      geom_density(aes(tmt.dn.both.lims.other[,"day.l2.BM.MP"], color=tmt.dn.both.lims.other[,"Category"]), size=0.7)+
+    scale_color_manual(values=colors.p, name="Category")+
       geom_vline(xintercept=0, linetype="dashed", color = "gray50")+
       theme_void()+
       theme(legend.title = element_blank())
     #set up marginal density plot Y axis
-    densityplotY<-axis_canvas(tmt.dn.both.BM.MP.lims.mito.scat, axis="y", coord_flip = T)+
-      geom_density(aes(tmt.dn.both.lims.mito[,"night.l2.BM.MP"], color=tmt.dn.both.lims.mito[,"Category"]), size=0.7)+
-      scale_color_manual(values=colors.m, name="Category")+
+    densityplotY<-axis_canvas(tmt.dn.both.BM.MP.lims.other.scat, axis="y", coord_flip = T)+
+      geom_density(aes(tmt.dn.both.lims.other[,"night.l2.BM.MP"], color=tmt.dn.both.lims.other[,"Category"]), size=0.7)+
+      scale_color_manual(values=colors.p, name="Category")+
       scale_linetype_manual(values=c("dotted", "solid"))+
       geom_vline(xintercept=0, linetype="dashed", color = "gray50")+
       theme_void()+
       theme(legend.title = element_blank())+
       coord_flip()
     #put two plots together
-      tmt.dn.both.BM.MP.lims.mito.scat <- insert_xaxis_grob(tmt.dn.both.BM.MP.lims.mito.scat, densityplotX, grid::unit(0.275, "null"), position = "top")
-      tmt.dn.both.BM.MP.lims.mito.scat <- insert_yaxis_grob(tmt.dn.both.BM.MP.lims.mito.scat, densityplotY, grid::unit(0.275, "null"), position = "right")
-    #save
-#ggsave(plot=tmt.dn.both.BM.MP.lims.mito.scat, filename = "Plots/Mitochondria/Protein/tmt.dn.both.BM.MP.Xlim0.75.Ylim0.75.mito.scat.pdf",  dpi=300, width=4.75, height = 5, scale = 1, units = "in")
-
-tmt.dn.both.B73.Mo17.lims.mito.scat <- ggplot(tmt.dn.both.lims.mito, mapping=aes(x=day.l2.B73.Mo17, y=night.l2.B73.Mo17, color=Category, shape=Category))+
-    geom_point(aes(color=Category), size=1)+
-  scale_color_manual(values=colors.m, name="Category")+
-  scale_shape_manual(values=c(1,19,19,19,19))+
-    theme_classic()+
-          xlim(c(-0.75,0.75))+
-          ylim(c(-0.75,0.75))+
-          geom_vline(xintercept=0, linetype="dashed", color = "gray50")+
-          geom_hline(yintercept=0, linetype="dashed", color = "gray50")+
-          geom_abline(slope = 1, linetype="dashed", color = "gray50")+
-          theme(axis.text=element_text(size=10), legend.text=element_text(size=10),
-                legend.position="none", legend.title = element_blank())+
-          guides(col=guide_legend(nrow=3))+
-    xlab("log2 day B73/Mo17")+
-    ylab("log2 night B73/Mo17")+
-    theme(aspect.ratio=1)+
-    coord_fixed(expand = F)
-###Add density curves
-    densityplotX<-axis_canvas(tmt.dn.both.B73.Mo17.lims.mito.scat, axis="x")+
-      geom_density(aes(tmt.dn.both.lims.mito[,"day.l2.B73.Mo17"], color=tmt.dn.both.lims.mito[,"Category"]), size=0.7)+
-    scale_color_manual(values=colors.m, name="Category")+
-      geom_vline(xintercept=0, linetype="dashed", color = "gray50")+
-      theme_void()+
-      theme(legend.title = element_blank())
-    #set up marginal density plot Y axis
-    densityplotY<-axis_canvas(tmt.dn.both.B73.Mo17.lims.mito.scat, axis="y", coord_flip = T)+
-      geom_density(aes(tmt.dn.both.lims.mito[,"night.l2.B73.Mo17"], color=tmt.dn.both.lims.mito[,"Category"]), size=0.7)+
-      scale_color_manual(values=colors.m, name="Category")+
-      scale_linetype_manual(values=c("dotted", "solid"))+
-      geom_vline(xintercept=0, linetype="dashed", color = "gray50")+
-      theme_void()+
-      theme(legend.title = element_blank())+
-      coord_flip()
-    #put two plots together
-      tmt.dn.both.B73.Mo17.lims.mito.scat <- insert_xaxis_grob(tmt.dn.both.B73.Mo17.lims.mito.scat, densityplotX, grid::unit(0.275, "null"), position = "top")
-      tmt.dn.both.B73.Mo17.lims.mito.scat <- insert_yaxis_grob(tmt.dn.both.B73.Mo17.lims.mito.scat, densityplotY, grid::unit(0.275, "null"), position = "right")
-    #save
-#ggsave(plot=tmt.dn.both.B73.Mo17.lims.mito.scat, filename = "Plots/Mitochondria/Protein/tmt.dn.both.B73.Mo17.Xlim0.75.Ylim0.75.mito.scat.pdf",  dpi=300, width=4.75, height = 5, scale = 1, units = "in")
+      q <- insert_xaxis_grob(tmt.dn.both.BM.MP.lims.other.scat, densityplotX, grid::unit(0.275, "null"), position = "top")
+      q <- insert_yaxis_grob(q, densityplotY, grid::unit(0.275, "null"), position = "right")
+      ggsave(plot=q, filename = "tmt.dn.both.BM.MP.lims.other.scat.png")
 ```
-```{r}
-dn.plotlist <- list(tmt.dn.both.BM.MP.lims.plastid.scat, tmt.dn.both.BM.MP.lims.mito.scat, tmt.dn.both.B73.Mo17.lims.plastid.scat, tmt.dn.both.B73.Mo17.lims.mito.scat, dn.plastid.legend, dn.mito.legend)
-```
-```{r}
-dn.design <- "AB
-              CD
-              EG"
-```
-```{r}
-dn.plotpanel<-patchwork::wrap_plots(A=dn.plotlist[[1]], B=dn.plotlist[[2]], C=dn.plotlist[[3]], D=dn.plotlist[[4]], E=dn.plotlist[[5]], G=dn.plotlist[[6]], nrow = 3, heights = c(3,3,2), design = dn.design)
-```
-
-```{r}
-ggsave(plot=dn.plotpanel, filename ="Plots/Day vs Night/dn.plastid.mito.panel.Xlim0.75.Ylim0.75.pdf", dpi=300, width=4.75, height=6.5)  
-```
-
 
 #AMP/BMP
 ##SL BxM from the 4 experiments
@@ -3646,6 +3944,18 @@ tmt.acs.5up.all4amp <- tmt.acs.5up.all4amp[order(tmt.acs.5up.all4amp$Order),]
 #save
 write.csv(tmt.acs.5up.all4amp, "tmt.acs.5up.all4amp.csv", row.names = F)
 ```
+```{r}
+tmt.6h.SL.amp <- tmt.6h.SL[(tmt.6h.SL$HYB.MP > 1.05)&(tmt.6h.SL$Sig < 0.05),]
+```
+```{r}
+colnames(tmt.6h.SL.amp)
+```
+
+
+```{r}
+merge.data.frame(tmt.acs.5up[,c(6,8,9,22,23)],tmt.6h.SL.amp[,c(6,26,27)], by.x = "Accession", by.y = "Accession", all=F)
+```
+
 ###5% down
 ```{r}
 #subset acs to 5% below expected (p<0.05)
@@ -3660,6 +3970,118 @@ tmt.acs.5down.all4bmp <- tmt.acs.5down.all4bmp[order(tmt.acs.5down.all4bmp$Order
 #save
 write.csv(tmt.acs.5down.all4bmp, "tmt.acs.5down.all4bmp.csv", row.names = F)
 ```
+
+
+
+
+
+##DayVsNight
+```{r}
+tmt.dn.both.AMPday <- tmt.dn.both[(tmt.dn.both$day.l2.BM.MP > 0.1375035),]
+tmt.dn.both.BMPday <- tmt.dn.both[(tmt.dn.both$day.l2.BM.MP < -0.1520031),]
+tmt.dn.both.AMPnight <- tmt.dn.both[(tmt.dn.both$night.l2.BM.MP > 0.1375035),]
+tmt.dn.both.BMPnight <- tmt.dn.both[(tmt.dn.both$night.l2.BM.MP < -0.1520031),]
+tmt.dn.both.MPday <- tmt.dn.both[!tmt.dn.both$Accession%in%c(tmt.dn.both.AMPday$Accession,tmt.dn.both.BMPday$Accession),]
+tmt.dn.both.MPnight <- tmt.dn.both[!tmt.dn.both$Accession%in%c(tmt.dn.both.AMPnight$Accession,tmt.dn.both.BMPnight$Accession),]
+```
+```{r}
+tmt.dn.both.AMPday.AMPnight <- tmt.dn.both.AMPday[tmt.dn.both.AMPday$Accession%in%tmt.dn.both.AMPnight$Accession,]
+tmt.dn.both.BMPday.BMPnight <- tmt.dn.both.BMPday[tmt.dn.both.BMPday$Accession%in%tmt.dn.both.BMPnight$Accession,]
+tmt.dn.both.MPday.MPnight <- tmt.dn.both.MPday[tmt.dn.both.MPday$Accession%in%tmt.dn.both.MPnight$Accession,]
+tmt.dn.both.AMPday.MPnight <- tmt.dn.both.AMPday[tmt.dn.both.AMPday$Accession%in%tmt.dn.both.MPnight$Accession,]
+tmt.dn.both.BMPday.MPnight <- tmt.dn.both.BMPday[tmt.dn.both.BMPday$Accession%in%tmt.dn.both.MPnight$Accession,]
+tmt.dn.both.AMPnight.MPday <- tmt.dn.both.AMPnight[tmt.dn.both.AMPnight$Accession%in%tmt.dn.both.MPday$Accession,]
+tmt.dn.both.BMPnight.MPday <- tmt.dn.both.BMPnight[tmt.dn.both.BMPnight$Accession%in%tmt.dn.both.MPday$Accession,]
+tmt.dn.both.AMPday.BMPnight <- tmt.dn.both.AMPday[tmt.dn.both.AMPday$Accession%in%tmt.dn.both.BMPnight$Accession,]
+tmt.dn.both.BMPday.AMPnight <- tmt.dn.both.BMPday[tmt.dn.both.BMPday$Accession%in%tmt.dn.both.AMPnight$Accession,]
+```
+```{r}
+write.csv(tmt.dn.both[order(tmt.dn.both$Order),], "tmt.dn.both.csv", row.names = F)
+write.csv(tmt.dn.both.AMPday.AMPnight[order(tmt.dn.both.AMPday.AMPnight$Order),], "tmt.dn.both.AMPday.AMPnight.csv", row.names = F)
+write.csv(tmt.dn.both.BMPday.BMPnight[order(tmt.dn.both.BMPday.BMPnight$Order),], "tmt.dn.both.BMPday.BMPnight.csv", row.names = F)
+write.csv(tmt.dn.both.MPday.MPnight[order(tmt.dn.both.MPday.MPnight$Order),], "tmt.dn.both.MPday.MPnight.csv", row.names = F)
+write.csv(tmt.dn.both.AMPday.MPnight[order(tmt.dn.both.AMPday.MPnight$Order),], "tmt.dn.both.AMPday.MPnight.csv", row.names = F)
+write.csv(tmt.dn.both.BMPday.MPnight[order(tmt.dn.both.BMPday.MPnight$Order),], "tmt.dn.both.BMPday.MPnight.csv", row.names = F)
+write.csv(tmt.dn.both.AMPnight.MPday[order(tmt.dn.both.AMPnight.MPday$Order),], "tmt.dn.both.AMPnight.MPday.csv", row.names = F)
+write.csv(tmt.dn.both.BMPnight.MPday[order(tmt.dn.both.BMPnight.MPday$Order),], "tmt.dn.both.BMPnight.MPday.csv", row.names = F)
+write.csv(tmt.dn.both.AMPday.BMPnight[order(tmt.dn.both.AMPday.BMPnight$Order),], "tmt.dn.both.AMPday.BMPnight.csv", row.names = F)
+write.csv(tmt.dn.both.BMPday.AMPnight[order(tmt.dn.both.BMPday.AMPnight$Order),], "tmt.dn.both.BMPday.AMPnight.csv", row.names = F)
+```
+
+
+```{r}
+library(sunburstR)
+library(d3r)
+```
+```{r}
+sunburstfun <- function(goi){
+d <- length(goi[goi%in%tmt.dn.both.AMPday.AMPnight$Gene])
+e <- length(goi[goi%in%tmt.dn.both.AMPday.MPnight$Gene])
+f <- length(goi[goi%in%tmt.dn.both.AMPday.BMPnight$Gene])
+
+g <- length(goi[goi%in%tmt.dn.both.BMPday.BMPnight$Gene])
+h <- length(goi[goi%in%tmt.dn.both.BMPday.MPnight$Gene])
+i <- length(goi[goi%in%tmt.dn.both.BMPday.AMPnight$Gene])
+
+j <- length(goi[goi%in%tmt.dn.both.MPday.MPnight$Gene])
+k <- length(goi[goi%in%tmt.dn.both.AMPnight.MPday$Gene])
+l <- length(goi[goi%in%tmt.dn.both.BMPnight.MPday$Gene])
+
+dat <- data.frame(
+  leafs = c("AMP day-AMP night", "AMP day-MP night", "AMP day-BMP night", "BMP day-BMP night", "BMP day-MP night", "BMP day-AMP night", "MP day-MP night", "MP day-AMP night", "MP day-BMP night"),
+  values = c(d,e,f,g,h,i,j,k,l),
+  stringsAsFactors = FALSE
+)
+
+#tree <- d3_nest(dat, value_cols = "size")
+labels <- c("AMP day","BMP day","MP day", "AMP night", "MP night", "BMP night", "BMP night", "MP night", "AMP night", "MP night", "AMP night", "BMP night")
+colors = c("red", "blue", "grey", "red", "grey", "blue", "blue", "grey", "red", "grey", "red", "blue")
+sunburst(dat, colors = list(range = colors, domain = labels), )}
+```
+
+
+```{r}
+sunburstfun(GOIs$Nuc.PtRibo)
+```
+```{r}
+sunburstfun(GOIs$Pt.ribo)
+```
+
+
+
+```{r}
+fig <- plot_ly() 
+fig <- fig %>%
+  add_trace(
+    labels = c("AMP day", "BMP day", "MP day"),
+  parents = c("", "", ""),
+  values = c(a,b,c),
+    type = 'sunburst',
+    maxdepth = 2,
+    domain = list(column = 0)
+    ) 
+fig <- fig %>%
+  add_trace(
+    labels = c("AMP day/AMP night", "AMP day/MP night", "AMP day/BMP night", "BMP day/BMP night", "BMP day/MP night", "BMP day/AMP night", "MP day/MP night", "MP day/AMP night", "MP day/BMP night"),
+  parents = c("AMP day", "AMP day", "AMP day", "BMP day", "BMP day", "BMP day", "MP day", "MP day", "MP day"),
+  values = c(d,e,f,g,h,i,j,k,l),
+    type = 'sunburst',
+    maxdepth = 3,
+    domain = list(column = 1)
+  ) 
+fig <- fig %>%
+    layout(
+      grid = list(columns =2, rows = 1),
+      margin = list(l = 0, r = 0, b = 0, t = 0),
+      sunburstcolorway = c(
+        "#636efa","#EF553B","#00cc96","#ab63fa","#19d3f3",
+        "#e763fa", "#FECB52","#FFA15A","#FF6692","#B6E880"
+      ),
+      extendsunburstcolors = TRUE)
+fig
+```
+
+
 
 
 
@@ -3738,6 +4160,23 @@ tmt.ril.6h.ratios.hyb2mp.cor <- merge.data.frame(tmt.ril.6h.ratios.hyb2mp.cor, t
 tmt.ril.6h.ratios.hyb2mp.cor <- tmt.ril.6h.ratios.hyb2mp.cor[order(-tmt.ril.6h.ratios.hyb2mp.cor$cor),]
 write.csv(tmt.ril.6h.ratios.hyb2mp.cor, "tmt.ril.6h.ratios.hyb2mp.cor.csv", row.names = F)
 ```
+
+
+```{r}
+test <- tmt.ril.6h.ratios.hyb2mp.cor[,c(1,32:42)]
+```
+```{r}
+test <- merge.data.frame(test, tmt.ril.6h[,c(1,2,11)], by.x = "Accession", by.y="Accession", all = F)
+```
+
+
+
+
+```{r}
+write.csv(test, "test.csv", row.names = F)
+```
+
+
 ```{r}
 #RIL+6h parent/parent cor
 tmt.ril.6h.ratios.parent2parent.cor <- CorFun(tmt.ril.6h.ratios, c(11:19,26:31), PlantHeights.ril.6h.MP)
@@ -3777,8 +4216,75 @@ cpm.ril.6h.cor <- CorFun(cpm.ril.6h, 2:16, PlantHeights.ril.6h.MP)
 ```{r}
 cpm.ril.6h.cor <- merge.data.frame(cpm.ril.6h.cor, mgdb[,c(1,12)], by.x = "Gene", by.y = "v4_gene_model", all.x = T, all.y = F)
 cpm.ril.6h.cor <- cpm.ril.6h.cor[order(-cpm.ril.6h.cor$cor),]
-write.csv(cpm.ril.6h.cor, "cpm.ril.6h.cor.csv", row.names = F)
+#write.csv(cpm.ril.6h.cor, "cpm.ril.6h.cor.csv", row.names = F)
 ```
+```{r}
+cpm.6h.SL.cor <- CorFun(cpm.6h.SL, 12:17, PlantHeights.6h.MP)
+#write.csv(cpm.6h.SL.cor[order(cpm.6h.SL.cor$cor),], "cpm.6h.SL.cor.csv", row.names = F)
+```
+```{r}
+cpm.ril.SL.cor <- CorFun(cpm.ril.SL, 17:25, PlantHeights.ril.MP)
+#write.csv(cpm.ril.SL.cor[order(cpm.ril.SL.cor$cor),], "cpm.ril.SL.cor.csv", row.names = F)
+```
+```{r}
+tmt.cpm.ril.6h.cor <- merge.data.frame(tmt.ril.ratios.hyb2mp.cor[,c(1,28)], tmt.6h.ratios.hyb2mp.cor[,c(1,22)], by.x = "Accession", by.y = "Accession", all=T)
+```
+```{r}
+colnames(tmt.cpm.ril.6h.cor) <- c("Accession", "cor.tmt.ril", "cor.tmt.6h")
+```
+```{r}
+tmt.cpm.ril.6h.cor$Gene <- substr(tmt.cpm.ril.6h.cor$Accession, start = 1, stop = 14)
+```
+
+```{r}
+tmt.cpm.ril.6h.cor <- merge.data.frame(tmt.cpm.ril.6h.cor, cpm.ril.SL.cor[,c(1,35)], by.x = "Gene", by.y = "Gene", all=T)
+```
+```{r}
+tmt.cpm.ril.6h.cor <- merge.data.frame(tmt.cpm.ril.6h.cor, cpm.6h.SL.cor[,c(1,24)], by.x = "Gene", by.y = "Gene", all=T)
+```
+```{r}
+colnames(tmt.cpm.ril.6h.cor)[5:6] <- c("cor.cpm.ril", "cor.cpm.6h")
+```
+
+```{r}
+tmt.cpm.ril.6h.cor.etbio <- tmt.cpm.ril.6h.cor[tmt.cpm.ril.6h.cor$Gene%in%GOIs$EtBio,]
+```
+```{r}
+tmt.cpm.ril.6h.cor.etbio$ID <- NA
+```
+```{r}
+tmt.cpm.ril.6h.cor.etbio$ID[tmt.cpm.ril.6h.cor.etbio$Gene%in%MAT] <- "SAMS"
+tmt.cpm.ril.6h.cor.etbio$ID[tmt.cpm.ril.6h.cor.etbio$Gene%in%ACS] <- "ACS"
+tmt.cpm.ril.6h.cor.etbio$ID[tmt.cpm.ril.6h.cor.etbio$Gene%in%ACO] <- "ACO"
+```
+
+```{r}
+write.csv(tmt.cpm.ril.6h.cor.etbio, "tmt.cpm.ril.6h.cor.etbio.csv", row.names = F)
+```
+
+
+
+```{r}
+tmt.6h.all6.etbio <- tmt.6h.all6[tmt.6h.all6$Gene%in%EtBio,]
+```
+```{r}
+tmt.6h.all6.etbio$ID <- NA
+tmt.6h.all6.etbio$ID[tmt.6h.all6.etbio$Gene%in%MAT] <- "SAMS"
+tmt.6h.all6.etbio$ID[tmt.6h.all6.etbio$Gene%in%ACS] <- "ACS"
+tmt.6h.all6.etbio$ID[tmt.6h.all6.etbio$Gene%in%ACO] <- "ACO"
+```
+```{r}
+tmt.6h.all6.etbio <- tmt.6h.all6.etbio[
+  with(tmt.6h.all6.etbio, order(plot, ID, Gene)),
+]
+```
+```{r}
+write.csv(tmt.6h.all6.etbio, "tmt.6h.all6.etbio.csv", row.names = F)
+```
+
+
+
+
 
 
 ```{r}
@@ -3875,24 +4381,29 @@ tmt.cpm.ril.6h.cor.plot[(tmt.cpm.ril.6h.cor.plot$Gene %in% GOIs$eukRibo),"Order"
 tmt.cpm.ril.6h.cor.plot[(tmt.cpm.ril.6h.cor.plot$Gene %in% GOIs$Nuc.PtRibo),"Category"] <- "NE plastid ribosome"
 tmt.cpm.ril.6h.cor.plot[(tmt.cpm.ril.6h.cor.plot$Gene %in% GOIs$Nuc.PtRibo),"Order"] <- 4
 
-tmt.cpm.ril.6h.cor.plot[(tmt.cpm.ril.6h.cor.plot$Gene %in% GOIs$NE.PtComplexes),"Category"] <- "NE digenomic complexes"
+tmt.cpm.ril.6h.cor.plot[(tmt.cpm.ril.6h.cor.plot$Gene %in% GOIs$NE.PtComplexes),"Category"] <- "PhANGs"
 tmt.cpm.ril.6h.cor.plot[(tmt.cpm.ril.6h.cor.plot$Gene %in% GOIs$NE.PtComplexes),"Order"] <- 5
-
-tmt.cpm.ril.6h.cor.plot[(tmt.cpm.ril.6h.cor.plot$Gene %in% GOIs$OxPhos.complexes),"Category"] <- "NE mito digenomic complexes"
-tmt.cpm.ril.6h.cor.plot[(tmt.cpm.ril.6h.cor.plot$Gene %in% GOIs$OxPhos.complexes),"Order"] <- 6
 
 ###Re-order
 tmt.cpm.ril.6h.cor.plot <- tmt.cpm.ril.6h.cor.plot[(order(tmt.cpm.ril.6h.cor.plot$Order)),]
 ###remove "other"
 #tmt.cpm.ril.6h.cor.plot <- tmt.cpm.ril.6h.cor.plot[!tmt.cpm.ril.6h.cor.plot$Category=="Other",]
 ###factor
-tmt.cpm.ril.6h.cor.plot$Category <- factor(tmt.cpm.ril.6h.cor.plot$Category, levels = c("Other", "Plastid","Eukaryotic ribosome", "NE plastid ribosome", "NE digenomic complexes", "NE mito digenomic complexes"))
+tmt.cpm.ril.6h.cor.plot$Category <- factor(tmt.cpm.ril.6h.cor.plot$Category, levels = c("Other", "Plastid","Eukaryotic ribosome", "NE plastid ribosome", "PhANGs"))
 ```
+```{r}
+tmt.cpm.ril.6h.cor.plot$cor.RNA <- as.numeric(tmt.cpm.ril.6h.cor.plot$cor.RNA)
+tmt.cpm.ril.6h.cor.plot$cor.protein <- as.numeric(tmt.cpm.ril.6h.cor.plot$cor.protein)
+```
+```{r}
+  colors.m <- c("Mitochondria"="black", "ME ribosome"="#ffa744", "NE mitochondrial ribosome"="#ff0000", "ME oxidative phosphorylation"="#71b1ff", "NE oxidative phosphorylation"="#3447ff")
+```
+
 ```{r}
 tmt.cpm.ril.6h.cor.plot.scat <- ggplot(tmt.cpm.ril.6h.cor.plot, mapping=aes(x=cor.protein, y=cor.RNA, color=Category, shape=Category))+
     geom_point(size=2.5)+
-    scale_colour_manual(values = c("Other"="black", "Plastid"="#009292", "Eukaryotic ribosome"="#ffa744", "NE plastid ribosome"="#3447ff", "NE digenomic complexes"="#009fa7", "NE mito digenomic complexes"="#ef73ef"))+
-  scale_shape_manual(values=c(1,19,19,19,19,19))+
+    scale_colour_manual(values = c("Other"="black", "Eukaryotic ribosome"="#ffa744", "NE plastid ribosome"="#ff0000", "PhANGs"="#3447ff"))+
+  scale_shape_manual(values=c(1,19,19,19,19))+
     theme_classic()+
       xlim(-1,1)+
       ylim(-1,1)+
@@ -3909,10 +4420,11 @@ tmt.cpm.ril.6h.cor.plot.scat <- ggplot(tmt.cpm.ril.6h.cor.plot, mapping=aes(x=co
       theme(axis.text=element_text(size=10), legend.text=element_text(size=10),
                 legend.position="bottom", legend.title = element_blank())+
           guides(col=guide_legend(nrow=3))
+
 ###Add density curves
     densityplotX<-axis_canvas(tmt.cpm.ril.6h.cor.plot.scat, axis="x")+
       geom_density(aes(tmt.cpm.ril.6h.cor.plot[,"cor.protein"], color=tmt.cpm.ril.6h.cor.plot[,"Category"]), size=1)+
-    scale_color_manual(values=c("Other"="black", "Plastid"="#009292", "Eukaryotic ribosome"="#ffa744", "NE plastid ribosome"="#3447ff", "NE digenomic complexes"="#009fa7", "NE mito digenomic complexes"="#ef73ef"), name="Category")+
+    scale_color_manual(values=c("Other"="black", "Eukaryotic ribosome"="#ffa744", "NE plastid ribosome"="#ff0000", "PhANGs"="#3447ff"), name="Category")+
       geom_vline(xintercept=0, linetype="dashed", color = "gray20", size=0.7)+
       geom_vline(xintercept=0.5, linetype="dashed", color = "gray40", size=0.5)+
       geom_vline(xintercept= -0.5, linetype="dashed", color = "gray40", size=0.5)+
@@ -3923,8 +4435,7 @@ tmt.cpm.ril.6h.cor.plot.scat <- ggplot(tmt.cpm.ril.6h.cor.plot, mapping=aes(x=co
     #set up marginal density plot Y axis
     densityplotY<-axis_canvas(tmt.cpm.ril.6h.cor.plot.scat, axis="y", coord_flip = T)+
       geom_density(aes(tmt.cpm.ril.6h.cor.plot[,"cor.RNA"], color=tmt.cpm.ril.6h.cor.plot[,"Category"]), size=1)+
-      scale_color_manual(values=c("Other"="black", "Plastid"="#009292", "Eukaryotic ribosome"="#ffa744", "NE plastid ribosome"="#3447ff", "NE digenomic complexes"="#009fa7", "NE mito digenomic complexes"="#ef73ef"), name="Category")+
-      scale_linetype_manual(values=c("dotted", "solid"))+
+      scale_color_manual(values=c("Other"="black", "Eukaryotic ribosome"="#ffa744", "NE plastid ribosome"="#ff0000", "PhANGs"="#3447ff"), name="Category")+
       geom_vline(xintercept=0, linetype="dashed", color = "gray20", size=0.7)+
       geom_vline(xintercept=0.5, linetype="dashed", color = "gray40", size=0.5)+
       geom_vline(xintercept= -0.5, linetype="dashed", color = "gray40", size=0.5)+
@@ -3938,9 +4449,230 @@ tmt.cpm.ril.6h.cor.plot.scat <- ggplot(tmt.cpm.ril.6h.cor.plot, mapping=aes(x=co
     #save
 ggsave(plot=tmt.cpm.ril.6h.cor.plot.scat, filename = "Plots/tmt.cpm.ril.6h.cor.plot.scat.pdf",  dpi=300, width=4.75, height = 5, scale = 1, units = "in")
 ```
+```{r}
+library(cowplot)
+```
+```{r}
+unique(tmt.ril.6h.ratios.hyb2mp.parent2parent.cor$Category)
+```
 
 ```{r}
- colors.p2 <- c("Other"="black", "Plastid"="grey60", "PE plastid ribosome"="#ef73ef", "NE plastid ribosome"="#a742da", "PE digenomic complexes"="#7ae281", "NE digenomic complexes"="#009fa7")
+tmt.PlastidRiboCor.hyb2MP <- tmt.ril.6h.ratios.hyb2mp.parent2parent.cor[-1,c(4:13,23:28,36)]
+for(i in 2:16){
+  tmt.PlastidRiboCor.hyb2MP[,i] <- as.numeric(tmt.PlastidRiboCor.hyb2MP[,i])
+  for(j in 1:nrow(tmt.PlastidRiboCor.hyb2MP)){
+  tmt.PlastidRiboCor.hyb2MP[j,i] <- (2 ^ tmt.PlastidRiboCor.hyb2MP[j,i])
+}}
+
+tmt.PlastidRiboCor.hyb2MP <- na.omit(tmt.PlastidRiboCor.hyb2MP[tmt.PlastidRiboCor.hyb2MP$Category=="NE.EtBio.c",])
+tmt.PlastidRiboCor.hyb2MP <- tmt.PlastidRiboCor.hyb2MP[,-17]
+colnames(tmt.PlastidRiboCor.hyb2MP)[2:16] <- c("RIL RIL.B73xMo17", "RIL RIL14xB73", "RIL RIL14xMo17", "RIL RIL16xB73", "RIL RIL16xMo17", "RIL RIL21xB73", "RIL RIL21xMo17", "RIL RIL317xB73", "RIL RIL317xMo17", "6H B73xMo17", "6H Mo17xB73", "6H B84xB73", "6H B84xMo17", "6H A682xB73", "6H A682xMo17")
+
+tmt.PlastidRiboCor.hyb2MP <- melt(tmt.PlastidRiboCor.hyb2MP)
+
+tmt.PlastidRiboCor.hyb2MP$height <- c(rep(1.169374, 53), rep(1.106888, 53), rep(1.238806, 53), rep(1.220903, 53), rep(1.144279, 53), rep(1.148837, 53), rep(1.206813, 53), rep(1.219626, 53), rep(1.256724, 53), rep(1.284798, 53), rep(1.355715, 53), rep(1.235964, 53), rep(1.362016, 53), rep(1.403358, 53), rep(1.220447, 53))
+
+tmt.PlastidRiboCor.hyb2MP.split <- split.data.frame(tmt.PlastidRiboCor.hyb2MP, tmt.PlastidRiboCor.hyb2MP$variable)
+tmt.PlastidRiboCor.hyb2MP.split.avg <- data.frame("hybrid"=unique(tmt.PlastidRiboCor.hyb2MP$variable), "value"=NA, "height"=unique(tmt.PlastidRiboCor.hyb2MP$height))
+
+for(i in 1:15){
+  tmt.PlastidRiboCor.hyb2MP.split.avg[i,"value"] <- mean(tmt.PlastidRiboCor.hyb2MP.split[[i]][,3])
+}
+tmt.PlastidRiboCor.hyb2MP.split.avg.lm <- lm(value~height, data = tmt.PlastidRiboCor.hyb2MP.split.avg)
+tmt.PlastidRiboCor.hyb2MP.split.avg.lm.rsquared <- summary(tmt.PlastidRiboCor.hyb2MP.split.avg.lm)$adj.r.squared
+
+pal <- c("#000000","#004949","#009292","#ff6db6","#ffb6db",
+ "#490092","#006ddb","#b66dff","#6db6ff","#b6dbff",
+ "#920000","#924900","#db6d00","#24ff24","#ffff6d")
+ggplot(data=tmt.PlastidRiboCor.hyb2MP, mapping = aes(x=height, y=value, fill=variable))+
+  geom_violin(width=0.02, alpha=0.7)+
+  scale_fill_manual(values = pal, name="Hybrid")+
+  theme_minimal()+
+  xlab("Hybrid/mid-parent plant height")+
+  ylab("Hybrid/mid-parent plastid ribosomal protein abundance")+
+  ggtitle(bquote(R^2 ~ "=" ~ .(tmt.PlastidRiboCor.hyb2MP.split.avg.lm.rsquared)))+
+  theme(text = element_text(size = 10), plot.title = element_text(size=10, vjust = -8))+
+  geom_abline(slope = tmt.PlastidRiboCor.hyb2MP.split.avg.lm$coefficients[2], intercept = tmt.PlastidRiboCor.hyb2MP.split.avg.lm$coefficients[1], linetype="dashed")+
+  stat_summary(fun.data=mean_cl_normal, show.legend = F)
+ggsave("tmt.PlastidRiboCor.hyb2MP.ViolinPlot.pdf", width = 4.75, height = 4.5)
+```
+
+
+```{r}
+tmt.ril.6h <- merge.data.frame(tmt.ril[,c(6,141:158)], tmt.6h[,c(6,62:73)], by.x = "Accession", by.y = "Accession", all = F)
+
+tmt.PlastidRiboCor.par2par <- na.omit(tmt.ril.6h[,c(1,11:19,26:31)])
+for(i in 2:16){
+  tmt.PlastidRiboCor.par2par[,i] <- as.numeric(tmt.PlastidRiboCor.par2par[,i])
+  for(j in 1:nrow(tmt.PlastidRiboCor.par2par)){
+  tmt.PlastidRiboCor.par2par[j,i] <- (2 ^ tmt.PlastidRiboCor.par2par[j,i])
+}}
+
+tmt.PlastidRiboCor.par2par$Gene <- substr(tmt.PlastidRiboCor.par2par$Accession, start = 1, stop = 14)
+tmt.PlastidRiboCor.par2par <- tmt.PlastidRiboCor.par2par[tmt.PlastidRiboCor.par2par$Gene %in% c(GOIs$Nuc.PtRibo, GOIs$Pt.ribo),]
+tmt.PlastidRiboCor.par2par <- tmt.PlastidRiboCor.par2par[,-17]
+
+colnames(tmt.PlastidRiboCor.par2par)[2:16] <- c("RIL RIL.B73xMo17", "RIL RIL14xB73", "RIL RIL14xMo17", "RIL RIL16xB73", "RIL RIL16xMo17", "RIL RIL21xB73", "RIL RIL21xMo17", "RIL RIL317xB73", "RIL RIL317xMo17", "6H B73xMo17", "6H Mo17xB73", "6H B84xB73", "6H B84xMo17", "6H A682xB73", "6H A682xMo17")
+
+tmt.PlastidRiboCor.par2par <- melt(tmt.PlastidRiboCor.par2par)
+
+##hyb/mp height ratios
+#tmt.PlastidRiboCor.par2par$height <- c(rep(1.169374, 54), rep(1.106888, 54), rep(1.238806, 54), rep(1.220903, 54), rep(1.144279, 54), rep(1.148837, 54), rep(1.206813, 54), rep(1.219626, 54), rep(1.256724, 54), rep(1.284798, 54), rep(1.355715, 54), rep(1.235964, 54), rep(1.362016, 54), rep(1.403358, 54), rep(1.220447, 54))
+
+##par/par height ratios
+heights.par2par <- c(1.07873807, 0.867043, 0.93531283, 0.8670435, 0.935312831, 0.906856722, 0.97826087, 0.898009339, 0.968716861, 0.975409836, 1.025210084, 0.945760122, 0.922503726, 0.956455309, 0.932935917)
+tmt.PlastidRiboCor.par2par$height <- c(rep(1.07873807, 54), rep(0.867043, 54), rep(0.93531283, 54), rep(0.8670435, 54), rep(0.935312831, 54), rep(0.906856722, 54), rep(0.97826087, 54), rep(0.898009339, 54), rep(0.968716861, 54), rep(0.975409836, 54), rep(1.025210084, 54), rep(0.945760122, 54), rep(0.922503726, 54), rep(0.956455309, 54), rep(0.932935917, 54))
+
+tmt.PlastidRiboCor.par2par.split <- split.data.frame(tmt.PlastidRiboCor.par2par, tmt.PlastidRiboCor.par2par$variable)
+tmt.PlastidRiboCor.par2par.split.avg <- data.frame("hybrid"=unique(tmt.PlastidRiboCor.par2par$variable), "value"=NA, "height"=heights.par2par)
+
+for(i in 1:15){
+  tmt.PlastidRiboCor.par2par.split.avg[i,"value"] <- mean(tmt.PlastidRiboCor.par2par.split[[i]][,3])
+}
+tmt.PlastidRiboCor.par2par.split.avg.lm <- lm(value~height, data = tmt.PlastidRiboCor.par2par.split.avg)
+tmt.PlastidRiboCor.par2par.split.avg.lm.rsquared <- summary(tmt.PlastidRiboCor.par2par.split.avg.lm)$adj.r.squared
+
+pal <- c("#000000","#004949","#009292","#ff6db6","#ffb6db",
+ "#490092","#006ddb","#b66dff","#6db6ff","#b6dbff",
+ "#920000","#924900","#db6d00","#24ff24","#ffff6d")
+ggplot(data=tmt.PlastidRiboCor.par2par, mapping = aes(x=height, y=value, fill=variable))+
+  geom_violin(width=0.02, alpha=0.7)+
+  scale_fill_manual(values = pal, name="Hybrid")+
+  theme_minimal()+
+  xlab("Parent/parent plant height")+
+  ylab("Parent/parent plastid ribosomal protein abundance")+
+  ggtitle(bquote(R^2 ~ "=" ~ .(tmt.PlastidRiboCor.par2par.split.avg.lm.rsquared)))+
+  theme(text = element_text(size = 10), plot.title = element_text(size=10, vjust = -8))+
+  geom_abline(slope = tmt.PlastidRiboCor.par2par.split.avg.lm$coefficients[2], intercept = tmt.PlastidRiboCor.par2par.split.avg.lm$coefficients[1], linetype="dashed")+
+  stat_summary(fun.data=mean_cl_normal, show.legend = F)
+ggsave("tmt.PlastidRiboCor.par2par.par2parheight.ViolinPlot.pdf", width = 4.75, height = 4.5)
+```
+
+```{r}
+tmt.ril.Hyb2BxM <- tmt.ril[,c(1:9,100:140)]
+
+tmt.ril.Hyb2BxM$BM.BM.BM <- tmt.ril.Hyb2BxM$BM.BM/tmt.ril.Hyb2BxM$BM.BM
+tmt.ril.Hyb2BxM$X14.14B.BM <- tmt.ril.Hyb2BxM$X14.14B/tmt.ril.Hyb2BxM$BM.BM
+tmt.ril.Hyb2BxM$X14.14M.BM <- tmt.ril.Hyb2BxM$X14.14M/tmt.ril.Hyb2BxM$BM.BM
+tmt.ril.Hyb2BxM$X16.16B.BM <- tmt.ril.Hyb2BxM$X16.16B/tmt.ril.Hyb2BxM$BM.BM
+tmt.ril.Hyb2BxM$X16.16M.BM <- tmt.ril.Hyb2BxM$X16.16M/tmt.ril.Hyb2BxM$BM.BM
+tmt.ril.Hyb2BxM$X21.21B.BM <- tmt.ril.Hyb2BxM$X21.21B/tmt.ril.Hyb2BxM$BM.BM
+tmt.ril.Hyb2BxM$X21.21M.BM <- tmt.ril.Hyb2BxM$X21.21M/tmt.ril.Hyb2BxM$BM.BM
+tmt.ril.Hyb2BxM$X317.317B.BM <- tmt.ril.Hyb2BxM$X317.317B/tmt.ril.Hyb2BxM$BM.BM
+tmt.ril.Hyb2BxM$X317.317M.BM <- tmt.ril.Hyb2BxM$X317.317M/tmt.ril.Hyb2BxM$BM.BM
+```
+```{r}
+tmt.6h.Hyb2BxM <- tmt.6h[,c(1:6,37:49)]
+
+tmt.6h.Hyb2BxM$B73xMo17.BM <- tmt.6h.Hyb2BxM$B73xMo17/tmt.6h.Hyb2BxM$B73xMo17
+tmt.6h.Hyb2BxM$Mo17xB73.BM <- tmt.6h.Hyb2BxM$Mo17xB73/tmt.6h.Hyb2BxM$B73xMo17
+tmt.6h.Hyb2BxM$B84xB73.BM <- tmt.6h.Hyb2BxM$B84xB73/tmt.6h.Hyb2BxM$B73xMo17
+tmt.6h.Hyb2BxM$B84xMo17.BM <- tmt.6h.Hyb2BxM$B84xMo17/tmt.6h.Hyb2BxM$B73xMo17
+tmt.6h.Hyb2BxM$A682xB73.BM <- tmt.6h.Hyb2BxM$A682xB73/tmt.6h.Hyb2BxM$B73xMo17
+tmt.6h.Hyb2BxM$A682xMo17.BM <- tmt.6h.Hyb2BxM$A682xMo17/tmt.6h.Hyb2BxM$B73xMo17
+```
+
+
+```{r}
+tmt.ril.6h.Hyb2BxM <- merge.data.frame(tmt.ril.Hyb2BxM[,c(6,51:59)], tmt.6h.Hyb2BxM[,c(6,20:25)], by.x = "Accession", by.y = "Accession", all = F)
+
+tmt.PlastidRiboCor.Hyb2BxM <- na.omit(tmt.ril.6h.Hyb2BxM)
+
+tmt.PlastidRiboCor.Hyb2BxM$Gene <- substr(tmt.PlastidRiboCor.Hyb2BxM$Accession, start = 1, stop = 14)
+tmt.PlastidRiboCor.Hyb2BxM <- tmt.PlastidRiboCor.Hyb2BxM[tmt.PlastidRiboCor.Hyb2BxM$Gene %in% c(GOIs$Nuc.PtRibo, GOIs$Pt.ribo),]
+tmt.PlastidRiboCor.Hyb2BxM <- tmt.PlastidRiboCor.Hyb2BxM[,-17]
+
+colnames(tmt.PlastidRiboCor.Hyb2BxM)[2:16] <- c("RIL RIL.B73xMo17", "RIL RIL14xB73", "RIL RIL14xMo17", "RIL RIL16xB73", "RIL RIL16xMo17", "RIL RIL21xB73", "RIL RIL21xMo17", "RIL RIL317xB73", "RIL RIL317xMo17", "6H B73xMo17", "6H Mo17xB73", "6H B84xB73", "6H B84xMo17", "6H A682xB73", "6H A682xMo17")
+
+tmt.PlastidRiboCor.Hyb2BxM <- melt(tmt.PlastidRiboCor.Hyb2BxM)
+
+#hyb/mp height ratios
+tmt.PlastidRiboCor.Hyb2BxM.height<- c(1, 0.885337506, 0.946133214, 0.97653106, 0.87393831, 0.938533751, 0.942333482, 0.991729996, 0.976531068, 1, 1.05519671, 0.924251321, 1.031708749, 1.055196712, 0.897240164)
+tmt.PlastidRiboCor.Hyb2BxM$height <- c(rep(1, 54), rep(0.885337506, 54), rep(0.946133214, 54), rep(0.97653106, 54), rep(0.87393831, 54), rep(0.938533751, 54), rep(0.942333482, 54), rep(0.991729996, 54), rep(0.976531068, 54), rep(1, 54), rep(1.05519671, 54), rep(0.924251321, 54), rep(1.031708749, 54), rep(1.055196712, 54), rep(0.897240164, 54))
+
+tmt.PlastidRiboCor.Hyb2BxM.split <- split.data.frame(tmt.PlastidRiboCor.Hyb2BxM, tmt.PlastidRiboCor.Hyb2BxM$variable)
+tmt.PlastidRiboCor.Hyb2BxM.split.avg <- data.frame("hybrid"=unique(tmt.PlastidRiboCor.Hyb2BxM$variable), "value"=NA, "height"=tmt.PlastidRiboCor.Hyb2BxM.height)
+
+for(i in 1:15){
+  tmt.PlastidRiboCor.Hyb2BxM.split.avg[i,"value"] <- mean(tmt.PlastidRiboCor.Hyb2BxM.split[[i]][,3])
+}
+tmt.PlastidRiboCor.Hyb2BxM.split.avg.lm <- lm(value~height, data = tmt.PlastidRiboCor.Hyb2BxM.split.avg)
+tmt.PlastidRiboCor.Hyb2BxM.split.avg.lm.rsquared <- summary(tmt.PlastidRiboCor.Hyb2BxM.split.avg.lm)$adj.r.squared
+
+pal <- c("#000000","#004949","#009292","#ff6db6","#ffb6db",
+ "#490092","#006ddb","#b66dff","#6db6ff","#b6dbff",
+ "#920000","#924900","#db6d00","#24ff24","#ffff6d")
+ggplot(data=tmt.PlastidRiboCor.Hyb2BxM, mapping = aes(x=height, y=value, fill=variable))+
+  geom_violin(width=0.02, alpha=0.7)+
+  scale_fill_manual(values = pal, name="Hybrid")+
+  theme_minimal()+
+  xlab("Hybrid/BxM plant height")+
+  ylab("Hybrid/BxM plastid ribosomal protein abundance")+
+  ggtitle(bquote(R^2 ~ "=" ~ .(tmt.PlastidRiboCor.Hyb2BxM.split.avg.lm.rsquared)))+
+  theme(text = element_text(size = 10), plot.title = element_text(size=10, vjust = -8))+
+  geom_abline(slope = tmt.PlastidRiboCor.Hyb2BxM.split.avg.lm$coefficients[2], intercept = tmt.PlastidRiboCor.Hyb2BxM.split.avg.lm$coefficients[1], linetype="dashed")+
+  stat_summary(fun.data=mean_cl_normal, show.legend = F)
+ggsave("tmt.PlastidRiboCor.Hyb2BxM.Hyb2BxMheight.ViolinPlot.pdf", width = 4.75, height = 4.5)
+```
+
+
+
+```{r}
+cpm.PlastidRiboCor.hyb2MP <- cpm.ril.6h
+cpm.PlastidRiboCor.hyb2MP <- cpm.PlastidRiboCor.hyb2MP[cpm.PlastidRiboCor.hyb2MP$Gene %in% GOIs$Nuc.PtRibo,]
+cpm.PlastidRiboCor.hyb2MP <- cpm.PlastidRiboCor.hyb2MP[,c(1:12,15,16,13,14)]
+
+for(i in 2:16){
+  cpm.PlastidRiboCor.hyb2MP[,i] <- as.numeric(cpm.PlastidRiboCor.hyb2MP[,i])
+  for(j in 1:nrow(cpm.PlastidRiboCor.hyb2MP)){
+  cpm.PlastidRiboCor.hyb2MP[j,i] <- (2 ^ cpm.PlastidRiboCor.hyb2MP[j,i])
+}}
+
+colnames(cpm.PlastidRiboCor.hyb2MP)[2:16] <- c("RIL RIL.B73xMo17", "RIL RIL14xB73", "RIL RIL14xMo17", "RIL RIL16xB73", "RIL RIL16xMo17", "RIL RIL21xB73", "RIL RIL21xMo17", "RIL RIL317xB73", "RIL RIL317xMo17", "6H B73xMo17", "6H Mo17xB73", "6H B84xB73", "6H B84xMo17", "6H A682xB73", "6H A682xMo17")
+
+cpm.PlastidRiboCor.hyb2MP <- melt(cpm.PlastidRiboCor.hyb2MP)
+
+cpm.PlastidRiboCor.hyb2MP$height <- c(rep(1.169374, 47), rep(1.106888, 47), rep(1.238806, 47), rep(1.220903, 47), rep(1.144279, 47), rep(1.148837, 47), rep(1.206813, 47), rep(1.219626, 47), rep(1.256724, 47), rep(1.284798, 47), rep(1.355715, 47), rep(1.235964, 47), rep(1.362016, 47), rep(1.403358, 47), rep(1.220447, 47))
+
+cpm.PlastidRiboCor.hyb2MP.remove <- cpm.PlastidRiboCor.hyb2MP$Gene[(cpm.PlastidRiboCor.hyb2MP$value==0)|(is.na(cpm.PlastidRiboCor.hyb2MP$value))|(is.infinite(cpm.PlastidRiboCor.hyb2MP$value))]
+
+cpm.PlastidRiboCor.hyb2MP <- cpm.PlastidRiboCor.hyb2MP[!cpm.PlastidRiboCor.hyb2MP$Gene%in%cpm.PlastidRiboCor.hyb2MP.remove,]
+
+cpm.PlastidRiboCor.hyb2MP.split <- split.data.frame(cpm.PlastidRiboCor.hyb2MP, cpm.PlastidRiboCor.hyb2MP$variable)
+cpm.PlastidRiboCor.hyb2MP.split.avg <- data.frame("hybrid"=unique(cpm.PlastidRiboCor.hyb2MP$variable), "value"=NA, "height"=unique(cpm.PlastidRiboCor.hyb2MP$height))
+
+for(i in 1:15){
+  cpm.PlastidRiboCor.hyb2MP.split.avg[i,"value"] <- mean(cpm.PlastidRiboCor.hyb2MP.split[[i]][,3])
+}
+cpm.PlastidRiboCor.hyb2MP.split.avg.lm <- lm(value~height, data = cpm.PlastidRiboCor.hyb2MP.split.avg)
+cpm.PlastidRiboCor.hyb2MP.split.avg.lm.rsquared <- summary(cpm.PlastidRiboCor.hyb2MP.split.avg.lm)$adj.r.squared
+
+
+pal <- c("#000000","#004949","#009292","#ff6db6","#ffb6db",
+ "#490092","#006ddb","#b66dff","#6db6ff","#b6dbff",
+ "#920000","#924900","#db6d00","#24ff24","#ffff6d")
+ggplot(data=cpm.PlastidRiboCor.hyb2MP, mapping = aes(x=height, y=value, fill=variable))+
+  geom_violin(width=0.02, alpha=0.7)+
+  scale_fill_manual(values = pal, name="Hybrid")+
+  theme_minimal()+
+  xlab("Hybrid/mid-parent plant height")+
+  ylab("Hybrid/mid-parent plastid ribosomal mRNA abundance")+
+  ggtitle(bquote(R^2 ~ "=" ~ .(cpm.PlastidRiboCor.hyb2MP.split.avg.lm.rsquared)))+
+  theme(text = element_text(size = 10), plot.title = element_text(size=10, vjust = -8))+
+  geom_abline(slope = cpm.PlastidRiboCor.hyb2MP.split.avg.lm$coefficients[2], intercept = cpm.PlastidRiboCor.hyb2MP.split.avg.lm$coefficients[1], linetype="dashed")+
+  stat_summary(fun.data=mean_cl_normal, show.legend = F)
+ggsave("cpm.PlastidRiboCor.hyb2MP.ViolinPlot.pdf", width = 4.75, height = 4.5)
+```
+
+
+
+
+
+
+
+
+```{r}
+ colors.p2 <- c("Other"="grey70", "Plastid"="black", "PE plastid ribosome"="#ef73ef", "NE plastid ribosome"="#a742da", "PhAPGs"="#7ae281", "PhANGs"="#009fa7", "Ethylene biosynthesis"="#fab5bd","Eukaryotic ribosome"="#e64c00","NE mitochondrial ribosome"="#0016fa", "ME mitochondrial ribosome"="#00a4fa")
   colors.m2 <- c("Other"="black", "Mitochondria"="grey60", "ME ribosome"="#ffa744", "NE mitochondrial ribosome"="#ff0000", "ME oxidative phosphorylation"="#71b1ff", "NE oxidative phosphorylation"="#3447ff")
 ###Set GOIs
 tmt.ril.6h.ratios.hyb2mp.parent2parent.cor.plastid <- tmt.ril.6h.ratios.hyb2mp.parent2parent.cor.plot
@@ -3957,21 +4689,35 @@ tmt.ril.6h.ratios.hyb2mp.parent2parent.cor.plastid[(tmt.ril.6h.ratios.hyb2mp.par
 tmt.ril.6h.ratios.hyb2mp.parent2parent.cor.plastid[(tmt.ril.6h.ratios.hyb2mp.parent2parent.cor.plastid$Gene %in% GOIs$Pt.ribo),"Category"] <- "PE plastid ribosome"
 tmt.ril.6h.ratios.hyb2mp.parent2parent.cor.plastid[(tmt.ril.6h.ratios.hyb2mp.parent2parent.cor.plastid$Gene %in% GOIs$Pt.ribo),"Order"] <- 4
 
-tmt.ril.6h.ratios.hyb2mp.parent2parent.cor.plastid[(tmt.ril.6h.ratios.hyb2mp.parent2parent.cor.plastid$Gene %in% GOIs$NE.PtComplexes),"Category"] <- "NE digenomic complexes"
+tmt.ril.6h.ratios.hyb2mp.parent2parent.cor.plastid[(tmt.ril.6h.ratios.hyb2mp.parent2parent.cor.plastid$Gene %in% GOIs$NE.PtComplexes),"Category"] <- "PhANGs"
 tmt.ril.6h.ratios.hyb2mp.parent2parent.cor.plastid[(tmt.ril.6h.ratios.hyb2mp.parent2parent.cor.plastid$Gene %in% GOIs$NE.PtComplexes),"Order"] <- 5
 
-tmt.ril.6h.ratios.hyb2mp.parent2parent.cor.plastid[(tmt.ril.6h.ratios.hyb2mp.parent2parent.cor.plastid$Gene %in% GOIs$Pt.Complexes),"Category"] <- "PE digenomic complexes"
+tmt.ril.6h.ratios.hyb2mp.parent2parent.cor.plastid[(tmt.ril.6h.ratios.hyb2mp.parent2parent.cor.plastid$Gene %in% GOIs$Pt.Complexes),"Category"] <- "PhAPGs"
 tmt.ril.6h.ratios.hyb2mp.parent2parent.cor.plastid[(tmt.ril.6h.ratios.hyb2mp.parent2parent.cor.plastid$Gene %in% GOIs$Pt.Complexes),"Order"] <- 6
+
+tmt.ril.6h.ratios.hyb2mp.parent2parent.cor.plastid[(tmt.ril.6h.ratios.hyb2mp.parent2parent.cor.plastid$Gene %in% c(MAT,ACO)),"Category"] <- "Ethylene biosynthesis"
+tmt.ril.6h.ratios.hyb2mp.parent2parent.cor.plastid[(tmt.ril.6h.ratios.hyb2mp.parent2parent.cor.plastid$Gene %in% c(MAT,ACO)),"Order"] <- 7
+
+tmt.ril.6h.ratios.hyb2mp.parent2parent.cor.plastid[(tmt.ril.6h.ratios.hyb2mp.parent2parent.cor.plastid$Gene %in% GOIs$eukRibo),"Category"] <- "Eukaryotic ribosome"
+tmt.ril.6h.ratios.hyb2mp.parent2parent.cor.plastid[(tmt.ril.6h.ratios.hyb2mp.parent2parent.cor.plastid$Gene %in% GOIs$eukRibo),"Order"] <- 8
+
+tmt.ril.6h.ratios.hyb2mp.parent2parent.cor.plastid[(tmt.ril.6h.ratios.hyb2mp.parent2parent.cor.plastid$Gene %in% GOIs$Nuc.MtRibo),"Category"] <- "NE mitochondrial ribosome"
+tmt.ril.6h.ratios.hyb2mp.parent2parent.cor.plastid[(tmt.ril.6h.ratios.hyb2mp.parent2parent.cor.plastid$Gene %in% GOIs$Nuc.MtRibo),"Order"] <- 9
+
+tmt.ril.6h.ratios.hyb2mp.parent2parent.cor.plastid[(tmt.ril.6h.ratios.hyb2mp.parent2parent.cor.plastid$Gene %in% GOIs$Mt.ribo),"Category"] <- "ME mitochondrial ribosome"
+tmt.ril.6h.ratios.hyb2mp.parent2parent.cor.plastid[(tmt.ril.6h.ratios.hyb2mp.parent2parent.cor.plastid$Gene %in% GOIs$Mt.ribo),"Order"] <- 10
+
+
 ###Re-order
 tmt.ril.6h.ratios.hyb2mp.parent2parent.cor.plastid <- tmt.ril.6h.ratios.hyb2mp.parent2parent.cor.plastid[(order(tmt.ril.6h.ratios.hyb2mp.parent2parent.cor.plastid$Order)),]
 
 ###factor
-tmt.ril.6h.ratios.hyb2mp.parent2parent.cor.plastid$Category <- factor(tmt.ril.6h.ratios.hyb2mp.parent2parent.cor.plastid$Category, levels = c("Other", "Plastid", "NE plastid ribosome","PE plastid ribosome", "NE digenomic complexes", "PE digenomic complexes"))
+tmt.ril.6h.ratios.hyb2mp.parent2parent.cor.plastid$Category <- factor(tmt.ril.6h.ratios.hyb2mp.parent2parent.cor.plastid$Category, levels = c("Other", "Plastid", "NE plastid ribosome","PE plastid ribosome", "PhANGs", "PhAPGs", "Ethylene biosynthesis","Eukaryotic ribosome","NE mitochondrial ribosome", "ME mitochondrial ribosome"))
 ###Scatterplot
 tmt.ril.6h.ratios.hyb2mp.parent2parent.cor.plastid.scat <- ggplot(tmt.ril.6h.ratios.hyb2mp.parent2parent.cor.plastid, mapping=aes(x=cor.hyb.mp, y=cor.parent.parent, color=Category, shape=Category))+
-    geom_point(aes(color=Category), size=2.5)+
+    geom_point(aes(color=Category), size=3)+
   scale_color_manual(values=colors.p2, name="Category")+
-  scale_shape_manual(values=c(1,19,19,19,19,19))+
+  scale_shape_manual(values=c(1,19,19,19,19,19,19,19,19,19,19))+
     theme_classic()+
       geom_vline(xintercept=0, linetype="dashed", color = "gray20", size=0.7)+
       geom_hline(yintercept=0, linetype="dashed", color = "gray20", size=0.7)+
@@ -3980,7 +4726,7 @@ tmt.ril.6h.ratios.hyb2mp.parent2parent.cor.plastid.scat <- ggplot(tmt.ril.6h.rat
       geom_vline(xintercept= -0.5, linetype="dashed", color = "gray40", size=0.5)+
       geom_hline(yintercept= -0.5, linetype="dashed", color = "gray40", size=0.5)+
           theme(axis.text=element_text(size=10), legend.text=element_text(size=10),
-                legend.position="bottom", legend.title = element_blank())+
+                legend.position="none", legend.title = element_blank())+
           guides(col=guide_legend(nrow=3))+
     xlab("hybrid/midparent correlation")+
     ylab("parent/parent correlation")+
@@ -4046,7 +4792,7 @@ tmt.ril.6h.ratios.hyb2mp.parent2parent.cor.mito$Category <- factor(tmt.ril.6h.ra
 tmt.ril.6h.ratios.hyb2mp.parent2parent.cor.mito.scat <- ggplot(tmt.ril.6h.ratios.hyb2mp.parent2parent.cor.mito, mapping=aes(x=cor.hyb.mp, y=cor.parent.parent, color=Category, shape=Category))+
     geom_point(aes(color=Category), size=3)+
   scale_color_manual(values=colors.m2, name="Category")+
-  scale_shape_manual(values=c(1,19,19,19,19))+
+  scale_shape_manual(values=c(1,19,19,19,19,19))+
     theme_classic()+
       geom_vline(xintercept=0, linetype="dashed", color = "gray20", size=0.7)+
       geom_hline(yintercept=0, linetype="dashed", color = "gray20", size=0.7)+
@@ -4101,35 +4847,35 @@ tmt.ril.6h.ratios.hyb2mp.parent2parent.cor.plot$Gene <- substr(tmt.ril.6h.ratios
 tmt.ril.6h.ratios.hyb2mp.parent2parent.cor.plot$Category <- "Other"
 tmt.ril.6h.ratios.hyb2mp.parent2parent.cor.plot$Order <- 1
 
-#tmt.ril.6h.ratios.hyb2mp.parent2parent.cor.plot[(tmt.ril.6h.ratios.hyb2mp.parent2parent.cor.plot$Gene %in% GOIs$plastid),"Category"] <- "Plastid"
-#tmt.ril.6h.ratios.hyb2mp.parent2parent.cor.plot[(tmt.ril.6h.ratios.hyb2mp.parent2parent.cor.plot$Gene %in% GOIs$plastid),"Order"] <- 2
+tmt.ril.6h.ratios.hyb2mp.parent2parent.cor.plot[(tmt.ril.6h.ratios.hyb2mp.parent2parent.cor.plot$Gene %in% GOIs$plastid),"Category"] <- "Plastid"
+tmt.ril.6h.ratios.hyb2mp.parent2parent.cor.plot[(tmt.ril.6h.ratios.hyb2mp.parent2parent.cor.plot$Gene %in% GOIs$plastid),"Order"] <- 2
 
 tmt.ril.6h.ratios.hyb2mp.parent2parent.cor.plot[(tmt.ril.6h.ratios.hyb2mp.parent2parent.cor.plot$Gene %in% GOIs$eukRibo),"Category"] <- "Eukaryotic ribosome"
 tmt.ril.6h.ratios.hyb2mp.parent2parent.cor.plot[(tmt.ril.6h.ratios.hyb2mp.parent2parent.cor.plot$Gene %in% GOIs$eukRibo),"Order"] <- 3
 
-#tmt.ril.6h.ratios.hyb2mp.parent2parent.cor.plot[(tmt.ril.6h.ratios.hyb2mp.parent2parent.cor.plot$Gene %in% GOIs$Nuc.PtRibo),"Category"] <- "NE plastid ribosome"
-#tmt.ril.6h.ratios.hyb2mp.parent2parent.cor.plot[(tmt.ril.6h.ratios.hyb2mp.parent2parent.cor.plot$Gene %in% GOIs$Nuc.PtRibo),"Order"] <- 4
+tmt.ril.6h.ratios.hyb2mp.parent2parent.cor.plot[(tmt.ril.6h.ratios.hyb2mp.parent2parent.cor.plot$Gene %in% GOIs$Nuc.PtRibo),"Category"] <- "NE plastid ribosome"
+tmt.ril.6h.ratios.hyb2mp.parent2parent.cor.plot[(tmt.ril.6h.ratios.hyb2mp.parent2parent.cor.plot$Gene %in% GOIs$Nuc.PtRibo),"Order"] <- 4
 
-#tmt.ril.6h.ratios.hyb2mp.parent2parent.cor.plot[(tmt.ril.6h.ratios.hyb2mp.parent2parent.cor.plot$Gene %in% GOIs$Pt.ribo),"Category"] <- "PE ribosome"
-#tmt.ril.6h.ratios.hyb2mp.parent2parent.cor.plot[(tmt.ril.6h.ratios.hyb2mp.parent2parent.cor.plot$Gene %in% GOIs$Pt.ribo),"Order"] <- 5
+tmt.ril.6h.ratios.hyb2mp.parent2parent.cor.plot[(tmt.ril.6h.ratios.hyb2mp.parent2parent.cor.plot$Gene %in% GOIs$Pt.ribo),"Category"] <- "PE ribosome"
+tmt.ril.6h.ratios.hyb2mp.parent2parent.cor.plot[(tmt.ril.6h.ratios.hyb2mp.parent2parent.cor.plot$Gene %in% GOIs$Pt.ribo),"Order"] <- 5
 
 tmt.ril.6h.ratios.hyb2mp.parent2parent.cor.plot[(tmt.ril.6h.ratios.hyb2mp.parent2parent.cor.plot$Gene %in% GOIs$Nuc.MtRibo),"Category"] <- "NE mitochondrial ribosome"
 tmt.ril.6h.ratios.hyb2mp.parent2parent.cor.plot[(tmt.ril.6h.ratios.hyb2mp.parent2parent.cor.plot$Gene %in% GOIs$Nuc.MtRibo),"Order"] <- 6
 
-#tmt.ril.6h.ratios.hyb2mp.parent2parent.cor.plot[(tmt.ril.6h.ratios.hyb2mp.parent2parent.cor.plot$Gene %in% GOIs$Mt.ribo),"Category"] <- "ME ribosome"
-#tmt.ril.6h.ratios.hyb2mp.parent2parent.cor.plot[(tmt.ril.6h.ratios.hyb2mp.parent2parent.cor.plot$Gene %in% GOIs$Mt.ribo),"Order"] <- 7
+tmt.ril.6h.ratios.hyb2mp.parent2parent.cor.plot[(tmt.ril.6h.ratios.hyb2mp.parent2parent.cor.plot$Gene %in% GOIs$Mt.ribo),"Category"] <- "ME ribosome"
+tmt.ril.6h.ratios.hyb2mp.parent2parent.cor.plot[(tmt.ril.6h.ratios.hyb2mp.parent2parent.cor.plot$Gene %in% GOIs$Mt.ribo),"Order"] <- 7
 
-#tmt.ril.6h.ratios.hyb2mp.parent2parent.cor.plot[(tmt.ril.6h.ratios.hyb2mp.parent2parent.cor.plot$Gene %in% GOIs$NE.PtComplexes),"Category"] <- "Nuclear-encoded chloroplastic digenomic complexes"
-#tmt.ril.6h.ratios.hyb2mp.parent2parent.cor.plot[(tmt.ril.6h.ratios.hyb2mp.parent2parent.cor.plot$Gene %in% GOIs$NE.PtComplexes),"Order"] <- 6
+tmt.ril.6h.ratios.hyb2mp.parent2parent.cor.plot[(tmt.ril.6h.ratios.hyb2mp.parent2parent.cor.plot$Gene %in% GOIs$NE.PtComplexes),"Category"] <- "Nuclear-encoded chloroplastic digenomic complexes"
+tmt.ril.6h.ratios.hyb2mp.parent2parent.cor.plot[(tmt.ril.6h.ratios.hyb2mp.parent2parent.cor.plot$Gene %in% GOIs$NE.PtComplexes),"Order"] <- 6
 
-#tmt.ril.6h.ratios.hyb2mp.parent2parent.cor.plot[(tmt.ril.6h.ratios.hyb2mp.parent2parent.cor.plot$Gene %in% GOIs$Pt.Complexes),"Category"] <- "Chloroplast-encoded chloroplastic digenomic complexes"
-#tmt.ril.6h.ratios.hyb2mp.parent2parent.cor.plot[(tmt.ril.6h.ratios.hyb2mp.parent2parent.cor.plot$Gene %in% GOIs$Pt.Complexes),"Order"] <- 7
+tmt.ril.6h.ratios.hyb2mp.parent2parent.cor.plot[(tmt.ril.6h.ratios.hyb2mp.parent2parent.cor.plot$Gene %in% GOIs$Pt.Complexes),"Category"] <- "Chloroplast-encoded chloroplastic digenomic complexes"
+tmt.ril.6h.ratios.hyb2mp.parent2parent.cor.plot[(tmt.ril.6h.ratios.hyb2mp.parent2parent.cor.plot$Gene %in% GOIs$Pt.Complexes),"Order"] <- 7
 
-#tmt.ril.6h.ratios.hyb2mp.parent2parent.cor.plot[(tmt.ril.6h.ratios.hyb2mp.parent2parent.cor.plot$Gene %in% GOIs$OxPhos.complexes),"Category"] <- "Nuclear-encoded mitochondrial digenomic complexes"
-#tmt.ril.6h.ratios.hyb2mp.parent2parent.cor.plot[(tmt.ril.6h.ratios.hyb2mp.parent2parent.cor.plot$Gene %in% GOIs$OxPhos.complexes),"Order"] <- 8
+tmt.ril.6h.ratios.hyb2mp.parent2parent.cor.plot[(tmt.ril.6h.ratios.hyb2mp.parent2parent.cor.plot$Gene %in% GOIs$OxPhos.complexes),"Category"] <- "Nuclear-encoded mitochondrial digenomic complexes"
+tmt.ril.6h.ratios.hyb2mp.parent2parent.cor.plot[(tmt.ril.6h.ratios.hyb2mp.parent2parent.cor.plot$Gene %in% GOIs$OxPhos.complexes),"Order"] <- 8
 
-#tmt.ril.6h.ratios.hyb2mp.parent2parent.cor.plot[(tmt.ril.6h.ratios.hyb2mp.parent2parent.cor.plot$Gene %in% GOIs$Mt.OxPhos),"Category"] <- "Mitochondria-encoded mitochondrial digenomic complexes"
-#tmt.ril.6h.ratios.hyb2mp.parent2parent.cor.plot[(tmt.ril.6h.ratios.hyb2mp.parent2parent.cor.plot$Gene %in% GOIs$Mt.OxPhos),"Order"] <- 9
+tmt.ril.6h.ratios.hyb2mp.parent2parent.cor.plot[(tmt.ril.6h.ratios.hyb2mp.parent2parent.cor.plot$Gene %in% GOIs$Mt.OxPhos),"Category"] <- "Mitochondria-encoded mitochondrial digenomic complexes"
+tmt.ril.6h.ratios.hyb2mp.parent2parent.cor.plot[(tmt.ril.6h.ratios.hyb2mp.parent2parent.cor.plot$Gene %in% GOIs$Mt.OxPhos),"Order"] <- 9
 
 
 ###Re-order
@@ -4201,182 +4947,179 @@ ggsave(plot=tmt.ril.6h.ratios.hyb2mp.parent2parent.cor.plot.scat, filename = "Pl
 
 #CV
 ```{r}
+library(EnvStats)
+```
+
+```{r}
 tmt.OG.SL.no0 <- tmt.OG.SL
 
-tmt.OG.SL.no0 <- tmt.OG.SL.no0[!tmt.OG.SL.no0$B73avg==0,]
-tmt.OG.SL.no0 <- tmt.OG.SL.no0[!tmt.OG.SL.no0$Mo17avg==0,]
-tmt.OG.SL.no0 <- tmt.OG.SL.no0[!tmt.OG.SL.no0$HYBavg==0,]
 
-tmt.OG.SL.no0$B73cv <- NA
-tmt.OG.SL.no0$Mo17cv <- NA
-tmt.OG.SL.no0$BMcv <- NA
+tmt.OG.SL.no0 <- tmt.OG.SL.no0[!tmt.OG.SL.no0$SeedlingLeaf.BM.r1==0,]
+tmt.OG.SL.no0 <- tmt.OG.SL.no0[!tmt.OG.SL.no0$SeedlingLeaf.BM.r2==0,]
+tmt.OG.SL.no0 <- tmt.OG.SL.no0[!tmt.OG.SL.no0$SeedlingLeaf.BM.r3==0,]
 
-for(i in 1:nrow(tmt.OG.SL.no0)){
-  tmt.OG.SL.no0[i,"B73cv"] <- cv(as.numeric(tmt.OG.SL.no0[i,10:12]))
-}
+
+tmt.OG.SL.no0$CV <- NA
 
 for(i in 1:nrow(tmt.OG.SL.no0)){
-  tmt.OG.SL.no0[i,"Mo17cv"] <- cv(as.numeric(tmt.OG.SL.no0[i,13:15]))
+  tmt.OG.SL.no0[i,"CV"] <- cv(as.numeric(tmt.OG.SL.no0[i,16:18]))
 }
-
-for(i in 1:nrow(tmt.OG.SL.no0)){
-  tmt.OG.SL.no0[i,"BMcv"] <- cv(as.numeric(tmt.OG.SL.no0[i,16:18]))
-}
-
-tmt.OG.SL.no0$AvgCV <- rowMeans(tmt.OG.SL.no0[,32:34], na.rm = T)
 ```
 
 ```{r}
 tmt.6h.SL.no0 <- tmt.6h.SL
 
-tmt.6h.SL.no0 <- tmt.6h.SL.no0[!tmt.6h.SL.no0$B73avg==0,]
-tmt.6h.SL.no0 <- tmt.6h.SL.no0[!tmt.6h.SL.no0$Mo17avg==0,]
-tmt.6h.SL.no0 <- tmt.6h.SL.no0[!tmt.6h.SL.no0$HYBavg==0,]
+tmt.6h.SL.no0 <- tmt.6h.SL.no0[!tmt.6h.SL.no0$X6Hybrid.B73xMo17.r1==0,]
+tmt.6h.SL.no0 <- tmt.6h.SL.no0[!tmt.6h.SL.no0$X6Hybrid.B73xMo17.r2==0,]
+tmt.6h.SL.no0 <- tmt.6h.SL.no0[!tmt.6h.SL.no0$X6Hybrid.B73xMo17.r3==0,]
 
-tmt.6h.SL.no0$B73cv <- NA
-tmt.6h.SL.no0$Mo17cv <- NA
-tmt.6h.SL.no0$BMcv <- NA
+tmt.6h.SL.no0$CV <- NA
 
 for(i in 1:nrow(tmt.6h.SL.no0)){
-  tmt.6h.SL.no0[i,"B73cv"] <- cv(as.numeric(tmt.6h.SL.no0[i,10:12]))
+  tmt.6h.SL.no0[i,"CV"] <- cv(as.numeric(tmt.6h.SL.no0[i,16:18]))
 }
-
-for(i in 1:nrow(tmt.6h.SL.no0)){
-  tmt.6h.SL.no0[i,"Mo17cv"] <- cv(as.numeric(tmt.6h.SL.no0[i,13:15]))
-}
-
-for(i in 1:nrow(tmt.6h.SL.no0)){
-  tmt.6h.SL.no0[i,"BMcv"] <- cv(as.numeric(tmt.6h.SL.no0[i,16:18]))
-}
-
-tmt.6h.SL.no0$AvgCV <- rowMeans(tmt.6h.SL.no0[,32:34], na.rm = T)
 ```
 
 ```{r}
 tmt.ril.SL.no0 <- tmt.ril.SL
 
-tmt.ril.SL.no0 <- tmt.ril.SL.no0[!tmt.ril.SL.no0$B73avg==0,]
-tmt.ril.SL.no0 <- tmt.ril.SL.no0[!tmt.ril.SL.no0$Mo17avg==0,]
-tmt.ril.SL.no0 <- tmt.ril.SL.no0[!tmt.ril.SL.no0$HYBavg==0,]
+tmt.ril.SL.no0 <- tmt.ril.SL.no0[!tmt.ril.SL.no0$BM.1==0,]
+tmt.ril.SL.no0 <- tmt.ril.SL.no0[!tmt.ril.SL.no0$BM.2==0,]
+tmt.ril.SL.no0 <- tmt.ril.SL.no0[!tmt.ril.SL.no0$BM.3==0,]
+tmt.ril.SL.no0 <- tmt.ril.SL.no0[!tmt.ril.SL.no0$BM.4==0,]
 
-tmt.ril.SL.no0$B73cv <- NA
-tmt.ril.SL.no0$Mo17cv <- NA
-tmt.ril.SL.no0$BMcv <- NA
-
-for(i in 1:nrow(tmt.ril.SL.no0)){
-  tmt.ril.SL.no0[i,"B73cv"] <- cv(as.numeric(tmt.ril.SL.no0[i,10:12]))
-}
+tmt.ril.SL.no0$CV <- NA
 
 for(i in 1:nrow(tmt.ril.SL.no0)){
-  tmt.ril.SL.no0[i,"Mo17cv"] <- cv(as.numeric(tmt.ril.SL.no0[i,13:15]))
+  tmt.ril.SL.no0[i,"CV"] <- cv(as.numeric(tmt.ril.SL.no0[i,16:19]))
 }
-
-for(i in 1:nrow(tmt.ril.SL.no0)){
-  tmt.ril.SL.no0[i,"BMcv"] <- cv(as.numeric(tmt.ril.SL.no0[i,16:18]))
-}
-
-tmt.ril.SL.no0$AvgCV <- rowMeans(tmt.ril.SL.no0[,32:34], na.rm = T)
 ```
 
 ```{r}
-cpm.OG.SL.no0 <- cpm.OG.SL[!cpm.OG.SL$B73avg==0,]
-cpm.OG.SL.no0 <- cpm.OG.SL.no0[!cpm.OG.SL.no0$Mo17avg==0,]
-cpm.OG.SL.no0 <- cpm.OG.SL.no0[!cpm.OG.SL.no0$HYBavg==0,]
+cpm.OG.SL.no0 <- cpm.OG.SL
+cpm.OG.SL.no0 <- cpm.OG.SL.no0[!cpm.OG.SL.no0$BM.1==0,]
+cpm.OG.SL.no0 <- cpm.OG.SL.no0[!cpm.OG.SL.no0$BM.2==0,]
+cpm.OG.SL.no0 <- cpm.OG.SL.no0[!cpm.OG.SL.no0$BM.3==0,]
 
-cpm.OG.SL.no0$B73cv <- NA
-cpm.OG.SL.no0$Mo17cv <- NA
-cpm.OG.SL.no0$BMcv <- NA
+cpm.OG.SL.no0$CV <- NA
+
+cpm.OG.SL.no0.1cutoff <- cpm.OG.SL.no0
+cpm.OG.SL.no0.1cutoff <- cpm.OG.SL.no0.1cutoff[cpm.OG.SL.no0.1cutoff$BM.1 > 1,]
+cpm.OG.SL.no0.1cutoff <- cpm.OG.SL.no0.1cutoff[cpm.OG.SL.no0.1cutoff$BM.2 > 1,]
+cpm.OG.SL.no0.1cutoff <- cpm.OG.SL.no0.1cutoff[cpm.OG.SL.no0.1cutoff$BM.3 > 1,]
+
+cpm.OG.SL.no0.protein <- cpm.OG.SL.no0
+cpm.OG.SL.no0.protein <- cpm.OG.SL.no0.protein[cpm.OG.SL.no0.protein$Gene%in%tmt.OG.SL.no0$Gene,]
 
 for(i in 1:nrow(cpm.OG.SL.no0)){
-  cpm.OG.SL.no0[i,"B73cv"] <- cv(as.numeric(cpm.OG.SL.no0[i,2:4]))
+  cpm.OG.SL.no0[i,"CV"] <- cv(as.numeric(cpm.OG.SL.no0[i,8:10]))
 }
 
-for(i in 1:nrow(cpm.OG.SL.no0)){
-  cpm.OG.SL.no0[i,"Mo17cv"] <- cv(as.numeric(cpm.OG.SL.no0[i,5:7]))
+for(i in 1:nrow(cpm.OG.SL.no0.1cutoff)){
+  cpm.OG.SL.no0.1cutoff[i,"CV"] <- cv(as.numeric(cpm.OG.SL.no0.1cutoff[i,8:10]))
 }
 
-for(i in 1:nrow(cpm.OG.SL.no0)){
-  cpm.OG.SL.no0[i,"BMcv"] <- cv(as.numeric(cpm.OG.SL.no0[i,8:10]))
+for(i in 1:nrow(cpm.OG.SL.no0.protein)){
+  cpm.OG.SL.no0.protein[i,"CV"] <- cv(as.numeric(cpm.OG.SL.no0.protein[i,8:10]))
 }
-
-cpm.OG.SL.no0$AvgCV <- rowMeans(cpm.OG.SL.no0[,22:24], na.rm = T)
 ```
 ```{r}
-cpm.6h.SL.reps.no0 <- cpm.6h.SL.reps
-cpm.6h.SL.reps.no0 <- cpm.6h.SL.reps.no0[!(rowSums(cpm.6h.SL.reps.no0[,2:4])==0),]
-cpm.6h.SL.reps.no0 <- cpm.6h.SL.reps.no0[!(rowSums(cpm.6h.SL.reps.no0[,5:7])==0),]
-cpm.6h.SL.reps.no0 <- cpm.6h.SL.reps.no0[!(rowSums(cpm.6h.SL.reps.no0[,8:10])==0),]
-
-cpm.6h.SL.reps.no0$B73cv <- NA
-cpm.6h.SL.reps.no0$Mo17cv <- NA
-cpm.6h.SL.reps.no0$BMcv <- NA
-
-for(i in 1:nrow(cpm.6h.SL.reps.no0)){
-  cpm.6h.SL.reps.no0[i,"B73cv"] <- cv(as.numeric(cpm.6h.SL.reps.no0[i,2:4]))
-}
-
-for(i in 1:nrow(cpm.6h.SL.reps.no0)){
-  cpm.6h.SL.reps.no0[i,"Mo17cv"] <- cv(as.numeric(cpm.6h.SL.reps.no0[i,5:7]))
-}
-
-for(i in 1:nrow(cpm.6h.SL.reps.no0)){
-  cpm.6h.SL.reps.no0[i,"BMcv"] <- cv(as.numeric(cpm.6h.SL.reps.no0[i,8:10]))
-}
-
-cpm.6h.SL.reps.no0$AvgCV <- rowMeans(cpm.6h.SL.reps.no0[,11:13], na.rm = T)
+nrow(cpm.OG.SL.no0)
+nrow(cpm.OG.SL.no0.1cutoff)
+nrow(cpm.OG.SL.no0.protein)
 ```
 
 ```{r}
-cpm.ril.SL.reps.no0 <- cpm.ril.SL.reps[!(rowSums(cpm.ril.SL.reps[,2:5])==0),]
-cpm.ril.SL.reps.no0 <- cpm.ril.SL.reps.no0[!(rowSums(cpm.ril.SL.reps.no0[,6:9])==0),]
-cpm.ril.SL.reps.no0 <- cpm.ril.SL.reps.no0[!(rowSums(cpm.ril.SL.reps.no0[,10:13])==0),]
+cpm.6h.SL.no0 <- cpm.6h.SL.reps
+cpm.6h.SL.no0 <- cpm.6h.SL.no0[!cpm.6h.SL.no0$BM.1==0,]
+cpm.6h.SL.no0 <- cpm.6h.SL.no0[!cpm.6h.SL.no0$BM.2==0,]
+cpm.6h.SL.no0 <- cpm.6h.SL.no0[!cpm.6h.SL.no0$BM.3==0,]
 
-cpm.ril.SL.reps.no0$B73cv <- NA
-cpm.ril.SL.reps.no0$Mo17cv <- NA
-cpm.ril.SL.reps.no0$BMcv <- NA
+cpm.6h.SL.no0$CV <- NA
 
-for(i in 1:nrow(cpm.ril.SL.reps.no0)){
-  cpm.ril.SL.reps.no0[i,"B73cv"] <- cv(as.numeric(cpm.ril.SL.reps.no0[i,2:5]))
+cpm.6h.SL.no0.1cutoff <- cpm.6h.SL.no0
+cpm.6h.SL.no0.1cutoff <- cpm.6h.SL.no0.1cutoff[cpm.6h.SL.no0.1cutoff$BM.1 > 1,]
+cpm.6h.SL.no0.1cutoff <- cpm.6h.SL.no0.1cutoff[cpm.6h.SL.no0.1cutoff$BM.2 > 1,]
+cpm.6h.SL.no0.1cutoff <- cpm.6h.SL.no0.1cutoff[cpm.6h.SL.no0.1cutoff$BM.3 > 1,]
+
+cpm.6h.SL.no0.protein <- cpm.6h.SL.no0
+cpm.6h.SL.no0.protein <- cpm.6h.SL.no0.protein[cpm.6h.SL.no0.protein$Gene%in%tmt.6h.SL.no0$Gene,]
+
+for(i in 1:nrow(cpm.6h.SL.no0)){
+  cpm.6h.SL.no0[i,"CV"] <- cv(as.numeric(cpm.6h.SL.no0[i,8:10]))
 }
 
-for(i in 1:nrow(cpm.ril.SL.reps.no0)){
-  cpm.ril.SL.reps.no0[i,"Mo17cv"] <- cv(as.numeric(cpm.ril.SL.reps.no0[i,6:9]))
+for(i in 1:nrow(cpm.6h.SL.no0.1cutoff)){
+  cpm.6h.SL.no0.1cutoff[i,"CV"] <- cv(as.numeric(cpm.6h.SL.no0.1cutoff[i,8:10]))
 }
 
-for(i in 1:nrow(cpm.ril.SL.reps.no0)){
-  cpm.ril.SL.reps.no0[i,"BMcv"] <- cv(as.numeric(cpm.ril.SL.reps.no0[i,10:13]))
+for(i in 1:nrow(cpm.6h.SL.no0.protein)){
+  cpm.6h.SL.no0.protein[i,"CV"] <- cv(as.numeric(cpm.6h.SL.no0.protein[i,8:10]))
 }
-
-cpm.ril.SL.reps.no0$AvgCV <- rowMeans(cpm.ril.SL.reps.no0[,14:16], na.rm = T)
+```
+```{r}
+nrow(cpm.6h.SL.no0)
+nrow(cpm.6h.SL.no0.1cutoff)
+nrow(cpm.6h.SL.no0.protein)
 ```
 
 ```{r}
-CV.OG <- merge.data.frame(tmt.OG.SL.no0[,c(9,35)], cpm.OG.SL.no0[,c(1,25)], by.x = "Gene", by.y = "Gene", all=T)
+cpm.ril.SL.no0 <- cpm.ril.SL.reps
+cpm.ril.SL.no0 <- cpm.ril.SL.no0[!cpm.ril.SL.no0$BM.1==0,]
+cpm.ril.SL.no0 <- cpm.ril.SL.no0[!cpm.ril.SL.no0$BM.2==0,]
+cpm.ril.SL.no0 <- cpm.ril.SL.no0[!cpm.ril.SL.no0$BM.3==0,]
+cpm.ril.SL.no0 <- cpm.ril.SL.no0[!cpm.ril.SL.no0$BM.4==0,]
 
-CV.6H <- merge.data.frame(tmt.6h.SL.no0[,c(9,35)], cpm.6h.SL.reps.no0[,c(1,14)], by.x = "Gene", by.y = "Gene", all=T)
+cpm.ril.SL.no0$CV <- NA
 
-CV.RIL <- merge.data.frame(tmt.ril.SL.no0[,c(9,35)], cpm.ril.SL.reps.no0[,c(1,17)], by.x = "Gene", by.y = "Gene", all=T)
+cpm.ril.SL.no0.1cutoff <- cpm.ril.SL.no0
+cpm.ril.SL.no0.1cutoff <- cpm.ril.SL.no0.1cutoff[cpm.ril.SL.no0.1cutoff$BM.1 > 1,]
+cpm.ril.SL.no0.1cutoff <- cpm.ril.SL.no0.1cutoff[cpm.ril.SL.no0.1cutoff$BM.2 > 1,]
+cpm.ril.SL.no0.1cutoff <- cpm.ril.SL.no0.1cutoff[cpm.ril.SL.no0.1cutoff$BM.3 > 1,]
+cpm.ril.SL.no0.1cutoff <- cpm.ril.SL.no0.1cutoff[cpm.ril.SL.no0.1cutoff$BM.4 > 1,]
+
+cpm.ril.SL.no0.protein <- cpm.ril.SL.no0
+cpm.ril.SL.no0.protein <- cpm.ril.SL.no0.protein[cpm.ril.SL.no0.protein$Gene%in%tmt.ril.SL.no0$Gene,]
+
+for(i in 1:nrow(cpm.ril.SL.no0)){
+  cpm.ril.SL.no0[i,"CV"] <- cv(as.numeric(cpm.ril.SL.no0[i,10:13]))
+}
+
+for(i in 1:nrow(cpm.ril.SL.no0.1cutoff)){
+  cpm.ril.SL.no0.1cutoff[i,"CV"] <- cv(as.numeric(cpm.ril.SL.no0.1cutoff[i,10:13]))
+}
+
+for(i in 1:nrow(cpm.ril.SL.no0.protein)){
+  cpm.ril.SL.no0.protein[i,"CV"] <- cv(as.numeric(cpm.ril.SL.no0.protein[i,10:13]))
+}
 ```
 ```{r}
+nrow(cpm.ril.SL.no0)
+nrow(cpm.ril.SL.no0.1cutoff)
+nrow(cpm.ril.SL.no0.protein)
+```
+
+
+```{r}
+CV.OG <- merge.data.frame(tmt.OG.SL.no0[,c(9,32)], cpm.OG.SL.no0[,c(1,22)], by.x = "Gene", by.y = "Gene", all=T)
+CV.6H <- merge.data.frame(tmt.6h.SL.no0[,c(9,32)], cpm.6h.SL.reps.no0[,c(1,11)], by.x = "Gene", by.y = "Gene", all=T)
+CV.RIL <- merge.data.frame(tmt.ril.SL.no0[,c(9,33)], cpm.ril.SL.reps.no0[,c(1,14)], by.x = "Gene", by.y = "Gene", all=T)
+
 colnames(CV.OG) <- c("Gene", "Protein", "RNA")
 colnames(CV.6H) <- c("Gene", "Protein", "RNA")
 colnames(CV.RIL) <- c("Gene", "Protein", "RNA")
-```
-```{r}
+
 CV.OG$Experiment <- "Original"
 CV.6H$Experiment <- "6-hybrid"
 CV.RIL$Experiment <- "RIL"
-```
-```{r}
+
 CV <- rbind(CV.OG,CV.6H)
 CV <- rbind(CV, CV.RIL)
-```
-```{r}
 CV <- melt(CV)
-```
-```{r}
+CV <- na.omit(CV)
+
 ggplot(CV, mapping=aes(x=Experiment, y=value, fill=variable))+
-  geom_violin(draw_quantiles = 0.5)+
+  geom_violin(draw_quantiles = 0.5, )+
   scale_fill_manual(values=c("#af8dc3", "#7fbf7b"), name="")+
   theme_minimal()+
   #ylim(0,0.75)+
@@ -4385,8 +5128,271 @@ ggplot(CV, mapping=aes(x=Experiment, y=value, fill=variable))+
   theme(panel.grid.minor = element_blank())+
  #geom_boxplot(width=0.025, outlier.size = .25, position=position_dodge(.9))
 ggsave("RNAvsProteinCV.pdf", width = 4.75, height = 4)
-  
 ```
+```{r}
+CV.OG.1cutoff <- merge.data.frame(tmt.OG.SL.no0[,c(9,32)], cpm.OG.SL.no0.1cutoff[,c(1,22)], by.x = "Gene", by.y = "Gene", all=T)
+CV.6h.1cutoff <- merge.data.frame(tmt.6h.SL.no0[,c(9,32)], cpm.6h.SL.no0.1cutoff[,c(1,11)], by.x = "Gene", by.y = "Gene", all=T)
+CV.ril.1cutoff <- merge.data.frame(tmt.ril.SL.no0[,c(9,33)], cpm.ril.SL.no0.1cutoff[,c(1,14)], by.x = "Gene", by.y = "Gene", all=T)
+
+colnames(CV.OG.1cutoff) <- c("Gene", "Protein", "RNA")
+colnames(CV.6h.1cutoff) <- c("Gene", "Protein", "RNA")
+colnames(CV.ril.1cutoff) <- c("Gene", "Protein", "RNA")
+
+CV.OG.1cutoff$Experiment <- "Original"
+CV.6h.1cutoff$Experiment <- "6-hybrid"
+CV.ril.1cutoff$Experiment <- "RIL"
+
+CV.1cutoff <- rbind(CV.OG.1cutoff,CV.6h.1cutoff)
+CV.1cutoff <- rbind(CV.1cutoff, CV.ril.1cutoff)
+CV.1cutoff <- melt(CV.1cutoff)
+CV.1cutoff <- na.omit(CV.1cutoff)
+
+ggplot(CV.1cutoff, mapping=aes(x=Experiment, y=value, fill=variable))+
+  geom_violin(draw_quantiles = 0.5, )+
+  scale_fill_manual(values=c("#af8dc3", "#7fbf7b"), name="")+
+  theme_minimal()+
+  #ylim(0,0.75)+
+  ylab("Coefficient of variation (CV)")+
+  theme(legend.position = c(0.09,0.88), legend.text = element_text(size=10), axis.text.x = element_text(size=10), axis.text.y = element_text(size=10), axis.title.x = element_text(size=12), axis.title.y = element_text(size=12))+
+  theme(panel.grid.minor = element_blank())+
+ #geom_boxplot(width=0.025, outlier.size = .25, position=position_dodge(.9))
+ggsave("RNAvsProteinCV1cutoff.pdf", width = 4.75, height = 4)
+```
+```{r}
+nrow(CV.OG.protein)
+nrow(tmt.OG.SL.no0)
+nrow(cpm.OG.SL.no0.protein)
+```
+```{r}
+nrow(CV.OG.protein)
+nrow(CV.6h.protein)
+nrow(CV.ril.protein)
+```
+```{r}
+nrow(cpm.OG.SL.no0.protein)
+nrow(cpm.6h.SL.no0.protein)
+nrow(cpm.ril.SL.no0.protein)
+```
+
+
+```{r}
+CV.OG.protein <- merge.data.frame(tmt.OG.SL.no0[,c(9,32)], cpm.OG.SL.no0.protein[,c(1,22)], by.x = "Gene", by.y = "Gene", all=F)
+CV.6h.protein <- merge.data.frame(tmt.6h.SL.no0[,c(9,32)], cpm.6h.SL.no0.protein[,c(1,11)], by.x = "Gene", by.y = "Gene", all=F)
+CV.ril.protein <- merge.data.frame(tmt.ril.SL.no0[,c(9,33)], cpm.ril.SL.no0.protein[,c(1,14)], by.x = "Gene", by.y = "Gene", all=F)
+
+colnames(CV.OG.protein) <- c("Gene", "Protein", "RNA")
+colnames(CV.6h.protein) <- c("Gene", "Protein", "RNA")
+colnames(CV.ril.protein) <- c("Gene", "Protein", "RNA")
+
+CV.OG.protein$Experiment <- "Original"
+CV.6h.protein$Experiment <- "6-hybrid"
+CV.ril.protein$Experiment <- "RIL"
+
+CV.protein <- rbind(CV.OG.protein,CV.6h.protein)
+CV.protein <- rbind(CV.protein, CV.ril.protein)
+CV.protein <- melt(CV.protein)
+CV.protein <- na.omit(CV.protein)
+
+ggplot(CV.protein, mapping=aes(x=Experiment, y=value, fill=variable))+
+  geom_violin(draw_quantiles = 0.5, )+
+  scale_fill_manual(values=c("#af8dc3", "#7fbf7b"), name="")+
+  theme_minimal()+
+  #ylim(0,0.75)+
+  ylab("Coefficient of variation (CV)")+
+  theme(legend.position = c(0.09,0.88), legend.text = element_text(size=10), axis.text.x = element_text(size=10), axis.text.y = element_text(size=10), axis.title.x = element_text(size=12), axis.title.y = element_text(size=12))+
+  theme(panel.grid.minor = element_blank())+
+ #geom_boxplot(width=0.025, outlier.size = .25, position=position_dodge(.9))
+ggsave("RNAvsProteinCVprotein.pdf", width = 4.75, height = 4)
+```
+
+#Protein vs RNA
+```{r}
+tmt.OG.SL.noRNA <- tmt.OG.SL[!tmt.OG.SL$Gene%in%cpm.OG.SL$Gene,]
+tmt.OG.SL.noRNA <- tmt.OG.SL.noRNA[-grep("Zeam|Zema", tmt.OG.SL.noRNA$Gene),]
+write.csv(tmt.OG.SL.noRNA, "tmt.OG.SL.noRNA.csv", row.names = F)
+```
+```{r}
+tmt.6h.SL.noRNA <- tmt.6h.SL[!tmt.6h.SL$Gene%in%cpm.6h.SL$Gene,]
+tmt.6h.SL.noRNA <- tmt.6h.SL.noRNA[-grep("Zeam|Zema", tmt.6h.SL.noRNA$Gene),]
+write.csv(tmt.6h.SL.noRNA, "tmt.6h.SL.noRNA.csv", row.names = F)
+```
+```{r}
+tmt.ril.SL.noRNA <- tmt.ril.SL[!tmt.ril.SL$Gene%in%cpm.ril.SL$Gene,]
+tmt.ril.SL.noRNA <- tmt.ril.SL.noRNA[-grep("Zeam|Zema", tmt.ril.SL.noRNA$Gene),]
+write.csv(tmt.ril.SL.noRNA, "tmt.ril.SL.noRNA.csv", row.names = F)
+```
+
+```{r}
+tmt.OG.SL.all <- tmt.OG.SL
+tmt.6h.SL.all <- tmt.6h.SL
+tmt.ril.SL.all <- tmt.ril.SL
+
+tmt.OG.SL.all$experiment <- "Original"
+tmt.6h.SL.all$experiment <- "6-hybrid"
+tmt.ril.SL.all$experiment <- "RIL"
+
+tmt.all.SL <- rbind(tmt.OG.SL.all[,c(1:6,8,9,26,27,32)], tmt.6h.SL.all[,c(1:6,8,9,26,27,32)], tmt.ril.SL.all[,c(1:6,8,9,27,28,33)])
+ProteinNoRNA <- tmt.all.SL[!tmt.all.SL$Gene%in%c(cpm.OG.SL$Gene, cpm.ril.SL$Gene, cpm.6h.SL$Gene),]
+ProteinNoRNA <- ProteinNoRNA[-grep("Zeam|Zema", ProteinNoRNA$Gene),]
+
+ProteinNoRNA.NoOfExps <- as.data.frame(table(ProteinNoRNA$Accession))
+ProteinNoRNA.NoOfExps$Var1 <- as.character(ProteinNoRNA.NoOfExps$Var1)
+ProteinNoRNA <- merge.data.frame(ProteinNoRNA, ProteinNoRNA.NoOfExps, by.x = "Accession", by.y = "Var1", all.x = T)
+
+write.csv(ProteinNoRNA, "ProteinNoRNA.csv", row.names = F)
+```
+
+
+
+
+
+
+
+
+
+
+#KEGG
+```{r}
+library(pathview)
+```
+```{r}
+tmt.OG.SL.entrez <- merge.data.frame(tmt.OG.SL, tmt.GOI[,c(1,3)], by.x = "Accession", by.y = "Accession", all = F)
+
+tmt.OG.SL.entrez.nodups <- tmt.OG.SL.entrez[!is.na(tmt.OG.SL.entrez$Entrez),]
+tmt.OG.SL.entrez.nodups <- tmt.OG.SL.entrez.nodups[!duplicated(tmt.OG.SL.entrez.nodups$Entrez),]
+tmt.OG.SL.entrez.nodups <- tmt.OG.SL.entrez.nodups[!tmt.OG.SL.entrez.nodups$Entrez=="",]
+
+tmt.OG.SL.entrez.nodups.hybAndPar.trim <- tmt.OG.SL.entrez.nodups[,c(29,31)]
+tmt.OG.SL.entrez.nodups.hyb.trim <- data.frame("l2.BM.MP"=tmt.OG.SL.entrez.nodups$l2.BM.MP)
+
+rownames(tmt.OG.SL.entrez.nodups.hybAndPar.trim) <- tmt.OG.SL.entrez.nodups$Entrez
+rownames(tmt.OG.SL.entrez.nodups.hyb.trim) <- tmt.OG.SL.entrez.nodups$Entrez
+```
+```{r}
+cpm.OG.SL.entrez <- merge.data.frame(tmt.OG.SL, tmt.GOI[,c(2,3)], by.x = "Gene", by.y = "Gene", all = F)
+
+cpm.OG.SL.entrez.nodups <- cpm.OG.SL.entrez[!is.na(cpm.OG.SL.entrez$Entrez),]
+cpm.OG.SL.entrez.nodups <- cpm.OG.SL.entrez.nodups[!duplicated(cpm.OG.SL.entrez.nodups$Entrez),]
+cpm.OG.SL.entrez.nodups <- cpm.OG.SL.entrez.nodups[!cpm.OG.SL.entrez.nodups$Entrez=="",]
+
+cpm.OG.SL.entrez.nodups.hybAndPar.trim <- cpm.OG.SL.entrez.nodups[,c(29,31)]
+cpm.OG.SL.entrez.nodups.hyb.trim <- data.frame("l2.BM.MP"=cpm.OG.SL.entrez.nodups$l2.BM.MP)
+
+rownames(cpm.OG.SL.entrez.nodups.hybAndPar.trim) <- cpm.OG.SL.entrez.nodups$Entrez
+rownames(cpm.OG.SL.entrez.nodups.hyb.trim) <- cpm.OG.SL.entrez.nodups$Entrez
+```
+
+```{r}
+tmt.acs.entrez <- merge.data.frame(tmt.acs, tmt.GOI[,c(1,3)], by.x = "Accession", by.y = "Accession", all = F)
+
+tmt.acs.entrez.nodups <- tmt.acs.entrez[!is.na(tmt.acs.entrez$Entrez),]
+tmt.acs.entrez.nodups <- tmt.acs.entrez.nodups[!duplicated(tmt.acs.entrez.nodups$Entrez),]
+tmt.acs.entrez.nodups <- tmt.acs.entrez.nodups[!tmt.acs.entrez.nodups$Entrez=="",]
+
+tmt.acs.entrez.nodups.trim <- data.frame("l2.acs.B73"=tmt.acs.entrez.nodups$l2.acs.B73)
+
+rownames(tmt.acs.entrez.nodups.trim) <- tmt.acs.entrez.nodups$Entrez
+```
+```{r}
+tmt.ril.SL.entrez <- merge.data.frame(tmt.ril.SL, tmt.GOI[,c(1,3)], by.x = "Accession", by.y = "Accession", all = F)
+
+tmt.ril.SL.entrez.nodups <- tmt.ril.SL.entrez[!is.na(tmt.ril.SL.entrez$Entrez),]
+tmt.ril.SL.entrez.nodups <- tmt.ril.SL.entrez.nodups[!duplicated(tmt.ril.SL.entrez.nodups$Entrez),]
+tmt.ril.SL.entrez.nodups <- tmt.ril.SL.entrez.nodups[!tmt.ril.SL.entrez.nodups$Entrez=="",]
+
+tmt.ril.SL.entrez.nodups.trim <- data.frame("l2.BM.MP"=tmt.ril.SL.entrez.nodups$l2.BM.MP)
+
+rownames(tmt.ril.SL.entrez.nodups.trim) <- tmt.ril.SL.entrez.nodups$Entrez
+```
+```{r}
+tmt.6h.SL.entrez <- merge.data.frame(tmt.6h.SL, tmt.GOI[,c(1,3)], by.x = "Accession", by.y = "Accession", all = F)
+
+tmt.6h.SL.entrez.nodups <- tmt.6h.SL.entrez[!is.na(tmt.6h.SL.entrez$Entrez),]
+tmt.6h.SL.entrez.nodups <- tmt.6h.SL.entrez.nodups[!duplicated(tmt.6h.SL.entrez.nodups$Entrez),]
+tmt.6h.SL.entrez.nodups <- tmt.6h.SL.entrez.nodups[!tmt.6h.SL.entrez.nodups$Entrez=="",]
+
+tmt.6h.SL.entrez.nodups.trim <- data.frame("l2.BM.MP"=tmt.6h.SL.entrez.nodups$l2.BM.MP)
+
+rownames(tmt.6h.SL.entrez.nodups.trim) <- tmt.6h.SL.entrez.nodups$Entrez
+```
+```{r}
+pathview(gene.data = tmt.OG.SL.entrez.nodups.hybAndPar.trim, pathway.id = "zma00710", species = "zma",  bins = 20)
+pathview(gene.data = tmt.OG.SL.entrez.nodups.hyb.trim, pathway.id = "zma00592", species = "zma",  bins = 20, limit = 0.5, out.suffix="bxm")
+```
+```{r}
+pathview(gene.data = tmt.acs.entrez.nodups.trim, pathway.id = "zma00592", species = "zma",  bins = 20, limit = 0.5, out.suffix="acs")
+```
+```{r}
+pathview(gene.data = tmt.ril.SL.entrez.nodups.trim, pathway.id = "zma04626", species = "zma",  bins = 20, limit = 0.5, out.suffix="RIL_BxM")
+```
+```{r}
+pathview(gene.data = tmt.6h.SL.entrez.nodups.trim, pathway.id = "zma00592", species = "zma",  bins = 20, limit = 0.5, out.suffix="6H_BxM")
+```
+
+```{r}
+pathview(gene.data = cpm.OG.SL.entrez.nodups.hybAndPar.trim, pathway.id = "zma03008", species = "zma",  bins = 20, out.suffix="cpm")
+pathview(gene.data = cpm.OG.SL.entrez.nodups.hyb.trim, pathway.id = "zma04075", species = "zma",  bins = 20, limit = 0.5, out.suffix="cpm")
+```
+
+```{r}
+SAMenzymes <- read.delim("SAMenzymes.txt", sep = ":", header = F)
+```
+```{r}
+SAMenzymes <- SAMenzymes$V2
+```
+```{r}
+tmt.OG.SL.entrez.SAM <- tmt.OG.SL.entrez[tmt.OG.SL.entrez$Entrez%in%SAMenzymes,]
+```
+```{r}
+tmt.OG.SL.entrez.SAM <- tmt.OG.SL.entrez.SAM[!is.na(tmt.OG.SL.entrez.SAM$Entrez),]
+```
+```{r}
+tmt.OG.SL.entrez.SAM <- merge.data.frame(tmt.OG.SL.entrez.SAM, tmt.GOI[,c(1,5:11)], by.x = "Accession", by.y = "Accession", all.x = T, all.y = F)
+```
+```{r}
+tmt.OG.SL.entrez.SAM <- tmt.OG.SL.entrez.SAM[order(tmt.OG.SL.entrez.SAM$HYB.MP),]
+```
+
+```{r}
+write.csv(tmt.OG.SL.entrez.SAM,"tmt.OG.SL.entrez.SAM.csv", row.names = F)
+```
+
+
+
+
+#Walley 2016 S8 Correlations
+```{r}
+Walley.RNA <- read.csv("Walley2016_S8_RNA.csv", stringsAsFactors = F)
+Walley.Protein <- read.csv("Walley2016_S8_Protein.csv", stringsAsFactors = F)
+```
+```{r}
+Walley.RNA <- merge.data.frame(Walley.RNA, mgdb[,c(1,11)], by.x = "mRNA.1", by.y = "v3_gene_model", all.x = T, all.y = F)
+colnames(Walley.RNA)[4] <- "mRNA.1.v4"
+
+Walley.RNA <- merge.data.frame(Walley.RNA, mgdb[,c(1,11)], by.x = "mRNA.2", by.y = "v3_gene_model", all.x = T, all.y = F)
+colnames(Walley.RNA)[5] <- "mRNA.2.v4"
+```
+```{r}
+Walley.Protein <- merge.data.frame(Walley.Protein, mgdb[,c(1,11)], by.x = "Protien.1", by.y = "v3_gene_model", all.x = T, all.y = F)
+colnames(Walley.Protein)[4] <- "Protien.1.v4"
+
+Walley.Protein <- merge.data.frame(Walley.Protein, mgdb[,c(1,11)], by.x = "Protien.2", by.y = "v3_gene_model", all.x = T, all.y = F)
+colnames(Walley.Protein)[5] <- "Protien.2.v4"
+```
+```{r}
+Walley.RNA[Walley.RNA$mRNA.1.v4%in%ACO,]
+```
+```{r}
+mgdb$v3_gene_model[mgdb$v4_gene_model=="Zm00001d018517"]
+```
+```{r}
+tmt.6h.
+```
+
+```{r}
+cpm.OG.SL[cpm.OG.SL$Gene=="Zm00001d018517",]
+```
+
 
 
 
